@@ -76,35 +76,47 @@ export default function OrganizerRegisterPage() {
       throw new Error('コード生成に失敗しました。もう一度お試しください。');
     }
 
-    // 2. 主催者情報をlocalStorageに一時保存（メール認証後に使用）
-    const organizerData = {
-      code,
-      name: organizerName,
+ // 2. 主催者情報をlocalStorageに保存
+  const organizerData = {
+    code,
+    name: organizerName,
+    email,
+  };
+  localStorage.setItem('pending_organizer', JSON.stringify(organizerData));
+
+  // 3. Supabaseでアカウント作成
+  const { data: authData, error: signUpError } = await supabase.auth.signUp({
+    email,
+    password,
+  });
+
+  if (signUpError) throw signUpError;
+  if (!authData.user) throw new Error('アカウント作成に失敗しました');
+
+  // 4. 確認URLを生成
+  const confirmationUrl = `${window.location.origin}/organizer/confirm?token=${authData.user.id}`;
+
+  // 5. SendGrid経由でメール送信
+  const response = await fetch('/api/send-confirmation-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
       email,
-    };
-    localStorage.setItem('pending_organizer', JSON.stringify(organizerData));
+      confirmationUrl,
+    }),
+  });
 
-    // 3. 新規アカウント作成（メール認証が必要）
-    const { data: authData, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/organizer/confirm`,
-      },
-    });
+  if (!response.ok) throw new Error('メール送信に失敗しました');
 
-    if (signUpError) throw signUpError;
-
-    // 4. メール送信完了メッセージを表示
-    setSuccess(true);
-    setGeneratedCode(code); // 仮のコード表示用
-  } catch (err: any) {
-    console.error('主催者登録エラー:', err);
-    setError('登録に失敗しました: ' + err.message);
-    localStorage.removeItem('pending_organizer'); // エラー時は削除
-  } finally {
-    setLoading(false);
-  }
+  setGeneratedCode(code);
+  setSuccess(true);
+} catch (err: any) {
+  console.error('登録エラー:', err);
+  setError('登録に失敗しました: ' + err.message);
+  localStorage.removeItem('pending_organizer');
+} finally {
+  setLoading(false);
+}
 };
 
 
