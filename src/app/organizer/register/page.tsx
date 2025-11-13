@@ -36,16 +36,29 @@ export default function OrganizerRegisterPage() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // ← 🔑 ログイン状態をチェック
+  // ← 🔑 ログイン状態をチェック（より確実に）
   useEffect(() => {
-    if (user) {
-      setIsLoggedIn(true);
-      // ログイン済みの場合、メールアドレスを自動入力
-      if (user.email) {
-        setEmail(user.email);
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      console.log('セッションチェック:', session); // デバッグ用
+      
+      if (session && session.user) {
+        console.log('ログイン済み:', session.user.email);
+        setIsLoggedIn(true);
+        // ログイン済みの場合、メールアドレスを自動入力
+        if (session.user.email) {
+          setEmail(session.user.email);
+        }
+      } else {
+        console.log('未ログイン');
+        setIsLoggedIn(false);
       }
-    }
-  }, [user]);
+    };
+    
+    checkSession();
+  }, []);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,7 +91,10 @@ export default function OrganizerRegisterPage() {
       }
 
       // ← 🔑 ケース分岐: ログイン済み vs 未ログイン
-      if (isLoggedIn && user) {
+      // 再度セッションを確認
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session && session.user) {
         // ===== ケース1: ログイン済み → 主催者情報を追加 =====
         const { error: insertError } = await supabase
           .from('organizers')
@@ -86,7 +102,7 @@ export default function OrganizerRegisterPage() {
             organizer_code: code,
             name: organizerName,
             email: email,
-            created_by: user.id,
+            created_by: session.user.id,
           });
 
         if (insertError) throw insertError;
@@ -94,6 +110,7 @@ export default function OrganizerRegisterPage() {
         setGeneratedCode(code);
         setSuccess(true);
       } else {
+
         // ===== ケース2: 未ログイン → 新規アカウント作成 =====
         
         // パスワード確認
