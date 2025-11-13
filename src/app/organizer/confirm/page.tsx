@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
-export default function OrganizerConfirmPage() {
+// メインコンポーネントをSuspenseで囲むための内部コンポーネント
+function OrganizerConfirmContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -159,4 +160,24 @@ export default function OrganizerConfirmPage() {
   }
 
   return null;
+}
+
+// Suspenseで囲んだメインコンポーネント
+export default function OrganizerConfirmPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">読み込み中...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <OrganizerConfirmContent />
+    </Suspense>
+  );
 }
