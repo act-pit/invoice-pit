@@ -164,8 +164,10 @@ export default function OrganizerRegisterPage() {
   };
 
   if (success) {
-    // メール確認が必要な場合の案内画面
-    if (!isLoggedIn && generatedCode && !supabase.auth) {
+    // メール確認待ちの案内画面
+    const needsEmailConfirmation = !isLoggedIn && generatedCode;
+    
+    if (needsEmailConfirmation) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">
           <Card className="w-full max-w-md">
@@ -184,8 +186,8 @@ export default function OrganizerRegisterPage() {
                 </p>
                 <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
                   <li>メールボックスを開く</li>
-                  <li>「請求書ぴっと - メール確認」という件名のメールを探す</li>
-                  <li>メール内の<strong>「メールアドレスを確認」</strong>ボタンをクリック</li>
+                  <li>「Confirm Your Email」という件名のメールを探す</li>
+                  <li>メール内の<strong>「Confirm your mail」</strong>ボタンをクリック</li>
                   <li>主催者登録が完了します</li>
                 </ol>
               </div>
@@ -203,7 +205,11 @@ export default function OrganizerRegisterPage() {
                   size="sm"
                   onClick={() => {
                     setSuccess(false);
-                    setLoading(false);
+                    setError('');
+                    setOrganizerName('');
+                    setEmail('');
+                    setPassword('');
+                    setConfirmPassword('');
                   }}
                 >
                   別のメールアドレスで再登録
@@ -215,7 +221,7 @@ export default function OrganizerRegisterPage() {
       );
     }
 
-    // 登録完了画面（メール確認なし or ログイン済み）
+    // 登録完了画面（ログイン済みの場合）
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">
         <Card className="w-full max-w-md">
@@ -253,6 +259,7 @@ export default function OrganizerRegisterPage() {
       </div>
     );
   }
+
 
 
   return (
