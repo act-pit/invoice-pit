@@ -158,10 +158,10 @@ export default function OrganizerRegisterPage() {
       setSuccess(true)
       setLoading(false)
 
-      // 3秒後にログインページへリダイレクト
+      // 7秒後にログインページへリダイレクト
       setTimeout(() => {
         router.push('/organizer/login')
-      }, 3000)
+      }, 7000)
     } catch (err) {
       console.error('予期しないエラー:', err)
       setError('予期しないエラーが発生しました。もう一度お試しください。')

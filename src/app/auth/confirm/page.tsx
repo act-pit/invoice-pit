@@ -73,7 +73,7 @@ export default function ConfirmPage() {
           console.log('タレントとしてログインページへリダイレクト')
           setTimeout(() => {
             router.push('/talent/login')
-          }, 2000)
+          }, 7000)
         } else {
           // どちらにも登録されていない（データ挿入失敗の可能性）
           console.error('ユーザーデータが見つかりません:', userId)
@@ -83,7 +83,7 @@ export default function ConfirmPage() {
           // 5秒後にトップページへリダイレクト
           setTimeout(() => {
             router.push('/')
-          }, 5000)
+          }, 7000)
         }
       } catch (error) {
         console.error('認証エラー:', error)

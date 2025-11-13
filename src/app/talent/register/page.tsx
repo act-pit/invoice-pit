@@ -109,10 +109,10 @@ export default function TalentRegisterPage() {
       setSuccess('登録完了！確認メールを送信しました。メールをご確認ください。');
       setLoading(false);
 
-      // 6. 3秒後にログインページへリダイレクト
+      // 7秒後にログインページへリダイレクト
       setTimeout(() => {
         router.push('/talent/login');
-      }, 3000);
+      }, 7000);
 
     } catch (err) {
       console.error('Registration error:', err);
