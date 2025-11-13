@@ -83,6 +83,10 @@ export default function ConfirmPage() {
           .eq('id', userId)
           .single()
 
+          console.log('=== 役割判定 ===')
+          console.log('organizerData:', organizerData)
+          console.log('profileData:', profileData)
+
         // 役割に応じてリダイレクト
         if (organizerData) {
           // 主催者として登録されている
@@ -91,21 +95,23 @@ export default function ConfirmPage() {
             router.push('/organizer/login')
           }, 7000)
         } else if (profileData) {
+
           // タレントとして登録されている
           console.log('タレントとしてログインページへリダイレクト')
           setTimeout(() => {
             router.push('/talent/login')
           }, 7000)
         } else {
+          
           // どちらにも登録されていない（データ挿入失敗の可能性）
           console.error('ユーザーデータが見つかりません:', userId)
           setStatus('error')
           setMessage('アカウント情報が見つかりません。もう一度登録をお試しください。')
           
-          // 5秒後にトップページへリダイレクト
+          // 7秒後にトップページへリダイレクト
           setTimeout(() => {
             router.push('/')
-          }, 5000)
+          }, 7000)
         }
       } catch (error) {
         console.error('認証エラー:', error)
