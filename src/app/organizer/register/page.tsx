@@ -34,91 +34,100 @@ export default function OrganizerRegisterPage() {
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoading(true);
-  setError('');
+    e.preventDefault();
+    setLoading(true);
+    setError('');
 
-  // パスワード確認
-  if (password !== confirmPassword) {
-    setError('パスワードが一致しません');
-    setLoading(false);
-    return;
-  }
+    // パスワード確認
+    if (password !== confirmPassword) {
+      setError('パスワードが一致しません');
+      setLoading(false);
+      return;
+    }
 
-  if (password.length < 8) {
-    setError('パスワードは8文字以上である必要があります');
-    setLoading(false);
-    return;
-  }
+    if (password.length < 8) {
+      setError('パスワードは8文字以上である必要があります');
+      setLoading(false);
+      return;
+    }
 
-  try {
-    // 1. ユニークなコードを事前生成
-    let code = generateOrganizerCode();
-    let isUnique = false;
-    let attempts = 0;
+    try {
+      // 1. ユニークなコードを事前生成
+      let code = generateOrganizerCode();
+      let isUnique = false;
+      let attempts = 0;
 
-    while (!isUnique && attempts < 10) {
-      const { data } = await supabase
-        .from('organizers')
-        .select('id')
-        .eq('organizer_code', code)
-        .single();
+      while (!isUnique && attempts < 10) {
+        const { data } = await supabase
+          .from('organizers')
+          .select('id')
+          .eq('organizer_code', code)
+          .single();
 
-      if (!data) {
-        isUnique = true;
-      } else {
-        code = generateOrganizerCode();
-        attempts++;
+        if (!data) {
+          isUnique = true;
+        } else {
+          code = generateOrganizerCode();
+          attempts++;
+        }
       }
-    }
 
-    if (!isUnique) {
-      throw new Error('コード生成に失敗しました。もう一度お試しください。');
-    }
+      if (!isUnique) {
+        throw new Error('コード生成に失敗しました。もう一度お試しください。');
+      }
 
- // 2. 主催者情報をlocalStorageに保存
-  const organizerData = {
-    code,
-    name: organizerName,
-    email,
+      // 2. 主催者情報をlocalStorageに保存
+      const organizerData = {
+        code,
+        name: organizerName,
+        email,
+      };
+      localStorage.setItem('pending_organizer', JSON.stringify(organizerData));
+
+      // 3. Supabaseでアカウント作成
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/organizer/confirm`,
+        },
+      });
+
+      if (signUpError) throw signUpError;
+      if (!authData.user) throw new Error('アカウント作成に失敗しました');
+
+      // 4. メール確認がOFFの場合は即座にorganizersテーブルに登録
+      if (authData.session) {
+        // メール確認なしでログイン完了している場合
+        const { error: insertError } = await supabase
+          .from('organizers')
+          .insert({
+            organizer_code: code,
+            name: organizerName,
+            email: email,
+            created_by: authData.user.id,
+          });
+
+        if (insertError) throw insertError;
+
+        // localStorageをクリア
+        localStorage.removeItem('pending_organizer');
+
+        setGeneratedCode(code);
+        setSuccess(true);
+      } else {
+        // メール確認が必要な場合（確認メールが送信される）
+        setGeneratedCode(code);
+        setSuccess(true);
+      }
+    } catch (err: any) {
+      console.error('登録エラー:', err);
+      setError('登録に失敗しました: ' + err.message);
+      localStorage.removeItem('pending_organizer');
+    } finally {
+      setLoading(false);
+    }
   };
-  localStorage.setItem('pending_organizer', JSON.stringify(organizerData));
-
-  // 3. Supabaseでアカウント作成
-  const { data: authData, error: signUpError } = await supabase.auth.signUp({
-    email,
-    password,
-  });
-
-  if (signUpError) throw signUpError;
-  if (!authData.user) throw new Error('アカウント作成に失敗しました');
-
-  // 4. 確認URLを生成
-  const confirmationUrl = `${window.location.origin}/organizer/confirm?token=${authData.user.id}`;
-
-  // 5. SendGrid経由でメール送信
-  const response = await fetch('/api/send-confirmation-email', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      email,
-      confirmationUrl,
-    }),
-  });
-
-  if (!response.ok) throw new Error('メール送信に失敗しました');
-
-  setGeneratedCode(code);
-  setSuccess(true);
-} catch (err: any) {
-  console.error('登録エラー:', err);
-  setError('登録に失敗しました: ' + err.message);
-  localStorage.removeItem('pending_organizer');
-} finally {
-  setLoading(false);
-}
-};
-
 
   if (success) {
     return (
@@ -146,9 +155,9 @@ export default function OrganizerRegisterPage() {
             <div className="space-y-3">
               <Button 
                 className="w-full" 
-                onClick={() => router.push('/organizer/login')}
+                onClick={() => router.push('/organizer/dashboard')}
               >
-                ログインページへ
+                主催者ダッシュボードへ
               </Button>
               <Button 
                 variant="outline" 

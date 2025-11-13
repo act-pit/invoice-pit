@@ -46,7 +46,6 @@ if (error) {
   setLoading(false);
   // メール確認待ち（自動リダイレクトは削除）
 }
-
   };
 
   if (success) {
@@ -74,9 +73,6 @@ if (error) {
               <p>• メールが届かない場合は、迷惑メールフォルダをご確認ください</p>
               <p>• メールのリンクは24時間有効です</p>
             </div>
-            <Button onClick={() => router.push('/login')} variant="outline" className="w-full">
-             ログインページへ
-            </Button>
           </CardContent>
         </Card>
       </div>
