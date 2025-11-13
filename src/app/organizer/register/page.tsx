@@ -29,7 +29,9 @@ export default function OrganizerRegisterPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null); // ← null で初期化
+  const [checkingSession, setCheckingSession] = useState(true); // ← 追加
+
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,15 +40,26 @@ export default function OrganizerRegisterPage() {
 
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session && session.user) {
-        setIsLoggedIn(true);
-        if (session.user.email) {
-          setEmail(session.user.email);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        console.log('🔍 セッションチェック:', session); // デバッグ用
+        
+        if (session && session.user) {
+          console.log('✅ ログイン済み:', session.user.email);
+          setIsLoggedIn(true);
+          if (session.user.email) {
+            setEmail(session.user.email);
+          }
+        } else {
+          console.log('❌ 未ログイン');
+          setIsLoggedIn(false);
         }
-      } else {
+      } catch (error) {
+        console.error('セッションチェックエラー:', error);
         setIsLoggedIn(false);
+      } finally {
+        setCheckingSession(false); // ← チェック完了
       }
     };
     
@@ -162,6 +175,22 @@ export default function OrganizerRegisterPage() {
       setLoading(false);
     }
   };
+
+  // セッションチェック中はローディング表示
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">読み込み中...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (success) {
     // メール確認待ちの案内画面
