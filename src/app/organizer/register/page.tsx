@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createBrowserClient } from '@supabase/ssr';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -19,60 +19,28 @@ function generateOrganizerCode(): string {
 }
 
 export default function OrganizerRegisterPage() {
-  const router = useRouter();
   const { user } = useAuth();
+  const router = useRouter();
   const [organizerName, setOrganizerName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [organizerEmail, setOrganizerEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null); // ← null で初期化
-  const [checkingSession, setCheckingSession] = useState(true); // ← 追加
-
-
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        console.log('🔍 セッションチェック:', session); // デバッグ用
-        
-        if (session && session.user) {
-          console.log('✅ ログイン済み:', session.user.email);
-          setIsLoggedIn(true);
-          if (session.user.email) {
-            setEmail(session.user.email);
-          }
-        } else {
-          console.log('❌ 未ログイン');
-          setIsLoggedIn(false);
-        }
-      } catch (error) {
-        console.error('セッションチェックエラー:', error);
-        setIsLoggedIn(false);
-      } finally {
-        setCheckingSession(false); // ← チェック完了
-      }
-    };
-    
-    checkSession();
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
+    if (!user) {
+      setError('ログインが必要です');
+      setLoading(false);
+      return;
+    }
+
     try {
-      // コード生成
+      // ユニークなコードを生成
       let code = generateOrganizerCode();
       let isUnique = false;
       let attempts = 0;
@@ -93,166 +61,31 @@ export default function OrganizerRegisterPage() {
       }
 
       if (!isUnique) {
-        throw new Error('コード生成に失敗しました');
+        throw new Error('コード生成に失敗しました。もう一度お試しください。');
       }
 
-      // セッション再確認
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session && session.user) {
-        // ケース1: ログイン済み → 主催者情報を追加
-        const { error: insertError } = await supabase
-          .from('organizers')
-          .insert({
-            organizer_code: code,
-            name: organizerName,
-            email: email,
-            created_by: session.user.id,
-          });
-
-        if (insertError) throw insertError;
-
-        setGeneratedCode(code);
-        setSuccess(true);
-      } else {
-        // ケース2: 未ログイン → 新規アカウント作成
-        
-        if (password !== confirmPassword) {
-          setError('パスワードが一致しません');
-          setLoading(false);
-          return;
-        }
-
-        if (password.length < 8) {
-          setError('パスワードは8文字以上です');
-          setLoading(false);
-          return;
-        }
-
-        // localStorage に保存
-        const organizerData = { code, name: organizerName, email };
-        localStorage.setItem('pending_organizer', JSON.stringify(organizerData));
-
-        // アカウント作成
-        const { data: authData, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/organizer/confirm`,
-          },
+      // 主催者を登録
+      const { error: insertError } = await supabase
+        .from('organizers')
+        .insert({
+          organizer_code: code,
+          name: organizerName,
+          email: organizerEmail || null,
+          created_by: user.id,
         });
 
-        if (signUpError) throw signUpError;
-        if (!authData.user) throw new Error('アカウント作成に失敗');
+      if (insertError) throw insertError;
 
-        // メール確認OFFの場合
-        if (authData.session) {
-          const { error: insertError } = await supabase
-            .from('organizers')
-            .insert({
-              organizer_code: code,
-              name: organizerName,
-              email: email,
-              created_by: authData.user.id,
-            });
-
-          if (insertError) throw insertError;
-          localStorage.removeItem('pending_organizer');
-          setGeneratedCode(code);
-          setSuccess(true);
-        } else {
-          // メール確認が必要 → 案内画面を表示
-          // localStorageは既に保存済み（上で保存している）
-          setGeneratedCode(code);
-          setSuccess(true);
-        }
-
-
-      }
+      setGeneratedCode(code);
+      setSuccess(true);
     } catch (err: any) {
-      console.error('登録エラー:', err);
-      setError('登録に失敗: ' + err.message);
-      localStorage.removeItem('pending_organizer');
-    } finally {
+      console.error('主催者登録エラー:', err);
+      setError('登録に失敗しました: ' + err.message);
       setLoading(false);
     }
   };
 
-  // セッションチェック中はローディング表示
-  if (checkingSession) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">読み込み中...</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   if (success) {
-    // メール確認待ちの案内画面
-    const needsEmailConfirmation = !isLoggedIn && generatedCode;
-    
-    if (needsEmailConfirmation) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold text-center text-blue-600">
-                📧 確認メールを送信しました
-              </CardTitle>
-              <CardDescription className="text-center">
-                あと少しで登録完了です
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-blue-50 border-2 border-blue-400 rounded-lg p-4">
-                <p className="text-sm text-gray-700 mb-3">
-                  <strong>{email}</strong> 宛に確認メールを送信しました。
-                </p>
-                <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
-                  <li>メールボックスを開く</li>
-                  <li>「Confirm Your Email」という件名のメールを探す</li>
-                  <li>メール内の<strong>「Confirm your mail」</strong>ボタンをクリック</li>
-                  <li>主催者登録が完了します</li>
-                </ol>
-              </div>
-
-              <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3">
-                <p className="text-xs text-yellow-800">
-                  ⚠️ メールが届かない場合は、迷惑メールフォルダもご確認ください
-                </p>
-              </div>
-
-              <div className="text-center text-sm text-gray-600">
-                <p className="mb-2">メールが届きませんか？</p>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => {
-                    setSuccess(false);
-                    setError('');
-                    setOrganizerName('');
-                    setEmail('');
-                    setPassword('');
-                    setConfirmPassword('');
-                  }}
-                >
-                  別のメールアドレスで再登録
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      );
-    }
-
-    // 登録完了画面（ログイン済みの場合）
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">
         <Card className="w-full max-w-md">
@@ -274,14 +107,22 @@ export default function OrganizerRegisterPage() {
                 このコードをキャストに共有してください
               </p>
             </div>
+
             <div className="space-y-3">
-              <Button className="w-full" onClick={() => router.push('/organizer/dashboard')}>
+              <Button 
+                className="w-full" 
+                onClick={() => router.push('/organizer/dashboard')}
+              >
                 主催者ダッシュボードへ
               </Button>
-              <Button variant="outline" className="w-full" onClick={() => {
-                navigator.clipboard.writeText(generatedCode);
-                alert('コードをコピーしました！');
-              }}>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => {
+                  navigator.clipboard.writeText(generatedCode);
+                  alert('コードをコピーしました！');
+                }}
+              >
                 📋 コードをコピー
               </Button>
             </div>
@@ -291,19 +132,13 @@ export default function OrganizerRegisterPage() {
     );
   }
 
-
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">
-            {isLoggedIn === true ? '主催者情報の登録' : '主催者新規登録'}
-          </CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">主催者情報の登録</CardTitle>
           <CardDescription className="text-center">
-            {isLoggedIn === true 
-              ? '主催者として活動するための情報を登録' 
-              : '主催者アカウントを作成し、専用コードを取得'}
+            主催者として活動するための情報を登録
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -329,86 +164,42 @@ export default function OrganizerRegisterPage() {
               />
             </div>
 
-            {isLoggedIn !== true && (
-              <>
-                <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-medium">
-                    メールアドレス <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    placeholder="your-email@example.com"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="password" className="text-sm font-medium">
-                    パスワード <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    placeholder="8文字以上"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="confirmPassword" className="text-sm font-medium">
-                    パスワード（確認）<span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="confirmPassword"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    placeholder="もう一度入力"
-                    required
-                  />
-                </div>
-              </>
-            )}
+            <div className="space-y-2">
+              <label htmlFor="organizerEmail" className="text-sm font-medium">
+                メールアドレス（任意）
+              </label>
+              <input
+                id="organizerEmail"
+                type="email"
+                value={organizerEmail}
+                onChange={(e) => setOrganizerEmail(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="organizer@example.com"
+              />
+              <p className="text-xs text-gray-500">
+                請求書に表示される連絡先メールアドレス（任意）
+              </p>
+            </div>
 
             <div className="bg-blue-50 p-4 rounded-md text-sm">
               <p className="font-medium text-blue-900 mb-2">📌 主催者コードについて</p>
               <ul className="text-blue-800 space-y-1 text-xs">
                 <li>• 8桁のユニークなコードが自動生成されます</li>
                 <li>• キャストがこのコードで請求書を送信できます</li>
+                <li>• コードは登録後に表示されます</li>
               </ul>
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? '登録中...' : isLoggedIn === true ? '主催者情報を登録' : '主催者アカウント作成'}
+              {loading ? '登録中...' : '主催者情報を登録'}
             </Button>
           </form>
 
-          {isLoggedIn !== true && (
-            <div className="mt-4 text-center space-y-2">
-              <Link href="/organizer/login" className="block text-sm text-purple-600 hover:underline">
-                既にアカウントをお持ちの方
-              </Link>
-              <Link href="/login" className="block text-sm text-gray-600 hover:underline">
-                キャストの方はこちら
-              </Link>
-            </div>
-          )}
-
-          {isLoggedIn === true && (
-            <div className="mt-4 text-center">
-              <Link href="/dashboard" className="text-sm text-gray-600 hover:underline">
-                ← ダッシュボードに戻る
-              </Link>
-            </div>
-          )}
+          <div className="mt-4 text-center">
+            <Link href="/dashboard" className="text-sm text-gray-600 hover:underline">
+              ← ダッシュボードに戻る
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>
