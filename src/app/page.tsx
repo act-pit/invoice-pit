@@ -79,7 +79,7 @@ export default function Home() {
             </div>
             <h3 className="text-lg sm:text-xl font-bold mb-2">お得な料金</h3>
             <p className="text-sm sm:text-base text-gray-600">
-              登録から3ヶ月間、または3通まで作成が無料。その後は、約82円/月(年間980円)で無制限に利用可能。
+              登録から6ヶ月間、または3通まで作成が無料。その後は、年間980円(約82円/月)〜にて、無制限に利用可能。
             </p>
           </div>
         </div>
