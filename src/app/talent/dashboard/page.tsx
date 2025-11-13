@@ -10,16 +10,15 @@ import { supabase } from '@/lib/supabase';
 import { isProfileComplete, getMissingProfileFields } from '@/lib/profile-check';
 import type { Profile } from '@/types/database';
 
-export default function DashboardPage() {
+export default function TalentDashboardPage() {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showProfileAlert, setShowProfileAlert] = useState(false);
-  const [hasOrganizerAccount, setHasOrganizerAccount] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/login');
+      router.push('/talent/login');
     }
   }, [user, loading, router]);
 
@@ -48,17 +47,6 @@ export default function DashboardPage() {
       if (!isProfileComplete(data)) {
         setShowProfileAlert(true);
       }
-
-      // 主催者アカウントがあるかチェック
-      const { data: organizerData } = await supabase
-        .from('organizers')
-        .select('id')
-        .eq('created_by', user!.id)
-        .single();
-
-      if (organizerData) {
-        setHasOrganizerAccount(true);
-      }
     } catch (error) {
       console.error('プロフィール取得エラー:', error);
     }
@@ -86,15 +74,8 @@ export default function DashboardPage() {
         {/* ヘッダー */}
         <header className="bg-white shadow-sm border-b sticky top-0 z-20">
           <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-4 flex justify-between items-center">
-            <h1 className="text-lg sm:text-2xl font-bold text-purple-600">請求書ぴっと</h1>
+            <h1 className="text-lg sm:text-2xl font-bold text-purple-600">請求書ぴっと - タレント</h1>
             <div className="flex items-center gap-2 sm:gap-4">
-              {hasOrganizerAccount && (
-                <Link href="/organizer/dashboard">
-                  <Button variant="outline" size="sm" className="text-xs sm:text-sm bg-purple-50 border-purple-300 text-purple-700 hover:bg-purple-100">
-                    🎭 主催者
-                  </Button>
-                </Link>
-              )}
               <span className="hidden sm:inline text-sm text-gray-900">
                 {profile?.name} 様
               </span>
@@ -145,7 +126,7 @@ export default function DashboardPage() {
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-8 text-center">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              請求書ぴっと
+              請求書ぴっと - タレント
             </h2>
             <p className="text-gray-600 text-sm sm:text-base">
               フリーの芸能関係者向けの請求書作成アプリ。<br />
@@ -192,27 +173,6 @@ export default function DashboardPage() {
                     className="w-full border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 hover:border-purple-700 transition-all text-xs sm:text-sm"
                   >
                     一覧を見る
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            {/* 主催者連携カード */}
-            <Card className="hover:shadow-lg transition-shadow bg-white card-compact">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                  🤝 主催者登録
-                </CardTitle>
-                <CardDescription className="text-xs sm:text-sm">
-                  主催者として登録する
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Link href="/organizer/register" className="block">
-                  <Button 
-                    className="w-full border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 hover:border-purple-700 transition-all text-xs sm:text-sm"
-                  >
-                    登録する
                   </Button>
                 </Link>
               </CardContent>

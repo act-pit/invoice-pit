@@ -11,18 +11,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
 
-// 8桁のユニークコード生成関数
-function generateOrganizerCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 紛らわしい文字を除外
-  let code = '';
-  for (let i = 0; i < 8; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
-
-export default function OrganizerRegisterPage() {
-  const [organizerName, setOrganizerName] = useState('');
+export default function TalentRegisterPage() {
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
@@ -54,21 +44,7 @@ export default function OrganizerRegisterPage() {
     }
 
     try {
-      // 1. organizersテーブルで重複チェック
-      const { data: organizerData } = await supabase
-        .from('organizers')
-        .select('email')
-        .eq('email', email)
-        .maybeSingle();
-
-      if (organizerData) {
-        setError('このメールアドレスは既に主催者として登録されています。');
-        setErrorType('already_organizer');
-        setLoading(false);
-        return;
-      }
-
-      // 2. profilesテーブルで重複チェック
+      // 1. profilesテーブルで重複チェック
       const { data: castData } = await supabase
         .from('profiles')
         .select('email')
@@ -78,6 +54,20 @@ export default function OrganizerRegisterPage() {
       if (castData) {
         setError('このメールアドレスは既にタレントとして登録されています。');
         setErrorType('already_cast');
+        setLoading(false);
+        return;
+      }
+
+      // 2. organizersテーブルで重複チェック
+      const { data: organizerData } = await supabase
+        .from('organizers')
+        .select('email')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (organizerData) {
+        setError('このメールアドレスは既に主催者として登録されています。');
+        setErrorType('already_organizer');
         setLoading(false);
         return;
       }
@@ -97,58 +87,31 @@ export default function OrganizerRegisterPage() {
         return;
       }
 
-      // 4. 8桁コード生成（ユニークになるまでリトライ）
-      let organizerCode = generateOrganizerCode();
-      let isUnique = false;
-      let retryCount = 0;
-
-      while (!isUnique && retryCount < 10) {
-        const { data: existingCode } = await supabase
-          .from('organizers')
-          .select('organizer_code')
-          .eq('organizer_code', organizerCode)
-          .maybeSingle();
-
-        if (!existingCode) {
-          isUnique = true;
-        } else {
-          organizerCode = generateOrganizerCode();
-          retryCount++;
-        }
-      }
-
-      if (!isUnique) {
-        setError('コード生成に失敗しました。もう一度お試しください。');
-        setLoading(false);
-        return;
-      }
-
-      // 5. organizersテーブルに挿入
+      // 4. profilesテーブルに挿入
       if (authData.user) {
-        const { error: organizerError } = await supabase
-          .from('organizers')
+        const { error: profileError } = await supabase
+          .from('profiles')
           .insert({
             id: authData.user.id,
             email: email,
-            name: organizerName,
-            organizer_code: organizerCode,
+            full_name: fullName,
           });
 
-        if (organizerError) {
-          console.error('Organizer creation error:', organizerError);
-          setError('主催者情報の作成に失敗しました');
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          setError('プロフィール作成に失敗しました');
           setLoading(false);
           return;
         }
       }
 
-      // 6. 成功メッセージ
-      setSuccess(`登録完了！確認メールを送信しました。あなたの主催者コード: ${organizerCode}`);
+      // 5. 成功メッセージ
+      setSuccess('登録完了！確認メールを送信しました。メールをご確認ください。');
       setLoading(false);
 
       // 6. 3秒後にログインページへリダイレクト
       setTimeout(() => {
-        router.push('/organizer/login');
+        router.push('/talent/login');
       }, 3000);
 
     } catch (err) {
@@ -159,24 +122,24 @@ export default function OrganizerRegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 py-12 px-4 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">主催者新規登録</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">新規登録</CardTitle>
           <CardDescription className="text-center">
-            請求書管理を始めましょう
+            請求書の作成・管理を始めましょう
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleRegister}>
           <CardContent className="space-y-4">
             {/* エラーメッセージ */}
-            {error && errorType === 'already_cast' && (
+            {error && errorType === 'already_organizer' && (
               <Alert variant="destructive" className="mb-4">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle className="font-bold">このメールアドレスは既に使用されています</AlertTitle>
                 <AlertDescription>
                   <p className="mb-3">
-                    このメールアドレスは既に<strong>タレント</strong>として登録されています。
+                    このメールアドレスは既に<strong>主催者</strong>として登録されています。
                   </p>
                   <div className="bg-red-50 p-4 rounded-lg border border-red-200 space-y-3">
                     <p className="text-sm font-semibold text-red-900">
@@ -186,18 +149,18 @@ export default function OrganizerRegisterPage() {
                       <div className="flex items-start space-x-2">
                         <span className="text-red-600 mt-0.5">1.</span>
                         <p className="text-sm text-red-900">
-                          <strong>別のメールアドレス</strong>で主催者登録を行う
+                          <strong>別のメールアドレス</strong>でタレント登録を行う
                         </p>
                       </div>
                       <div className="flex items-start space-x-2">
                         <span className="text-red-600 mt-0.5">2.</span>
                         <p className="text-sm text-red-900">
-                          既にタレントアカウントをお持ちの場合は
+                          既に主催者アカウントをお持ちの場合は
                           <Link 
-                            href="/talent/login" 
+                            href="/organizer/login" 
                             className="text-blue-600 hover:underline font-medium mx-1"
                           >
-                            タレントとしてログイン
+                            主催者としてログイン
                           </Link>
                           してください
                         </p>
@@ -213,21 +176,21 @@ export default function OrganizerRegisterPage() {
               </Alert>
             )}
 
-            {error && errorType === 'already_organizer' && (
+            {error && errorType === 'already_cast' && (
               <Alert variant="destructive" className="mb-4">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle className="font-bold">このメールアドレスは既に登録されています</AlertTitle>
                 <AlertDescription>
                   <p className="mb-3">
-                    このメールアドレスは既に<strong>主催者</strong>として登録されています。
+                    このメールアドレスは既に<strong>タレント</strong>として登録されています。
                   </p>
                   <div className="bg-red-50 p-4 rounded-lg border border-red-200">
                     <p className="text-sm font-semibold text-red-900 mb-2">
                       既にアカウントをお持ちの場合:
                     </p>
-                    <Link href="/organizer/login">
+                    <Link href="/talent/login">
                       <Button variant="outline" className="w-full">
-                        主催者としてログイン
+                        タレントとしてログイン
                       </Button>
                     </Link>
                   </div>
@@ -244,19 +207,19 @@ export default function OrganizerRegisterPage() {
             {/* 成功メッセージ */}
             {success && (
               <Alert className="bg-green-50 border-green-200">
-                <AlertDescription className="text-green-800 whitespace-pre-line">{success}</AlertDescription>
+                <AlertDescription className="text-green-800">{success}</AlertDescription>
               </Alert>
             )}
 
             {/* 入力フィールド */}
             <div className="space-y-2">
-              <Label htmlFor="organizerName">主催者名</Label>
+              <Label htmlFor="fullName">お名前</Label>
               <Input
-                id="organizerName"
+                id="fullName"
                 type="text"
-                placeholder="株式会社〇〇"
-                value={organizerName}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOrganizerName(e.target.value)}
+                placeholder="山田 太郎"
+                value={fullName}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFullName(e.target.value)}
                 required
                 disabled={loading || !!success}
               />
@@ -299,20 +262,20 @@ export default function OrganizerRegisterPage() {
           <CardFooter className="flex flex-col space-y-4">
             <Button 
               type="submit" 
-              className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700" 
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700" 
               disabled={loading || !!success}
             >
               {loading ? '登録中...' : success ? '登録完了' : '登録する'}
             </Button>
             <div className="text-sm text-center text-gray-600 space-y-2">
               <div>
-                <Link href="/organizer/login" className="text-green-600 hover:underline">
+                <Link href="/talent/login" className="text-purple-600 hover:underline">
                   既にアカウントをお持ちの方はこちら
                 </Link>
               </div>
               <div>
-                <Link href="/talent" className="text-gray-500 hover:underline">
-                  タレントの方はこちら
+                <Link href="/organizer" className="text-gray-500 hover:underline">
+                  主催者の方はこちら
                 </Link>
               </div>
             </div>

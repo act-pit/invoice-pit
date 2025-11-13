@@ -144,7 +144,7 @@ export default function OrganizerDashboardPage() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/login');
+      router.push('/organizer/login');
     } else if (user) {
       loadData();
     }
@@ -159,12 +159,12 @@ export default function OrganizerDashboardPage() {
         .single();
 
       if (organizerError) {
-  if (organizerError.code === 'PGRST116') {
-    router.push('/organizer/register');  // ← ここで登録ページに飛ばされる
-    return;
-  }
-  throw organizerError;
-}
+        if (organizerError.code === 'PGRST116') {
+          router.push('/organizer/register');
+          return;
+        }
+        throw organizerError;
+      }
 
       setOrganizer(organizerData);
 
@@ -223,7 +223,7 @@ export default function OrganizerDashboardPage() {
           .eq('id', orgInvoice.invoice_id);
 
         if (invoiceError) {
-          console.error('キャスト側の更新エラー:', invoiceError);
+          console.error('タレント側の更新エラー:', invoiceError);
           throw invoiceError;
         }
       }
@@ -391,12 +391,9 @@ export default function OrganizerDashboardPage() {
           {/* ヘッダー */}
           <header className="bg-white shadow-sm border-b sticky top-0 z-20">
             <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-4 flex justify-between items-center">
-              <h1 className="text-lg sm:text-2xl font-bold text-purple-600">請求書ぴっと - 主催者</h1>
+              <h1 className="text-lg sm:text-2xl font-bold text-green-600">請求書ぴっと - 主催者</h1>
               <div className="flex items-center gap-2 sm:gap-4">
                 <span className="text-xs sm:text-sm text-gray-900">{organizer.name}</span>
-                <Button onClick={() => router.push('/dashboard')} variant="outline" size="sm" className="text-xs sm:text-sm">
-                  キャスト
-                </Button>
                 <Button onClick={signOut} variant="outline" size="sm" className="text-xs sm:text-sm">
                   ログアウト
                 </Button>
@@ -430,22 +427,22 @@ export default function OrganizerDashboardPage() {
             )}
 
             {/* 主催者コード */}
-            <Card className="mb-6 sm:mb-8 bg-white card-compact border-purple-200">
+            <Card className="mb-6 sm:mb-8 bg-white card-compact border-green-200">
               <CardHeader>
                 <CardTitle className="text-base sm:text-lg">あなたの主催者コード</CardTitle>
-                <CardDescription className="text-xs sm:text-sm">キャストにこのコードを共有してください</CardDescription>
+                <CardDescription className="text-xs sm:text-sm">タレントにこのコードを共有してください</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
-                  <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-600 rounded-lg px-4 sm:px-6 py-3 sm:py-4">
-                    <p className="text-2xl sm:text-3xl font-bold text-purple-600 tracking-wider">
+                  <div className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-600 rounded-lg px-4 sm:px-6 py-3 sm:py-4">
+                    <p className="text-2xl sm:text-3xl font-bold text-green-600 tracking-wider">
                       {organizer.organizer_code}
                     </p>
                   </div>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-xs sm:text-sm border-2 border-purple-400"
+                    className="text-xs sm:text-sm border-2 border-green-400"
                     onClick={() => {
                       navigator.clipboard.writeText(organizer.organizer_code);
                       alert('コードをコピーしました！');
@@ -491,7 +488,7 @@ export default function OrganizerDashboardPage() {
                   <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">合計金額</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-xl sm:text-2xl font-bold text-purple-600">
+                  <div className="text-xl sm:text-2xl font-bold text-green-600">
                     ¥{stats.totalAmount.toLocaleString()}
                   </div>
                 </CardContent>
