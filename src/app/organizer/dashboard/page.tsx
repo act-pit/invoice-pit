@@ -361,7 +361,7 @@ export default function OrganizerDashboardPage() {
             </div>
           </CardContent>
         </Card>
-
+        
         {/* 請求書一覧 */}
         <div className="space-y-4">
           {filteredInvoices.length === 0 ? (
