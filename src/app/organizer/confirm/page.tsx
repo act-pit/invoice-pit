@@ -33,7 +33,9 @@ function OrganizerConfirmContent() {
         }
 
         const pendingOrganizerStr = localStorage.getItem('pending_organizer');
-        if (!pendingOrganizerStr) throw new Error('主催者情報が見つかりません');
+        if (!pendingOrganizerStr) {
+          throw new Error('主催者情報が見つかりません。登録画面から再度お試しください。\n\n※ シークレットモードやプライベートブラウジングでは、この機能は正常に動作しません。通常のブラウザをご使用ください。');
+        }
 
         const pendingOrganizer = JSON.parse(pendingOrganizerStr);
 

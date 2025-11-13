@@ -162,9 +162,11 @@ export default function OrganizerRegisterPage() {
           setSuccess(true);
         } else {
           // メール確認が必要 → 案内画面を表示
+          // localStorageは既に保存済み（上で保存している）
           setGeneratedCode(code);
-          setSuccess(true); // これで案内画面が表示される
+          setSuccess(true);
         }
+
 
       }
     } catch (err: any) {
