@@ -13,6 +13,28 @@ export default function ConfirmPage() {
   useEffect(() => {
     const handleEmailConfirmation = async () => {
       try {
+        // URLからエラーパラメータを取得
+        const searchParams = new URLSearchParams(window.location.search)
+        const errorCode = searchParams.get('error_code')
+        const errorDescription = searchParams.get('error_description')
+
+        // エラーがある場合
+        if (errorCode === 'otp_expired') {
+          setStatus('error')
+          setMessage(
+            'メールリンクの有効期限が切れています。\n\n' +
+            '新しいメールアドレスで再度登録してください。\n' +
+            'メールが届いたら、すぐに（1分以内に）リンクをクリックしてください。'
+          )
+          return
+        }
+
+        if (errorCode) {
+          setStatus('error')
+          setMessage(`認証エラー: ${errorDescription || errorCode}`)
+          return
+        }
+
         // URLからトークンを取得
         const hashParams = new URLSearchParams(window.location.hash.substring(1))
         const accessToken = hashParams.get('access_token')
@@ -67,7 +89,7 @@ export default function ConfirmPage() {
           console.log('主催者としてログインページへリダイレクト')
           setTimeout(() => {
             router.push('/organizer/login')
-          }, 2000)
+          }, 7000)
         } else if (profileData) {
           // タレントとして登録されている
           console.log('タレントとしてログインページへリダイレクト')
@@ -83,7 +105,7 @@ export default function ConfirmPage() {
           // 5秒後にトップページへリダイレクト
           setTimeout(() => {
             router.push('/')
-          }, 7000)
+          }, 5000)
         }
       } catch (error) {
         console.error('認証エラー:', error)
@@ -116,7 +138,7 @@ export default function ConfirmPage() {
           {status === 'error' && '認証エラー'}
         </h1>
         
-        <p className="text-gray-600">{message}</p>
+        <p className="text-gray-600 whitespace-pre-line">{message}</p>
 
         {status === 'error' && (
           <div className="mt-6">
