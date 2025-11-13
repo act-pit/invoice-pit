@@ -148,11 +148,11 @@ export default function OrganizerRegisterPage() {
           setGeneratedCode(code);
           setSuccess(true);
         } else {
-          // メール確認が必要
-          alert('確認メールを送信しました。メールをご確認ください。');
-          setLoading(false);
-          return;
+          // メール確認が必要 → 案内画面を表示
+          setGeneratedCode(code);
+          setSuccess(true); // これで案内画面が表示される
         }
+
       }
     } catch (err: any) {
       console.error('登録エラー:', err);
@@ -164,6 +164,58 @@ export default function OrganizerRegisterPage() {
   };
 
   if (success) {
+    // メール確認が必要な場合の案内画面
+    if (!isLoggedIn && generatedCode && !supabase.auth) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle className="text-2xl font-bold text-center text-blue-600">
+                📧 確認メールを送信しました
+              </CardTitle>
+              <CardDescription className="text-center">
+                あと少しで登録完了です
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-blue-50 border-2 border-blue-400 rounded-lg p-4">
+                <p className="text-sm text-gray-700 mb-3">
+                  <strong>{email}</strong> 宛に確認メールを送信しました。
+                </p>
+                <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+                  <li>メールボックスを開く</li>
+                  <li>「請求書ぴっと - メール確認」という件名のメールを探す</li>
+                  <li>メール内の<strong>「メールアドレスを確認」</strong>ボタンをクリック</li>
+                  <li>主催者登録が完了します</li>
+                </ol>
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3">
+                <p className="text-xs text-yellow-800">
+                  ⚠️ メールが届かない場合は、迷惑メールフォルダもご確認ください
+                </p>
+              </div>
+
+              <div className="text-center text-sm text-gray-600">
+                <p className="mb-2">メールが届きませんか？</p>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    setSuccess(false);
+                    setLoading(false);
+                  }}
+                >
+                  別のメールアドレスで再登録
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    // 登録完了画面（メール確認なし or ログイン済み）
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">
         <Card className="w-full max-w-md">
@@ -201,6 +253,7 @@ export default function OrganizerRegisterPage() {
       </div>
     );
   }
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">

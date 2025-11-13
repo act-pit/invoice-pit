@@ -25,12 +25,12 @@ function OrganizerConfirmContent() {
         const code = searchParams.get('code');
         if (!code) throw new Error('確認コードが見つかりません');
 
-        const { data: sessionData, error: verifyError } = await supabase.auth.verifyOtp({
-          token_hash: code,
-          type: 'email',
-        });
-
-        if (verifyError) throw verifyError;
+        // Supabase が自動的にメール確認を処理するので、セッションを取得するだけ
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !session) {
+          throw new Error('メール確認後、ログインしてください');
+        }
 
         const pendingOrganizerStr = localStorage.getItem('pending_organizer');
         if (!pendingOrganizerStr) throw new Error('主催者情報が見つかりません');
@@ -43,8 +43,9 @@ function OrganizerConfirmContent() {
             organizer_code: pendingOrganizer.code,
             name: pendingOrganizer.name,
             email: pendingOrganizer.email,
-            created_by: sessionData.user!.id,
+            created_by: session.user.id,  // ← sessionData.user から session.user に変更
           });
+
 
         if (insertError) throw insertError;
 
