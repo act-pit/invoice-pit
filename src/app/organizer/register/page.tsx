@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserClient } from '@supabase/ssr';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -19,6 +20,7 @@ function generateOrganizerCode(): string {
 
 export default function OrganizerRegisterPage() {
   const router = useRouter();
+  const { user } = useAuth(); // ← 🔑 ログイン状態を取得
   const [organizerName, setOrganizerName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,29 +29,28 @@ export default function OrganizerRegisterPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // ← 🔑 ログイン状態フラグ
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
+  // ← 🔑 ログイン状態をチェック
+  useEffect(() => {
+    if (user) {
+      setIsLoggedIn(true);
+      // ログイン済みの場合、メールアドレスを自動入力
+      if (user.email) {
+        setEmail(user.email);
+      }
+    }
+  }, [user]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-
-    // パスワード確認
-    if (password !== confirmPassword) {
-      setError('パスワードが一致しません');
-      setLoading(false);
-      return;
-    }
-
-    if (password.length < 8) {
-      setError('パスワードは8文字以上である必要があります');
-      setLoading(false);
-      return;
-    }
 
     try {
       // 1. ユニークなコードを事前生成
@@ -76,49 +77,82 @@ export default function OrganizerRegisterPage() {
         throw new Error('コード生成に失敗しました。もう一度お試しください。');
       }
 
-      // 2. 主催者情報をlocalStorageに保存
-      const organizerData = {
-        code,
-        name: organizerName,
-        email,
-      };
-      localStorage.setItem('pending_organizer', JSON.stringify(organizerData));
-
-      // 3. Supabaseでアカウント作成
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/organizer/confirm`,
-        },
-      });
-
-      if (signUpError) throw signUpError;
-      if (!authData.user) throw new Error('アカウント作成に失敗しました');
-
-      // 4. メール確認がOFFの場合は即座にorganizersテーブルに登録
-      if (authData.session) {
-        // メール確認なしでログイン完了している場合
+      // ← 🔑 ケース分岐: ログイン済み vs 未ログイン
+      if (isLoggedIn && user) {
+        // ===== ケース1: ログイン済み → 主催者情報を追加 =====
         const { error: insertError } = await supabase
           .from('organizers')
           .insert({
             organizer_code: code,
             name: organizerName,
             email: email,
-            created_by: authData.user.id,
+            created_by: user.id,
           });
 
         if (insertError) throw insertError;
 
-        // localStorageをクリア
-        localStorage.removeItem('pending_organizer');
-
         setGeneratedCode(code);
         setSuccess(true);
       } else {
-        // メール確認が必要な場合（確認メールが送信される）
-        setGeneratedCode(code);
-        setSuccess(true);
+        // ===== ケース2: 未ログイン → 新規アカウント作成 =====
+        
+        // パスワード確認
+        if (password !== confirmPassword) {
+          setError('パスワードが一致しません');
+          setLoading(false);
+          return;
+        }
+
+        if (password.length < 8) {
+          setError('パスワードは8文字以上である必要があります');
+          setLoading(false);
+          return;
+        }
+
+        // 2. 主催者情報をlocalStorageに保存
+        const organizerData = {
+          code,
+          name: organizerName,
+          email,
+        };
+        localStorage.setItem('pending_organizer', JSON.stringify(organizerData));
+
+        // 3. Supabaseでアカウント作成
+        const { data: authData, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/organizer/confirm`,
+          },
+        });
+
+        if (signUpError) throw signUpError;
+        if (!authData.user) throw new Error('アカウント作成に失敗しました');
+
+        // 4. メール確認がOFFの場合は即座にorganizersテーブルに登録
+        if (authData.session) {
+          // メール確認なしでログイン完了している場合
+          const { error: insertError } = await supabase
+            .from('organizers')
+            .insert({
+              organizer_code: code,
+              name: organizerName,
+              email: email,
+              created_by: authData.user.id,
+            });
+
+          if (insertError) throw insertError;
+
+          // localStorageをクリア
+          localStorage.removeItem('pending_organizer');
+
+          setGeneratedCode(code);
+          setSuccess(true);
+        } else {
+          // メール確認が必要な場合（確認メールが送信される）
+          setGeneratedCode(code);
+          setSuccess(true);
+        }
       }
     } catch (err: any) {
       console.error('登録エラー:', err);
@@ -180,9 +214,14 @@ export default function OrganizerRegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">主催者新規登録</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">
+            {/* ← 🔑 ログイン状態で表示を切り替え */}
+            {isLoggedIn ? '主催者情報の登録' : '主催者新規登録'}
+          </CardTitle>
           <CardDescription className="text-center">
-            主催者アカウントを作成し、専用コードを取得
+            {isLoggedIn 
+              ? '主催者として活動するための情報を登録します' 
+              : '主催者アカウントを作成し、専用コードを取得'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -208,51 +247,56 @@ export default function OrganizerRegisterPage() {
               />
             </div>
 
-            <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
-                メールアドレス <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder="your-email@example.com"
-                required
-              />
-              <p className="text-xs text-gray-500">ログインに使用します</p>
-            </div>
+            {/* ← 🔑 未ログインの場合のみメール・パスワード入力 */}
+            {!isLoggedIn && (
+              <>
+                <div className="space-y-2">
+                  <label htmlFor="email" className="text-sm font-medium">
+                    メールアドレス <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="your-email@example.com"
+                    required
+                  />
+                  <p className="text-xs text-gray-500">ログインに使用します</p>
+                </div>
 
-            <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                パスワード <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder="8文字以上"
-                required
-              />
-            </div>
+                <div className="space-y-2">
+                  <label htmlFor="password" className="text-sm font-medium">
+                    パスワード <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="8文字以上"
+                    required
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <label htmlFor="confirmPassword" className="text-sm font-medium">
-                パスワード（確認）<span className="text-red-500">*</span>
-              </label>
-              <input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder="もう一度入力"
-                required
-              />
-            </div>
+                <div className="space-y-2">
+                  <label htmlFor="confirmPassword" className="text-sm font-medium">
+                    パスワード（確認）<span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="confirmPassword"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="もう一度入力"
+                    required
+                  />
+                </div>
+              </>
+            )}
 
             <div className="bg-blue-50 p-4 rounded-md text-sm">
               <p className="font-medium text-blue-900 mb-2">📌 主催者コードについて</p>
@@ -264,18 +308,29 @@ export default function OrganizerRegisterPage() {
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? '登録中...' : '主催者アカウント作成'}
+              {loading ? '登録中...' : isLoggedIn ? '主催者情報を登録' : '主催者アカウント作成'}
             </Button>
           </form>
 
-          <div className="mt-4 text-center space-y-2">
-            <Link href="/organizer/login" className="block text-sm text-purple-600 hover:underline">
-              既にアカウントをお持ちの方はこちら
-            </Link>
-            <Link href="/login" className="block text-sm text-gray-600 hover:underline">
-              キャストの方はこちら
-            </Link>
-          </div>
+          {/* ← 🔑 表示するリンクをログイン状態で切り替え */}
+          {!isLoggedIn && (
+            <div className="mt-4 text-center space-y-2">
+              <Link href="/organizer/login" className="block text-sm text-purple-600 hover:underline">
+                既にアカウントをお持ちの方はこちら
+              </Link>
+              <Link href="/login" className="block text-sm text-gray-600 hover:underline">
+                キャストの方はこちら
+              </Link>
+            </div>
+          )}
+
+          {isLoggedIn && (
+            <div className="mt-4 text-center">
+              <Link href="/dashboard" className="text-sm text-gray-600 hover:underline">
+                ← ダッシュボードに戻る
+              </Link>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
