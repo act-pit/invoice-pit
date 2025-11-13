@@ -1,324 +1,305 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle } from 'lucide-react';
+import { useState } from 'react'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
-// 8桁のユニークコード生成関数
+// shadcn/ui コンポーネント
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+
+// 8桁のランダムコード生成関数（紛らわしい文字を除外）
 function generateOrganizerCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 紛らわしい文字を除外
-  let code = '';
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // I, O, 0, 1 を除外
+  let code = ''
   for (let i = 0; i < 8; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+    code += chars.charAt(Math.floor(Math.random() * chars.length))
   }
-  return code;
+  return code
 }
 
 export default function OrganizerRegisterPage() {
-  const [organizerName, setOrganizerName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [passwordConfirm, setPasswordConfirm] = useState('');
-  const [error, setError] = useState('');
-  const [errorType, setErrorType] = useState('');
-  const [success, setSuccess] = useState('');
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
-  const supabase = createClientComponentClient();
+  const [organizerName, setOrganizerName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+  const router = useRouter()
+  const supabase = createClientComponentClient()
 
   const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setErrorType('');
-    setSuccess('');
-    setLoading(true);
+    e.preventDefault()
+    setError('')
+    setLoading(true)
 
     // バリデーション
-    if (password.length < 8) {
-      setError('パスワードは8文字以上で入力してください');
-      setLoading(false);
-      return;
+    if (!organizerName || !email || !password || !confirmPassword) {
+      setError('全ての項目を入力してください。')
+      setLoading(false)
+      return
     }
 
-    if (password !== passwordConfirm) {
-      setError('パスワードが一致しません');
-      setLoading(false);
-      return;
+    if (password.length < 8) {
+      setError('パスワードは8文字以上である必要があります。')
+      setLoading(false)
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setError('パスワードが一致しません。')
+      setLoading(false)
+      return
     }
 
     try {
-      // 1. organizersテーブルで重複チェック
-      const { data: organizerData } = await supabase
+      // 1. メールアドレスの重複チェック（organizersテーブル）
+      const { data: existingOrganizer } = await supabase
         .from('organizers')
         .select('email')
         .eq('email', email)
-        .maybeSingle();
+        .single()
 
-      if (organizerData) {
-        setError('このメールアドレスは既に主催者として登録されています。');
-        setErrorType('already_organizer');
-        setLoading(false);
-        return;
+      if (existingOrganizer) {
+        setError(
+          'このメールアドレスは既に主催者として登録されています。ログインページからログインしてください。'
+        )
+        setLoading(false)
+        return
       }
 
-      // 2. profilesテーブルで重複チェック
-      const { data: castData } = await supabase
+      // 2. メールアドレスの重複チェック（profilesテーブル）
+      const { data: existingProfile } = await supabase
         .from('profiles')
         .select('email')
         .eq('email', email)
-        .maybeSingle();
+        .single()
 
-      if (castData) {
-        setError('このメールアドレスは既にタレントとして登録されています。');
-        setErrorType('already_cast');
-        setLoading(false);
-        return;
+      if (existingProfile) {
+        setError(
+          'このメールアドレスは既にタレントとして登録されています。\n\n「請求書ぴっと」では、1つのメールアドレスで1つの役割のみを持つことができます。\n\n主催者として登録したい場合は、別のメールアドレスをご使用ください。\n\nタレントとしてログインする場合は、以下からログインしてください。'
+        )
+        setLoading(false)
+        return
       }
 
-      // 3. Supabase Auth で新規登録
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/confirm`,
-        },
-      });
+      // 3. ユニークな主催者コードを生成
+      let organizerCode = ''
+      let isUnique = false
+      let attempts = 0
+      const maxAttempts = 10
 
-      if (authError) {
-        setError('登録に失敗しました: ' + authError.message);
-        setLoading(false);
-        return;
-      }
-
-      // 4. 8桁コード生成（ユニークになるまでリトライ）
-      let organizerCode = generateOrganizerCode();
-      let isUnique = false;
-      let retryCount = 0;
-
-      while (!isUnique && retryCount < 10) {
+      while (!isUnique && attempts < maxAttempts) {
+        organizerCode = generateOrganizerCode()
         const { data: existingCode } = await supabase
           .from('organizers')
           .select('organizer_code')
           .eq('organizer_code', organizerCode)
-          .maybeSingle();
+          .single()
 
         if (!existingCode) {
-          isUnique = true;
-        } else {
-          organizerCode = generateOrganizerCode();
-          retryCount++;
+          isUnique = true
         }
+        attempts++
       }
 
       if (!isUnique) {
-        setError('コード生成に失敗しました。もう一度お試しください。');
-        setLoading(false);
-        return;
+        setError('主催者コードの生成に失敗しました。もう一度お試しください。')
+        setLoading(false)
+        return
       }
 
-      // 5. organizersテーブルに挿入
-      if (authData.user) {
-        const { error: organizerError } = await supabase
-          .from('organizers')
-          .insert({
-            id: authData.user.id,
+      // 4. Supabase Authにユーザーを登録
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email,
+        password: password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/confirm`,
+        },
+      })
+
+      if (signUpError) {
+        console.error('サインアップエラー:', signUpError)
+        setError(`登録に失敗しました: ${signUpError.message}`)
+        setLoading(false)
+        return
+      }
+
+      if (!data.user) {
+        setError('ユーザー情報の取得に失敗しました。')
+        setLoading(false)
+        return
+      }
+
+      // 5. 主催者情報をorganizersテーブルに挿入
+      const { error: insertError } = await supabase
+        .from('organizers')
+        .insert([
+          {
+            id: data.user.id,
             email: email,
             name: organizerName,
             organizer_code: organizerCode,
-          });
+          },
+        ])
 
-        if (organizerError) {
-          console.error('Organizer creation error:', organizerError);
-          setError('主催者情報の作成に失敗しました');
-          setLoading(false);
-          return;
-        }
+      if (insertError) {
+        console.error('主催者情報の挿入エラー:', insertError)
+        setError(`主催者情報の作成に失敗しました。\n詳細: ${insertError.message}\nコード: ${insertError.code || 'なし'}`)
+        setLoading(false)
+        return
       }
 
-      // 6. 成功メッセージ
-      setSuccess(`登録完了！確認メールを送信しました。あなたの主催者コード: ${organizerCode}`);
-      setLoading(false);
+      // 6. 成功
+      setSuccess(true)
+      setLoading(false)
 
-      // 6. 3秒後にログインページへリダイレクト
+      // 3秒後にログインページへリダイレクト
       setTimeout(() => {
-        router.push('/organizer/login');
-      }, 3000);
-
+        router.push('/organizer/login')
+      }, 3000)
     } catch (err) {
-      console.error('Registration error:', err);
-      setError('登録に失敗しました');
-      setLoading(false);
+      console.error('予期しないエラー:', err)
+      setError('予期しないエラーが発生しました。もう一度お試しください。')
+      setLoading(false)
     }
-  };
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50 py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">主催者新規登録</CardTitle>
-          <CardDescription className="text-center">
-            請求書管理を始めましょう
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleRegister}>
-          <CardContent className="space-y-4">
-            {/* エラーメッセージ */}
-            {error && errorType === 'already_cast' && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle className="font-bold">このメールアドレスは既に使用されています</AlertTitle>
-                <AlertDescription>
-                  <p className="mb-3">
-                    このメールアドレスは既に<strong>タレント</strong>として登録されています。
-                  </p>
-                  <div className="bg-red-50 p-4 rounded-lg border border-red-200 space-y-3">
-                    <p className="text-sm font-semibold text-red-900">
-                      次のいずれかをお試しください:
-                    </p>
-                    <div className="space-y-2">
-                      <div className="flex items-start space-x-2">
-                        <span className="text-red-600 mt-0.5">1.</span>
-                        <p className="text-sm text-red-900">
-                          <strong>別のメールアドレス</strong>で主催者登録を行う
-                        </p>
-                      </div>
-                      <div className="flex items-start space-x-2">
-                        <span className="text-red-600 mt-0.5">2.</span>
-                        <p className="text-sm text-red-900">
-                          既にタレントアカウントをお持ちの場合は
-                          <Link 
-                            href="/talent/login" 
-                            className="text-blue-600 hover:underline font-medium mx-1"
-                          >
-                            タレントとしてログイン
-                          </Link>
-                          してください
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-red-200">
-                      <p className="text-xs text-red-800">
-                        💡 ヒント: 1つのメールアドレスで、タレントと主催者の両方のアカウントを持つことはできません。
-                      </p>
-                    </div>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50 p-4">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-6 sm:p-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-center mb-2 bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+          主催者新規登録
+        </h1>
+        <p className="text-center text-gray-600 mb-6 text-sm">
+          請求書管理を始めましょう
+        </p>
 
-            {error && errorType === 'already_organizer' && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle className="font-bold">このメールアドレスは既に登録されています</AlertTitle>
-                <AlertDescription>
-                  <p className="mb-3">
-                    このメールアドレスは既に<strong>主催者</strong>として登録されています。
-                  </p>
-                  <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-                    <p className="text-sm font-semibold text-red-900 mb-2">
-                      既にアカウントをお持ちの場合:
-                    </p>
-                    <Link href="/organizer/login">
-                      <Button variant="outline" className="w-full">
-                        主催者としてログイン
-                      </Button>
-                    </Link>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
+        {error && (
+          <Alert className="mb-4 bg-red-50 border-red-200">
+            <AlertDescription className="text-red-800 whitespace-pre-line text-sm">
+              {error}
+              {error.includes('タレントとして登録') && (
+                <div className="mt-3">
+                  <Link
+                    href="/talent/login"
+                    className="text-purple-600 hover:text-purple-700 underline font-medium"
+                  >
+                    タレントログインはこちら
+                  </Link>
+                </div>
+              )}
+              {error.includes('主催者として登録') && (
+                <div className="mt-3">
+                  <Link
+                    href="/organizer/login"
+                    className="text-green-600 hover:text-green-700 underline font-medium"
+                  >
+                    主催者ログインはこちら
+                  </Link>
+                </div>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
 
-            {error && !errorType && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+        {success && (
+          <Alert className="mb-4 bg-green-50 border-green-200">
+            <AlertDescription className="text-green-800 text-sm">
+              登録が完了しました！
+              <br />
+              メールアドレス宛に確認メールを送信しました。
+              <br />
+              メール内のリンクをクリックして、メールアドレスを確認してください。
+            </AlertDescription>
+          </Alert>
+        )}
 
-            {/* 成功メッセージ */}
-            {success && (
-              <Alert className="bg-green-50 border-green-200">
-                <AlertDescription className="text-green-800 whitespace-pre-line">{success}</AlertDescription>
-              </Alert>
-            )}
+        <form onSubmit={handleRegister} className="space-y-4">
+          <div>
+            <Label htmlFor="organizerName" className="text-sm">主催者名</Label>
+            <Input
+              id="organizerName"
+              type="text"
+              value={organizerName}
+              onChange={(e) => setOrganizerName(e.target.value)}
+              placeholder="株式会社ACTMENT PARK"
+              required
+              disabled={loading || success}
+              className="text-sm"
+            />
+          </div>
 
-            {/* 入力フィールド */}
-            <div className="space-y-2">
-              <Label htmlFor="organizerName">主催者名</Label>
-              <Input
-                id="organizerName"
-                type="text"
-                placeholder="株式会社〇〇"
-                value={organizerName}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOrganizerName(e.target.value)}
-                required
-                disabled={loading || !!success}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">メールアドレス</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-                required
-                disabled={loading || !!success}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">パスワード（8文字以上）</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-                required
-                disabled={loading || !!success}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="passwordConfirm">パスワード（確認）</Label>
-              <Input
-                id="passwordConfirm"
-                type="password"
-                value={passwordConfirm}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPasswordConfirm(e.target.value)}
-                required
-                disabled={loading || !!success}
-              />
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <Button 
-              type="submit" 
-              className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700" 
-              disabled={loading || !!success}
-            >
-              {loading ? '登録中...' : success ? '登録完了' : '登録する'}
-            </Button>
-            <div className="text-sm text-center text-gray-600 space-y-2">
-              <div>
-                <Link href="/organizer/login" className="text-green-600 hover:underline">
-                  既にアカウントをお持ちの方はこちら
-                </Link>
-              </div>
-              <div>
-                <Link href="/talent" className="text-gray-500 hover:underline">
-                  タレントの方はこちら
-                </Link>
-              </div>
-            </div>
-          </CardFooter>
+          <div>
+            <Label htmlFor="email" className="text-sm">メールアドレス</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="info@actmentpark.com"
+              required
+              disabled={loading || success}
+              className="text-sm"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="password" className="text-sm">パスワード（8文字以上）</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              disabled={loading || success}
+              className="text-sm"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="confirmPassword" className="text-sm">パスワード（確認）</Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              disabled={loading || success}
+              className="text-sm"
+            />
+          </div>
+
+          <Button
+            type="submit"
+            disabled={loading || success}
+            className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white text-sm"
+          >
+            {loading ? '登録中...' : '登録する'}
+          </Button>
         </form>
-      </Card>
+
+        <div className="mt-6 text-center space-y-2">
+          <Link
+            href="/organizer/login"
+            className="text-green-600 hover:text-green-700 text-sm block"
+          >
+            既にアカウントをお持ちの方はこちら
+          </Link>
+          <Link
+            href="/talent"
+            className="text-purple-600 hover:text-purple-700 text-sm block"
+          >
+            タレントの方はこちら
+          </Link>
+        </div>
+      </div>
     </div>
-  );
+  )
 }
