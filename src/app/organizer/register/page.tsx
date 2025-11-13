@@ -19,11 +19,10 @@ function generateOrganizerCode(): string {
 
 export default function OrganizerRegisterPage() {
   const router = useRouter();
+  const [organizerName, setOrganizerName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [organizerName, setOrganizerName] = useState('');
-  const [organizerEmail, setOrganizerEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -46,8 +45,8 @@ export default function OrganizerRegisterPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('パスワードは6文字以上である必要があります');
+    if (password.length < 8) {
+      setError('パスワードは8文字以上である必要があります');
       setLoading(false);
       return;
     }
@@ -95,7 +94,7 @@ export default function OrganizerRegisterPage() {
         .insert({
           organizer_code: code,
           name: organizerName,
-          email: organizerEmail || email, // 主催者用メールが空なら認証用メールを使用
+          email: email, // ログイン用メールアドレスを使用
           created_by: authData.user.id,
         });
 
@@ -175,8 +174,23 @@ export default function OrganizerRegisterPage() {
             )}
 
             <div className="space-y-2">
+              <label htmlFor="organizerName" className="text-sm font-medium">
+                主催者名（団体名・企業名）<span className="text-red-500">*</span>
+              </label>
+              <input
+                id="organizerName"
+                type="text"
+                value={organizerName}
+                onChange={(e) => setOrganizerName(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="例: ○○劇団、株式会社○○"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
               <label htmlFor="email" className="text-sm font-medium">
-                メールアドレス *
+                メールアドレス <span className="text-red-500">*</span>
               </label>
               <input
                 id="email"
@@ -187,11 +201,12 @@ export default function OrganizerRegisterPage() {
                 placeholder="your-email@example.com"
                 required
               />
+              <p className="text-xs text-gray-500">ログインに使用します</p>
             </div>
 
             <div className="space-y-2">
               <label htmlFor="password" className="text-sm font-medium">
-                パスワード *
+                パスワード <span className="text-red-500">*</span>
               </label>
               <input
                 id="password"
@@ -199,14 +214,14 @@ export default function OrganizerRegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder="6文字以上"
+                placeholder="8文字以上"
                 required
               />
             </div>
 
             <div className="space-y-2">
               <label htmlFor="confirmPassword" className="text-sm font-medium">
-                パスワード（確認）*
+                パスワード（確認）<span className="text-red-500">*</span>
               </label>
               <input
                 id="confirmPassword"
@@ -217,37 +232,6 @@ export default function OrganizerRegisterPage() {
                 placeholder="もう一度入力"
                 required
               />
-            </div>
-
-            <div className="border-t pt-4">
-              <div className="space-y-2">
-                <label htmlFor="organizerName" className="text-sm font-medium">
-                  主催者名（団体名・企業名）*
-                </label>
-                <input
-                  id="organizerName"
-                  type="text"
-                  value={organizerName}
-                  onChange={(e) => setOrganizerName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  placeholder="例: ○○劇団、株式会社○○"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2 mt-3">
-                <label htmlFor="organizerEmail" className="text-sm font-medium">
-                  主催者用メールアドレス（任意）
-                </label>
-                <input
-                  id="organizerEmail"
-                  type="email"
-                  value={organizerEmail}
-                  onChange={(e) => setOrganizerEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  placeholder="空欄の場合、上記メールアドレスを使用"
-                />
-              </div>
             </div>
 
             <div className="bg-blue-50 p-4 rounded-md text-sm">
