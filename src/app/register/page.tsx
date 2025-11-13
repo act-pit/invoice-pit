@@ -30,25 +30,23 @@ export default function RegisterPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('パスワードは6文字以上で入力してください');
+    if (password.length < 8) {
+      setError('パスワードは8文字以上で入力してください');
       setLoading(false);
       return;
     }
 
     const { error } = await signUp(email, password, { name });
 
-    if (error) {
-      setError('登録に失敗しました: ' + error.message);
-      setLoading(false);
-    } else {
-      setSuccess(true);
-      setLoading(false);
-      // 登録成功後、ログインページへリダイレクト
-      setTimeout(() => {
-        router.push('/login');
-      }, 2000);
-    }
+if (error) {
+  setError('登録に失敗しました: ' + error.message);
+  setLoading(false);
+} else {
+  setSuccess(true);
+  setLoading(false);
+  // メール確認待ち（自動リダイレクトは削除）
+}
+
   };
 
   if (success) {
@@ -63,13 +61,22 @@ export default function RegisterPage() {
               確認メールを送信しました。メールを確認してアカウントを有効化してください。
             </CardDescription>
           </CardHeader>
-          <CardContent className="text-center">
-            <p className="text-sm text-gray-600 mb-4">
-              2秒後にログインページにリダイレクトします...
-            </p>
-            <Link href="/login" className="text-purple-600 hover:underline">
-              今すぐログインページへ
-            </Link>
+          <CardContent className="text-center space-y-4">
+            <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-6">
+              <p className="text-sm text-gray-700 mb-3">
+                <strong>{email}</strong> 宛に確認メールを送信しました。
+              </p>
+              <p className="text-xs text-gray-600">
+                メール内のリンクをクリックして、登録を完了してください。
+              </p>
+            </div>
+            <div className="text-xs text-gray-500 space-y-1">
+              <p>• メールが届かない場合は、迷惑メールフォルダをご確認ください</p>
+              <p>• メールのリンクは24時間有効です</p>
+            </div>
+            <Button onClick={() => router.push('/login')} variant="outline" className="w-full">
+             ログインページへ
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -136,7 +143,7 @@ export default function RegisterPage() {
                 placeholder="••••••••"
                 required
               />
-              <p className="text-xs text-gray-500">6文字以上で入力してください</p>
+              <p className="text-xs text-gray-500">8文字以上で入力してください</p>
             </div>
 
             <div className="space-y-2">
