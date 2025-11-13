@@ -34,80 +34,79 @@ export default function OrganizerRegisterPage() {
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+  e.preventDefault();
+  setLoading(true);
+  setError('');
 
-    // パスワード確認
-    if (password !== confirmPassword) {
-      setError('パスワードが一致しません');
-      setLoading(false);
-      return;
-    }
+  // パスワード確認
+  if (password !== confirmPassword) {
+    setError('パスワードが一致しません');
+    setLoading(false);
+    return;
+  }
 
-    if (password.length < 8) {
-      setError('パスワードは8文字以上である必要があります');
-      setLoading(false);
-      return;
-    }
+  if (password.length < 8) {
+    setError('パスワードは8文字以上である必要があります');
+    setLoading(false);
+    return;
+  }
 
-    try {
-      // 1. 新規アカウント作成
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-      });
+  try {
+    // 1. ユニークなコードを事前生成
+    let code = generateOrganizerCode();
+    let isUnique = false;
+    let attempts = 0;
 
-      if (signUpError) throw signUpError;
-
-      if (!authData.user) {
-        throw new Error('アカウント作成に失敗しました');
-      }
-
-      // 2. ユニークなコードを生成
-      let code = generateOrganizerCode();
-      let isUnique = false;
-      let attempts = 0;
-
-      while (!isUnique && attempts < 10) {
-        const { data } = await supabase
-          .from('organizers')
-          .select('id')
-          .eq('organizer_code', code)
-          .single();
-
-        if (!data) {
-          isUnique = true;
-        } else {
-          code = generateOrganizerCode();
-          attempts++;
-        }
-      }
-
-      if (!isUnique) {
-        throw new Error('コード生成に失敗しました。もう一度お試しください。');
-      }
-
-      // 3. 主催者情報を登録
-      const { error: insertError } = await supabase
+    while (!isUnique && attempts < 10) {
+      const { data } = await supabase
         .from('organizers')
-        .insert({
-          organizer_code: code,
-          name: organizerName,
-          email: email, // ログイン用メールアドレスを使用
-          created_by: authData.user.id,
-        });
+        .select('id')
+        .eq('organizer_code', code)
+        .single();
 
-      if (insertError) throw insertError;
-
-      setGeneratedCode(code);
-      setSuccess(true);
-    } catch (err: any) {
-      console.error('主催者登録エラー:', err);
-      setError('登録に失敗しました: ' + err.message);
-      setLoading(false);
+      if (!data) {
+        isUnique = true;
+      } else {
+        code = generateOrganizerCode();
+        attempts++;
+      }
     }
-  };
+
+    if (!isUnique) {
+      throw new Error('コード生成に失敗しました。もう一度お試しください。');
+    }
+
+    // 2. 主催者情報をlocalStorageに一時保存（メール認証後に使用）
+    const organizerData = {
+      code,
+      name: organizerName,
+      email,
+    };
+    localStorage.setItem('pending_organizer', JSON.stringify(organizerData));
+
+    // 3. 新規アカウント作成（メール認証が必要）
+    const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/organizer/confirm`,
+      },
+    });
+
+    if (signUpError) throw signUpError;
+
+    // 4. メール送信完了メッセージを表示
+    setSuccess(true);
+    setGeneratedCode(code); // 仮のコード表示用
+  } catch (err: any) {
+    console.error('主催者登録エラー:', err);
+    setError('登録に失敗しました: ' + err.message);
+    localStorage.removeItem('pending_organizer'); // エラー時は削除
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   if (success) {
     return (
