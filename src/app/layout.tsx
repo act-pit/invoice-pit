@@ -6,7 +6,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "ACTぴっと - フリーランス芸能関係者向け請求書作成アプリ",
+  title: "請求書ぴっと - フリーランス芸能関係者向け請求書作成アプリ",
   description: "簡単・便利な請求書作成と主催者との連携機能",
 };
 
