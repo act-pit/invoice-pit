@@ -36,7 +36,7 @@ export default function LoginPage() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">ログイン</CardTitle>
           <CardDescription className="text-center">
-            ACTぴっとにログインして請求書を管理
+            請求書ぴっとにログインして請求書を管理
           </CardDescription>
         </CardHeader>
         <CardContent>

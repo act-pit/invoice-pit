@@ -82,7 +82,7 @@ export default function RegisterPage() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">新規登録</CardTitle>
           <CardDescription className="text-center">
-            ACTぴっとのアカウントを作成
+            請求書ぴっとのアカウントを作成
           </CardDescription>
         </CardHeader>
         <CardContent>
