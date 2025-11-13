@@ -227,7 +227,7 @@ export default function OrganizerRegisterPage() {
               type="text"
               value={organizerName}
               onChange={(e) => setOrganizerName(e.target.value)}
-              placeholder="株式会社ACTMENT PARK"
+              placeholder="株式会社◯◯◯◯"
               required
               disabled={loading || success}
               className="text-sm"
@@ -241,7 +241,7 @@ export default function OrganizerRegisterPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="info@actmentpark.com"
+              placeholder="info@invoice-pit.com"
               required
               disabled={loading || success}
               className="text-sm"
@@ -255,7 +255,6 @@ export default function OrganizerRegisterPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
               required
               disabled={loading || success}
               className="text-sm"
@@ -269,7 +268,6 @@ export default function OrganizerRegisterPage() {
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="••••••••"
               required
               disabled={loading || success}
               className="text-sm"
