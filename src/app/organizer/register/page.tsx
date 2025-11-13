@@ -296,10 +296,12 @@ export default function OrganizerRegisterPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">
-            {isLoggedIn ? '主催者情報の登録' : '主催者新規登録'}
+            {isLoggedIn === true ? '主催者情報の登録' : '主催者新規登録'}
           </CardTitle>
           <CardDescription className="text-center">
-            {isLoggedIn ? '主催者として活動するための情報を登録' : '主催者アカウント作成'}
+            {isLoggedIn === true 
+              ? '主催者として活動するための情報を登録' 
+              : '主催者アカウントを作成し、専用コードを取得'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -325,7 +327,7 @@ export default function OrganizerRegisterPage() {
               />
             </div>
 
-            {!isLoggedIn && (
+            {isLoggedIn !== true && (
               <>
                 <div className="space-y-2">
                   <label htmlFor="email" className="text-sm font-medium">
@@ -383,11 +385,11 @@ export default function OrganizerRegisterPage() {
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? '登録中...' : isLoggedIn ? '主催者情報を登録' : '主催者アカウント作成'}
+              {loading ? '登録中...' : isLoggedIn === true ? '主催者情報を登録' : '主催者アカウント作成'}
             </Button>
           </form>
 
-          {!isLoggedIn && (
+          {isLoggedIn !== true && (
             <div className="mt-4 text-center space-y-2">
               <Link href="/organizer/login" className="block text-sm text-purple-600 hover:underline">
                 既にアカウントをお持ちの方
@@ -398,7 +400,7 @@ export default function OrganizerRegisterPage() {
             </div>
           )}
 
-          {isLoggedIn && (
+          {isLoggedIn === true && (
             <div className="mt-4 text-center">
               <Link href="/dashboard" className="text-sm text-gray-600 hover:underline">
                 ← ダッシュボードに戻る
