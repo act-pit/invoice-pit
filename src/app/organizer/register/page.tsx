@@ -167,9 +167,13 @@ export default function OrganizerRegisterPage() {
           setSuccess(true);
         } else {
           // メール確認が必要な場合（確認メールが送信される）
-          setGeneratedCode(code);
-          setSuccess(true);
+          // 成功画面は表示せず、メール確認案内を表示
+          alert('確認メールを送信しました。メールボックスをご確認ください。');
+          // localStorageはクリアしない（メール確認後に使用）
+          setLoading(false);
+          return;
         }
+
       }
     } catch (err: any) {
       console.error('登録エラー:', err);
