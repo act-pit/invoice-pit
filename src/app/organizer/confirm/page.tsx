@@ -6,7 +6,6 @@ import { createBrowserClient } from '@supabase/ssr';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
-// メインコンポーネントをSuspenseで囲むための内部コンポーネント
 function OrganizerConfirmContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -23,14 +22,9 @@ function OrganizerConfirmContent() {
   useEffect(() => {
     const confirmEmail = async () => {
       try {
-        // URLからトークンを取得
         const code = searchParams.get('code');
-        
-        if (!code) {
-          throw new Error('確認コードが見つかりません');
-        }
+        if (!code) throw new Error('確認コードが見つかりません');
 
-        // メール確認を実行
         const { data: sessionData, error: verifyError } = await supabase.auth.verifyOtp({
           token_hash: code,
           type: 'email',
@@ -38,15 +32,11 @@ function OrganizerConfirmContent() {
 
         if (verifyError) throw verifyError;
 
-        // localStorageから主催者情報を取得
         const pendingOrganizerStr = localStorage.getItem('pending_organizer');
-        if (!pendingOrganizerStr) {
-          throw new Error('主催者情報が見つかりません');
-        }
+        if (!pendingOrganizerStr) throw new Error('主催者情報が見つかりません');
 
         const pendingOrganizer = JSON.parse(pendingOrganizerStr);
 
-        // organizersテーブルに登録
         const { error: insertError } = await supabase
           .from('organizers')
           .insert({
@@ -58,21 +48,19 @@ function OrganizerConfirmContent() {
 
         if (insertError) throw insertError;
 
-        // localStorageをクリア
         localStorage.removeItem('pending_organizer');
-
         setOrganizerCode(pendingOrganizer.code);
         setSuccess(true);
       } catch (err: any) {
         console.error('メール確認エラー:', err);
-        setError(err.message || 'メール確認に失敗しました');
+        setError(err.message || 'メール確認に失敗');
       } finally {
         setLoading(false);
       }
     };
 
     confirmEmail();
-  }, [searchParams, router, supabase]);
+  }, [searchParams, supabase]);
 
   if (loading) {
     return (
@@ -94,18 +82,12 @@ function OrganizerConfirmContent() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-center text-red-600">
-              ❌ エラー
-            </CardTitle>
-            <CardDescription className="text-center">
-              メール確認に失敗しました
-            </CardDescription>
+            <CardTitle className="text-2xl font-bold text-center text-red-600">❌ エラー</CardTitle>
+            <CardDescription className="text-center">メール確認に失敗</CardDescription>
           </CardHeader>
           <CardContent className="text-center">
             <p className="text-sm text-gray-600 mb-4">{error}</p>
-            <Button onClick={() => router.push('/organizer/register')}>
-              登録ページに戻る
-            </Button>
+            <Button onClick={() => router.push('/organizer/register')}>登録ページに戻る</Button>
           </CardContent>
         </Card>
       </div>
@@ -117,39 +99,23 @@ function OrganizerConfirmContent() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-center text-green-600">
-              ✅ メール確認完了
-            </CardTitle>
-            <CardDescription className="text-center">
-              主催者登録が完了しました
-            </CardDescription>
+            <CardTitle className="text-2xl font-bold text-center text-green-600">✅ メール確認完了</CardTitle>
+            <CardDescription className="text-center">主催者登録が完了しました</CardDescription>
           </CardHeader>
           <CardContent className="text-center">
             <div className="bg-purple-50 border-2 border-purple-600 rounded-lg p-6 mb-6">
               <p className="text-sm text-gray-600 mb-2">あなたの主催者コード</p>
-              <p className="text-3xl font-bold text-purple-600 tracking-wider mb-3">
-                {organizerCode}
-              </p>
-              <p className="text-xs text-gray-500">
-                このコードをキャストに共有してください
-              </p>
+              <p className="text-3xl font-bold text-purple-600 tracking-wider mb-3">{organizerCode}</p>
+              <p className="text-xs text-gray-500">このコードをキャストに共有してください</p>
             </div>
-
             <div className="space-y-3">
-              <Button 
-                className="w-full" 
-                onClick={() => router.push('/organizer/dashboard')}
-              >
+              <Button className="w-full" onClick={() => router.push('/organizer/dashboard')}>
                 主催者ダッシュボードへ
               </Button>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => {
-                  navigator.clipboard.writeText(organizerCode);
-                  alert('コードをコピーしました！');
-                }}
-              >
+              <Button variant="outline" className="w-full" onClick={() => {
+                navigator.clipboard.writeText(organizerCode);
+                alert('コードをコピーしました！');
+              }}>
                 📋 コードをコピー
               </Button>
             </div>
@@ -162,7 +128,6 @@ function OrganizerConfirmContent() {
   return null;
 }
 
-// Suspenseで囲んだメインコンポーネント
 export default function OrganizerConfirmPage() {
   return (
     <Suspense fallback={

@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 
 // ランダムな主催者コードを生成
 function generateOrganizerCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 紛らわしい文字を除外
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
   for (let i = 0; i < 8; i++) {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -20,7 +20,7 @@ function generateOrganizerCode(): string {
 
 export default function OrganizerRegisterPage() {
   const router = useRouter();
-  const { user } = useAuth(); // ← 🔑 ログイン状態を取得
+  const { user } = useAuth();
   const [organizerName, setOrganizerName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,29 +29,23 @@ export default function OrganizerRegisterPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // ← 🔑 ログイン状態フラグ
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // ← 🔑 ログイン状態をチェック（より確実に）
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
-      console.log('セッションチェック:', session); // デバッグ用
-      
       if (session && session.user) {
-        console.log('ログイン済み:', session.user.email);
         setIsLoggedIn(true);
-        // ログイン済みの場合、メールアドレスを自動入力
         if (session.user.email) {
           setEmail(session.user.email);
         }
       } else {
-        console.log('未ログイン');
         setIsLoggedIn(false);
       }
     };
@@ -59,14 +53,13 @@ export default function OrganizerRegisterPage() {
     checkSession();
   }, []);
 
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      // 1. ユニークなコードを事前生成
+      // コード生成
       let code = generateOrganizerCode();
       let isUnique = false;
       let attempts = 0;
@@ -87,15 +80,14 @@ export default function OrganizerRegisterPage() {
       }
 
       if (!isUnique) {
-        throw new Error('コード生成に失敗しました。もう一度お試しください。');
+        throw new Error('コード生成に失敗しました');
       }
 
-      // ← 🔑 ケース分岐: ログイン済み vs 未ログイン
-      // 再度セッションを確認
+      // セッション再確認
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session && session.user) {
-        // ===== ケース1: ログイン済み → 主催者情報を追加 =====
+        // ケース1: ログイン済み → 主催者情報を追加
         const { error: insertError } = await supabase
           .from('organizers')
           .insert({
@@ -110,10 +102,8 @@ export default function OrganizerRegisterPage() {
         setGeneratedCode(code);
         setSuccess(true);
       } else {
-
-        // ===== ケース2: 未ログイン → 新規アカウント作成 =====
+        // ケース2: 未ログイン → 新規アカウント作成
         
-        // パスワード確認
         if (password !== confirmPassword) {
           setError('パスワードが一致しません');
           setLoading(false);
@@ -121,20 +111,16 @@ export default function OrganizerRegisterPage() {
         }
 
         if (password.length < 8) {
-          setError('パスワードは8文字以上である必要があります');
+          setError('パスワードは8文字以上です');
           setLoading(false);
           return;
         }
 
-        // 2. 主催者情報をlocalStorageに保存
-        const organizerData = {
-          code,
-          name: organizerName,
-          email,
-        };
+        // localStorage に保存
+        const organizerData = { code, name: organizerName, email };
         localStorage.setItem('pending_organizer', JSON.stringify(organizerData));
 
-        // 3. Supabaseでアカウント作成
+        // アカウント作成
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -144,11 +130,10 @@ export default function OrganizerRegisterPage() {
         });
 
         if (signUpError) throw signUpError;
-        if (!authData.user) throw new Error('アカウント作成に失敗しました');
+        if (!authData.user) throw new Error('アカウント作成に失敗');
 
-        // 4. メール確認がOFFの場合は即座にorganizersテーブルに登録
+        // メール確認OFFの場合
         if (authData.session) {
-          // メール確認なしでログイン完了している場合
           const { error: insertError } = await supabase
             .from('organizers')
             .insert({
@@ -159,25 +144,19 @@ export default function OrganizerRegisterPage() {
             });
 
           if (insertError) throw insertError;
-
-          // localStorageをクリア
           localStorage.removeItem('pending_organizer');
-
           setGeneratedCode(code);
           setSuccess(true);
         } else {
-          // メール確認が必要な場合（確認メールが送信される）
-          // 成功画面は表示せず、メール確認案内を表示
-          alert('確認メールを送信しました。メールボックスをご確認ください。');
-          // localStorageはクリアしない（メール確認後に使用）
+          // メール確認が必要
+          alert('確認メールを送信しました。メールをご確認ください。');
           setLoading(false);
           return;
         }
-
       }
     } catch (err: any) {
       console.error('登録エラー:', err);
-      setError('登録に失敗しました: ' + err.message);
+      setError('登録に失敗: ' + err.message);
       localStorage.removeItem('pending_organizer');
     } finally {
       setLoading(false);
@@ -206,22 +185,14 @@ export default function OrganizerRegisterPage() {
                 このコードをキャストに共有してください
               </p>
             </div>
-
             <div className="space-y-3">
-              <Button 
-                className="w-full" 
-                onClick={() => router.push('/organizer/dashboard')}
-              >
+              <Button className="w-full" onClick={() => router.push('/organizer/dashboard')}>
                 主催者ダッシュボードへ
               </Button>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => {
-                  navigator.clipboard.writeText(generatedCode);
-                  alert('コードをコピーしました！');
-                }}
-              >
+              <Button variant="outline" className="w-full" onClick={() => {
+                navigator.clipboard.writeText(generatedCode);
+                alert('コードをコピーしました！');
+              }}>
                 📋 コードをコピー
               </Button>
             </div>
@@ -236,13 +207,10 @@ export default function OrganizerRegisterPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">
-            {/* ← 🔑 ログイン状態で表示を切り替え */}
             {isLoggedIn ? '主催者情報の登録' : '主催者新規登録'}
           </CardTitle>
           <CardDescription className="text-center">
-            {isLoggedIn 
-              ? '主催者として活動するための情報を登録します' 
-              : '主催者アカウントを作成し、専用コードを取得'}
+            {isLoggedIn ? '主催者として活動するための情報を登録' : '主催者アカウント作成'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -268,7 +236,6 @@ export default function OrganizerRegisterPage() {
               />
             </div>
 
-            {/* ← 🔑 未ログインの場合のみメール・パスワード入力 */}
             {!isLoggedIn && (
               <>
                 <div className="space-y-2">
@@ -284,7 +251,6 @@ export default function OrganizerRegisterPage() {
                     placeholder="your-email@example.com"
                     required
                   />
-                  <p className="text-xs text-gray-500">ログインに使用します</p>
                 </div>
 
                 <div className="space-y-2">
@@ -324,7 +290,6 @@ export default function OrganizerRegisterPage() {
               <ul className="text-blue-800 space-y-1 text-xs">
                 <li>• 8桁のユニークなコードが自動生成されます</li>
                 <li>• キャストがこのコードで請求書を送信できます</li>
-                <li>• コードは登録後に表示されます</li>
               </ul>
             </div>
 
@@ -333,11 +298,10 @@ export default function OrganizerRegisterPage() {
             </Button>
           </form>
 
-          {/* ← 🔑 表示するリンクをログイン状態で切り替え */}
           {!isLoggedIn && (
             <div className="mt-4 text-center space-y-2">
               <Link href="/organizer/login" className="block text-sm text-purple-600 hover:underline">
-                既にアカウントをお持ちの方はこちら
+                既にアカウントをお持ちの方
               </Link>
               <Link href="/login" className="block text-sm text-gray-600 hover:underline">
                 キャストの方はこちら
