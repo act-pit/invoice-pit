@@ -54,7 +54,7 @@ export default function TalentRegisterPage() {
         .from('profiles')
         .select('email')
         .eq('email', email)
-        .single();
+        .maybeSingle();
 
       if (existingProfile) {
         setError('このメールアドレスは既にタレントとして登録されています。');
@@ -68,7 +68,7 @@ export default function TalentRegisterPage() {
         .from('organizers')
         .select('email')
         .eq('email', email)
-        .single();
+        .maybeSingle();
 
       if (existingOrganizer) {
         setError('このメールアドレスは既に主催者として登録されています。');
