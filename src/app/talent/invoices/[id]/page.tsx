@@ -61,7 +61,7 @@ export default function InvoicePrintPage() {
     } catch (error: any) {
       console.error('データ読み込みエラー:', error);
       alert('請求書の読み込みに失敗しました');
-      router.push('/invoices');
+      router.push('/talent/invoices');
     } finally {
       setLoading(false);
     }
@@ -136,7 +136,7 @@ export default function InvoicePrintPage() {
       {/* 画面表示時のボタン */}
       <div className="no-print bg-gray-50 py-4 sticky top-0 z-50 border-b">
         <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
-          <Button onClick={() => router.push('/invoices')} variant="outline">
+          <Button onClick={() => router.push('/talent/invoices')} variant="outline">
             ← 一覧に戻る
           </Button>
           <Button onClick={handlePrint} className="bg-purple-600 hover:bg-purple-700">

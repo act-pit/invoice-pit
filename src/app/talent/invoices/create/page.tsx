@@ -368,7 +368,7 @@ const handleConfirmCreate = async () => {
       : '請求書を作成しました！');
     
     setTimeout(() => {
-      router.push('/invoices');
+      router.push('/talent/invoices');
     }, 1500);
   } catch (error: any) {
     console.error('作成エラー:', error);

@@ -321,7 +321,7 @@ export default function InvoicesPage() {
             <h2 className="text-xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">請求書一覧</h2>
             <p className="text-xs sm:text-base text-gray-600 hidden sm:block">作成した請求書を確認できます</p>
           </div>
-          <Link href="/invoices/create">
+          <Link href="/talent/invoices/create">
             <Button size="sm" className="text-xs sm:text-base px-3 sm:px-4">
               <span className="hidden sm:inline">+ 新規作成</span>
               <span className="sm:hidden">+</span>
@@ -614,7 +614,7 @@ export default function InvoicesPage() {
                   : '条件に一致する請求書がありません'}
               </p>
               {invoices.length === 0 && (
-                <Link href="/invoices/create">
+                <Link href="/talent/invoices/create">
                   <Button>最初の請求書を作成</Button>
                 </Link>
               )}
@@ -732,12 +732,12 @@ export default function InvoicesPage() {
                   </div>
 
                   <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                    <Link href={`/invoices/${invoice.id}`}>
+                    <Link href={`/talent/invoices/${invoice.id}`}>
                       <Button size="sm" variant="outline" className="text-xs h-8">
                         🖨️ 印刷・PDF保存
                       </Button>
                     </Link>
-                    <Link href={`/invoices/${invoice.id}/edit`}>
+                    <Link href={`/talent/invoices/${invoice.id}/edit`}>
                       <Button size="sm" variant="outline" className="text-xs h-8">
                         ✏️ 編集
                       </Button>

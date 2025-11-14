@@ -102,7 +102,7 @@ const isEditable = !organizerId || isReturned;
     } catch (error: any) {
       console.error('請求書読み込みエラー:', error);
       alert('請求書の読み込みに失敗しました');
-      router.push('/invoices');
+      router.push('/talent/invoices');
     } finally {
       setLoading(false);
     }
@@ -300,7 +300,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     setMessage('更新しました！');
     setTimeout(() => {
-      router.push('/invoices');
+      router.push('/talent/invoices');
     }, 1500);
   } catch (error: any) {
     console.error('更新エラー:', error);
@@ -330,7 +330,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             <header className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-4 flex justify-between items-center">
           <h1 className="text-lg sm:text-2xl font-bold text-purple-600">請求書ぴっと</h1>
-          <Button onClick={() => router.push('/invoices')} variant="outline" size="sm" className="text-xs sm:text-sm">
+          <Button onClick={() => router.push('/talent/invoices')} variant="outline" size="sm" className="text-xs sm:text-sm">
             ← 請求書一覧に戻る
           </Button>
         </div>
@@ -748,7 +748,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             <Button
               type="button"
               variant="outline"
-              onClick={() => router.push('/invoices')}
+              onClick={() => router.push('/talent/invoices')}
             >
               キャンセル
             </Button>
