@@ -71,15 +71,21 @@ const handleSubmit = async (e: React.FormEvent) => {
   setMessage('');
 
   try {
+    // ===== 追加: 認証状態の詳細確認 =====
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('🔐 セッション:', session);
+    console.log('🆔 セッションのユーザーID:', session?.user?.id);
+    console.log('🆔 useAuthのユーザーID:', user?.id);
+    console.log('🔑 アクセストークン:', session?.access_token?.substring(0, 20) + '...');
+    // ===== ここまで追加 =====
+
     console.log('🔍 保存開始');
-    console.log('ユーザーID:', user!.id);
     console.log('保存データ:', {
       full_name: profile.full_name,
       bank_name: profile.bank_name,
-      postal_code: profile.postal_code,
     });
 
-    const { data, error } = await supabase
+    const { data, error, count } = await supabase
       .from('profiles')
       .update({
         email: user!.email!,
@@ -100,29 +106,31 @@ const handleSubmit = async (e: React.FormEvent) => {
         updated_at: new Date().toISOString(),
       })
       .eq('id', user!.id)
-      .select();  // ← 追加: 更新後のデータを取得
+      .select();
 
-    console.log('✅ 更新結果:', data);
-    console.log('❌ エラー:', error);
+    console.log('✅ 更新結果 data:', data);
+    console.log('❌ エラー error:', error);
+    console.log('📊 更新件数:', data?.length);
 
     if (error) throw error;
 
-    // データが返ってこない = 更新されていない
     if (!data || data.length === 0) {
       console.error('⚠️ 更新されたレコードが0件');
       setMessage('保存に失敗しました: レコードが更新されませんでした');
       return;
     }
 
+    setProfile(data[0]);  // ← 追加: 更新後のデータをstateに反映
     setMessage('保存しました！');
     setTimeout(() => setMessage(''), 3000);
   } catch (error: any) {
-    console.error('保存エラー:', error);
+    console.error('保存エラー詳細:', error);
     setMessage('保存に失敗しました: ' + error.message);
   } finally {
     setSaving(false);
   }
 };
+
 
 
 
