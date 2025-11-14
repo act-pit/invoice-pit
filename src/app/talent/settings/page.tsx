@@ -71,7 +71,15 @@ const handleSubmit = async (e: React.FormEvent) => {
   setMessage('');
 
   try {
-    const { error } = await supabase
+    console.log('🔍 保存開始');
+    console.log('ユーザーID:', user!.id);
+    console.log('保存データ:', {
+      full_name: profile.full_name,
+      bank_name: profile.bank_name,
+      postal_code: profile.postal_code,
+    });
+
+    const { data, error } = await supabase
       .from('profiles')
       .update({
         email: user!.email!,
@@ -91,16 +99,19 @@ const handleSubmit = async (e: React.FormEvent) => {
         activity_areas: profile.activity_areas || [],
         updated_at: new Date().toISOString(),
       })
-      .eq('id', user!.id);
+      .eq('id', user!.id)
+      .select();  // ← 追加: 更新後のデータを取得
 
-    // エラーハンドリング追加
-    if (error) {
-      // もしprofilesレコードが存在しない場合（稀なケース）
-      if (error.code === 'PGRST116') {
-        setMessage('プロフィールが見つかりません。ページを再読み込みしてください。');
-        return;
-      }
-      throw error;
+    console.log('✅ 更新結果:', data);
+    console.log('❌ エラー:', error);
+
+    if (error) throw error;
+
+    // データが返ってこない = 更新されていない
+    if (!data || data.length === 0) {
+      console.error('⚠️ 更新されたレコードが0件');
+      setMessage('保存に失敗しました: レコードが更新されませんでした');
+      return;
     }
 
     setMessage('保存しました！');
@@ -112,6 +123,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     setSaving(false);
   }
 };
+
 
 
 
