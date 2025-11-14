@@ -65,46 +65,67 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setMessage('');
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setSaving(true);
+  setMessage('');
 
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user!.id,
-          email: user!.email!,
-          full_name: profile.full_name,
-          phone: profile.phone,
-          occupation: profile.occupation,
-          area: profile.area,
-          postal_code: profile.postal_code,
-          address: profile.address,
-          bank_name: profile.bank_name,
-          branch_name: profile.branch_name,
-          account_type: profile.account_type,
-          account_number: profile.account_number,
-          account_holder: profile.account_holder,
-          invoice_reg_number: profile.invoice_reg_number,
-          occupation_types: profile.occupation_types || [],
-          activity_areas: profile.activity_areas || [],
-          updated_at: new Date().toISOString(),
-        });
+  // ===== デバッグコード開始 =====
+  console.log('🔍 保存デバッグ');
+  
+  // 現在のユーザー情報を確認
+  const { data: { user: currentUser } } = await supabase.auth.getUser();
+  console.log('現在のユーザー:', currentUser);
+  console.log('ユーザーID:', currentUser?.id);
+  
+  // 既存のprofileレコードを確認
+  const { data: existingProfile, error: fetchError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', currentUser?.id)
+    .single();
+  
+  console.log('既存profile:', existingProfile);
+  console.log('取得エラー:', fetchError);
+  // ===== デバッグコード終了 =====
 
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .upsert({
+        id: user!.id,
+        email: user!.email!,
+        full_name: profile.full_name,
+        phone: profile.phone,
+        occupation: profile.occupation,
+        area: profile.area,
+        postal_code: profile.postal_code,
+        address: profile.address,
+        bank_name: profile.bank_name,
+        branch_name: profile.branch_name,
+        account_type: profile.account_type,
+        account_number: profile.account_number,
+        account_holder: profile.account_holder,
+        invoice_reg_number: profile.invoice_reg_number,
+        occupation_types: profile.occupation_types || [],
+        activity_areas: profile.activity_areas || [],
+        updated_at: new Date().toISOString(),
+      });
 
-      if (error) throw error;
+    console.log('保存エラー:', error);  // ← これも追加
 
-      setMessage('保存しました！');
-      setTimeout(() => setMessage(''), 3000);
-    } catch (error: any) {
-      console.error('保存エラー:', error);
-      setMessage('保存に失敗しました: ' + error.message);
-    } finally {
-      setSaving(false);
-    }
-  };
+    if (error) throw error;
+
+    setMessage('保存しました！');
+    setTimeout(() => setMessage(''), 3000);
+  } catch (error: any) {
+    console.error('保存エラー詳細:', error);
+    setMessage('保存に失敗しました: ' + error.message);
+  } finally {
+    setSaving(false);
+  }
+};
+
 
   if (authLoading || loading) {
     return (
