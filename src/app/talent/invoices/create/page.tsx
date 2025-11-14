@@ -1074,7 +1074,7 @@ const handleConfirmCreate = async () => {
               
               <div className="flex justify-center">
                 <Button
-                  onClick={() => router.push('/settings')}
+                  onClick={() => router.push('/talent/settings')}
                   className="bg-orange-600 hover:bg-orange-700 px-8"
                 >
                   プロフィール情報を登録する

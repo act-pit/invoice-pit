@@ -105,7 +105,7 @@ export default function TalentDashboardPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 w-full sm:w-auto">
-                  <Link href="/settings" className="flex-1 sm:flex-none">
+                  <Link href="/talent/settings" className="flex-1 sm:flex-none">
                     <Button variant="outline" size="sm" className="w-full bg-white text-orange-600 hover:bg-gray-100 text-xs sm:text-sm">
                       今すぐ登録
                     </Button>
@@ -189,7 +189,7 @@ export default function TalentDashboardPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Link href="/settings" className="block">
+                <Link href="/talent/settings" className="block">
                   <Button 
                     className="w-full border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 hover:border-purple-700 transition-all text-xs sm:text-sm"
                   >
