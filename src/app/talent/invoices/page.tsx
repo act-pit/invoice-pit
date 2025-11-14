@@ -307,7 +307,7 @@ export default function InvoicesPage() {
       <header className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-4 flex justify-between items-center">
           <h1 className="text-lg sm:text-2xl font-bold text-purple-600">請求書ぴっと</h1>
-          <Button onClick={() => router.push('/dashboard')} variant="outline" size="sm" className="text-xs sm:text-sm">
+          <Button onClick={() => router.push('/talent/dashboard')} variant="outline" size="sm" className="text-xs sm:text-sm">
             <span className="hidden sm:inline">← ダッシュボードに戻る</span>
             <span className="sm:hidden">← ダッシュボードに戻る</span>
           </Button>
