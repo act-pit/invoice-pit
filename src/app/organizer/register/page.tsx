@@ -62,7 +62,7 @@ export default function OrganizerRegisterPage() {
         .from('organizers')
         .select('email')
         .eq('email', email)
-        .single()
+        .maybeSingle();
 
       if (existingOrganizer) {
         setError(
