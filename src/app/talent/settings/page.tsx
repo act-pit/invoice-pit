@@ -70,30 +70,10 @@ const handleSubmit = async (e: React.FormEvent) => {
   setSaving(true);
   setMessage('');
 
-  // ===== デバッグコード開始 =====
-  console.log('🔍 保存デバッグ');
-  
-  // 現在のユーザー情報を確認
-  const { data: { user: currentUser } } = await supabase.auth.getUser();
-  console.log('現在のユーザー:', currentUser);
-  console.log('ユーザーID:', currentUser?.id);
-  
-  // 既存のprofileレコードを確認
-  const { data: existingProfile, error: fetchError } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', currentUser?.id)
-    .single();
-  
-  console.log('既存profile:', existingProfile);
-  console.log('取得エラー:', fetchError);
-  // ===== デバッグコード終了 =====
-
   try {
     const { error } = await supabase
       .from('profiles')
-      .upsert({
-        id: user!.id,
+      .update({
         email: user!.email!,
         full_name: profile.full_name,
         phone: profile.phone,
@@ -110,21 +90,29 @@ const handleSubmit = async (e: React.FormEvent) => {
         occupation_types: profile.occupation_types || [],
         activity_areas: profile.activity_areas || [],
         updated_at: new Date().toISOString(),
-      });
+      })
+      .eq('id', user!.id);
 
-    console.log('保存エラー:', error);  // ← これも追加
-
-    if (error) throw error;
+    // エラーハンドリング追加
+    if (error) {
+      // もしprofilesレコードが存在しない場合（稀なケース）
+      if (error.code === 'PGRST116') {
+        setMessage('プロフィールが見つかりません。ページを再読み込みしてください。');
+        return;
+      }
+      throw error;
+    }
 
     setMessage('保存しました！');
     setTimeout(() => setMessage(''), 3000);
   } catch (error: any) {
-    console.error('保存エラー詳細:', error);
+    console.error('保存エラー:', error);
     setMessage('保存に失敗しました: ' + error.message);
   } finally {
     setSaving(false);
   }
 };
+
 
 
   if (authLoading || loading) {
