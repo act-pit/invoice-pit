@@ -1,159 +1,168 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 export default function ConfirmPage() {
   const router = useRouter()
-  const supabase = createClientComponentClient()
-  const [status, setStatus] = useState<'checking' | 'success' | 'error'>('checking')
+  const searchParams = useSearchParams()
   const [message, setMessage] = useState('メールアドレスを確認しています...')
+  const [isError, setIsError] = useState(false)
 
   useEffect(() => {
-    const handleEmailConfirmation = async () => {
-      try {
-        // URLからエラーパラメータを取得
-        const searchParams = new URLSearchParams(window.location.search)
-        const errorCode = searchParams.get('error_code')
-        const errorDescription = searchParams.get('error_description')
+    const confirmEmail = async () => {
+      console.log('=== メール認証確認ページ ===')
+      
+      const supabase = createClientComponentClient()
+      
+      // URLからパラメータを取得
+      const token_hash = searchParams.get('token_hash')
+      const type = searchParams.get('type')
+      const error = searchParams.get('error')
+      const error_code = searchParams.get('error_code')
+      const error_description = searchParams.get('error_description')
+      
+      console.log('URL Parameters:', { 
+        token_hash: token_hash ? 'あり' : 'なし', 
+        type, 
+        error, 
+        error_code,
+        error_description 
+      })
 
-        // エラーがある場合
-        if (errorCode === 'otp_expired') {
-          setStatus('error')
+      // エラーパラメータのチェック
+      if (error || error_code) {
+        console.error('認証エラー:', error_code, error_description)
+        setIsError(true)
+        
+        if (error_code === 'otp_expired') {
           setMessage(
             'メールリンクの有効期限が切れています。\n\n' +
-            '新しいメールアドレスで再度登録してください。\n' +
+            '新しく登録し直してください。\n' +
             'メールが届いたら、すぐに（1分以内に）リンクをクリックしてください。'
           )
-          return
+        } else {
+          setMessage(error_description || '認証に失敗しました。')
         }
+        return
+      }
 
-        if (errorCode) {
-          setStatus('error')
-          setMessage(`認証エラー: ${errorDescription || errorCode}`)
-          return
-        }
+      // トークンがない場合
+      if (!token_hash) {
+        console.error('token_hashが見つかりません')
+        setIsError(true)
+        setMessage('認証トークンが見つかりません。メールのリンクが正しくありません。')
+        return
+      }
 
-        // URLからトークンを取得
-        const hashParams = new URLSearchParams(window.location.hash.substring(1))
-        const accessToken = hashParams.get('access_token')
-        const refreshToken = hashParams.get('refresh_token')
-
-        if (!accessToken) {
-          setStatus('error')
-          setMessage('認証トークンが見つかりません。')
-          return
-        }
-
-        // セッションを設定
-        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken || '',
+      try {
+        console.log('OTP検証を開始...')
+        
+        // 新しいフロー: verifyOtpを使用
+        const { data, error: verifyError } = await supabase.auth.verifyOtp({
+          token_hash,
+          type: type as any,
         })
 
-        if (sessionError) {
-          console.error('セッション設定エラー:', sessionError)
-          setStatus('error')
-          setMessage('認証に失敗しました。もう一度お試しください。')
+        if (verifyError) {
+          console.error('OTP検証エラー:', verifyError)
+          setIsError(true)
+          setMessage('メールアドレスの確認に失敗しました。\n\nもう一度登録からやり直してください。')
           return
         }
 
-        const userId = sessionData.session?.user?.id
+        console.log('✅ OTP検証成功')
+        
+        const userId = data?.user?.id
 
         if (!userId) {
-          setStatus('error')
-          setMessage('ユーザー情報が取得できませんでした。')
+          console.error('ユーザーIDが取得できません')
+          setIsError(true)
+          setMessage('ユーザー情報の取得に失敗しました。')
           return
         }
 
-        setStatus('success')
-        setMessage('認証に成功しました！ログイン画面に移行しています...')
+        console.log('ユーザーID:', userId)
 
-        // 主催者かタレントかを判定
-        const { data: organizerData } = await supabase
+        // 役割を判定（organizersテーブルを先にチェック）
+        console.log('=== 役割判定 ===')
+        
+        const { data: organizerData, error: orgError } = await supabase
           .from('organizers')
           .select('id')
           .eq('id', userId)
-          .single()
+          .maybeSingle()
 
-        const { data: profileData } = await supabase
+        console.log('organizers チェック:', organizerData, orgError)
+
+        const { data: profileData, error: profError } = await supabase
           .from('profiles')
           .select('id')
           .eq('id', userId)
-          .single()
+          .maybeSingle()
 
-          console.log('=== 役割判定 ===')
-          console.log('organizerData:', organizerData)
-          console.log('profileData:', profileData)
+        console.log('profiles チェック:', profileData, profError)
 
-        // 役割に応じてリダイレクト
-        if (organizerData) {
-          // 主催者として登録されている
-          console.log('主催者としてログインページへリダイレクト')
-          setTimeout(() => {
+        setMessage('✅ メールアドレスの確認が完了しました！\n\nログインページにリダイレクトします...')
+
+        // 7秒後にリダイレクト
+        setTimeout(() => {
+          if (organizerData) {
+            console.log('✅ 主催者としてログインページへリダイレクト')
             router.push('/organizer/login')
-          }, 7000)
-        } else if (profileData) {
-
-          // タレントとして登録されている
-          console.log('タレントとしてログインページへリダイレクト')
-          setTimeout(() => {
+          } else if (profileData) {
+            console.log('✅ タレントとしてログインページへリダイレクト')
             router.push('/talent/login')
-          }, 7000)
-        } else {
-          
-          // どちらにも登録されていない（データ挿入失敗の可能性）
-          console.error('ユーザーデータが見つかりません:', userId)
-          setStatus('error')
-          setMessage('アカウント情報が見つかりません。もう一度登録をお試しください。')
-          
-          // 7秒後にトップページへリダイレクト
-          setTimeout(() => {
-            router.push('/')
-          }, 7000)
-        }
+          } else {
+            console.error('❌ どちらのテーブルにもデータが見つかりません')
+            setIsError(true)
+            setMessage('アカウント情報が見つかりません。\n\nもう一度登録をお試しください。')
+            
+            setTimeout(() => {
+              router.push('/')
+            }, 7000)
+          }
+        }, 7000)
+
       } catch (error) {
-        console.error('認証エラー:', error)
-        setStatus('error')
+        console.error('予期しないエラー:', error)
+        setIsError(true)
         setMessage('予期しないエラーが発生しました。')
       }
     }
 
-    handleEmailConfirmation()
-  }, [router, supabase])
+    confirmEmail()
+  }, [router, searchParams])
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-green-50 p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
         <div className="mb-6">
-          {status === 'checking' && (
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
-          )}
-          {status === 'success' && (
-            <div className="text-green-600 text-6xl mb-4">✓</div>
-          )}
-          {status === 'error' && (
+          {isError ? (
             <div className="text-red-600 text-6xl mb-4">✗</div>
+          ) : (
+            <>
+              <div className="text-green-600 text-6xl mb-4">✓</div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mt-4"></div>
+            </>
           )}
         </div>
         
         <h1 className="text-2xl font-bold mb-4 text-gray-800">
-          {status === 'checking' && 'メール認証確認中'}
-          {status === 'success' && '認証成功！'}
-          {status === 'error' && '認証エラー'}
+          {isError ? '認証エラー' : 'メール認証確認中'}
         </h1>
         
         <p className="text-gray-600 whitespace-pre-line">{message}</p>
 
-        {status === 'error' && (
+        {isError && (
           <div className="mt-6">
-            <a 
-              href="/"
-              className="text-blue-600 hover:text-blue-700 underline"
+            <button
+              onClick={() => router.push('/')}
+              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
             >
               トップページに戻る
-            </a>
+            </button>
           </div>
         )}
       </div>
