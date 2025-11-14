@@ -39,7 +39,7 @@ export default function TalentDashboardPage() {
       if (error) throw error;
 
       console.log('プロフィールデータ:', data);
-      console.log('名前:', data.name);
+      console.log('名前:', data.full_name);
 
       setProfile(data);
       
@@ -77,7 +77,7 @@ export default function TalentDashboardPage() {
             <h1 className="text-lg sm:text-2xl font-bold text-purple-600">請求書ぴっと - タレント</h1>
             <div className="flex items-center gap-2 sm:gap-4">
               <span className="hidden sm:inline text-sm text-gray-900">
-                {profile?.name} 様
+                {profile?.full_name} 様
               </span>
               <Button onClick={signOut} variant="outline" size="sm" className="text-xs sm:text-sm">
                 ログアウト
