@@ -155,7 +155,7 @@ export default function OrganizerDashboardPage() {
       const { data: organizerData, error: organizerError } = await supabase
         .from('organizers')
         .select('*')
-        .eq('created_by', user!.id)
+        .eq('id', user!.id)
         .single();
 
       if (organizerError) {
