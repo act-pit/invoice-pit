@@ -51,7 +51,7 @@ export default function SettingsPage() {
         // プロフィールが存在しない場合は初期値を設定
         setProfile({
           email: user!.email!,
-          name: user!.user_metadata?.name || '',
+          full_name: user!.user_metadata?.full_name || '',
           occupation_types: [],
           activity_areas: [],
         });
@@ -76,7 +76,7 @@ export default function SettingsPage() {
         .upsert({
           id: user!.id,
           email: user!.email!,
-          name: profile.name,
+          full_name: profile.full_name,
           phone: profile.phone,
           occupation: profile.occupation,
           area: profile.area,
@@ -167,8 +167,8 @@ export default function SettingsPage() {
 
                   <input
                     type="text"
-                    value={profile.name || ''}
-                    onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                    value={profile.full_name || ''}
+                    onChange={(e) => setProfile({ ...profile, full_name: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                     placeholder="山田 太郎"
                     required

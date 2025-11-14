@@ -43,7 +43,7 @@ export async function generateInvoicePDFSimple(invoice: Invoice, profile: Profil
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(profile.name || 'Name not set', 20, yPosition);
+  doc.text(profile.full_name || 'Name not set', 20, yPosition);
   yPosition += 5;
   
   if (profile.email) {

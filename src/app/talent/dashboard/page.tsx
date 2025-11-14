@@ -147,7 +147,7 @@ export default function TalentDashboardPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Link href="/invoices/create" className="block">
+                <Link href="/talent/invoices/create" className="block">
                   <Button 
                     className="w-full border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 hover:border-purple-700 transition-all text-xs sm:text-sm"
                   >
@@ -168,7 +168,7 @@ export default function TalentDashboardPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Link href="/invoices" className="block">
+                <Link href="/talent/invoices" className="block">
                   <Button 
                     className="w-full border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 hover:border-purple-700 transition-all text-xs sm:text-sm"
                   >

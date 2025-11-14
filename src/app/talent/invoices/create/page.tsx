@@ -341,7 +341,7 @@ const handleConfirmCreate = async () => {
           cast_user_id: user!.id,
           invoice_id: invoiceData.id,
           invoice_number: invoiceNumber,
-          cast_name: profileData?.name || user!.email || '',
+          cast_name: profileData?.full_name || user!.email || '',
           cast_email: user!.email || '',
           work_date: workDate || null,
           payment_due_date: paymentDueDate || null,

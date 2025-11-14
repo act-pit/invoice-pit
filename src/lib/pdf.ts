@@ -40,7 +40,7 @@ export async function generateInvoicePDF(invoice: Invoice, profile: Profile) {
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(profile.name || 'Name not set', 20, yPosition);
+  doc.text(profile.full_name || 'Name not set', 20, yPosition);
   yPosition += 5;
   
   if (profile.email) {

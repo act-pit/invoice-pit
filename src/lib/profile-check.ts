@@ -8,7 +8,7 @@ export function isProfileComplete(profile: Profile | null): boolean {
 
   // 必須項目：名前、住所、振込先
   const hasBasicInfo = !!(
-    profile.name &&
+    profile.full_name &&
     profile.postal_code &&
     profile.address
   );
@@ -32,7 +32,7 @@ export function getMissingProfileFields(profile: Profile | null): string[] {
 
   if (!profile) return ['全ての情報'];
 
-  if (!profile.name) missing.push('お名前');
+  if (!profile.full_name) missing.push('お名前');
   if (!profile.postal_code) missing.push('郵便番号');
   if (!profile.address) missing.push('住所');
   if (!profile.bank_name) missing.push('銀行名');

@@ -42,7 +42,7 @@ export async function generateInvoicePDFJapanese(invoice: Invoice, profile: Prof
   yPosition += 6;
   
   doc.setFontSize(10);
-  doc.text(profile.name || '名前未設定', 20, yPosition);
+  doc.text(profile.full_name || '名前未設定', 20, yPosition);
   yPosition += 5;
   
   if (profile.email) {

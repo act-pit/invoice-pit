@@ -179,7 +179,7 @@ export default function InvoicePrintPage() {
 
             {/* 請求元情報 */}
             <div className="border border-gray-400 p-2.5 bg-gray-50" style={{ minWidth: '180px', fontSize: '11px', lineHeight: '1.5' }}>
-              <p className="font-bold mb-1.5">{profile.name || 'キャスト名未設定'}</p>
+              <p className="font-bold mb-1.5">{profile.full_name || 'キャスト名未設定'}</p>
               {profile.postal_code && <p>〒{profile.postal_code}</p>}
               {profile.address && <p className="mb-1">{profile.address}</p>}
               {profile.email && <p>MAIL : {profile.email}</p>}
