@@ -28,166 +28,141 @@ export default function OrganizerRegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState(false)
+  const [success, setSuccess] = useState('')  // string型
   const router = useRouter()
   const supabase = createClientComponentClient()
 
   const handleRegister = async (e: React.FormEvent) => {
-  e.preventDefault()
-  setError('')
-  setLoading(true)
+    e.preventDefault()
+    setError('')
+    setLoading(true)
 
-  // バリデーション
-  if (!organizerName || !email || !password || !confirmPassword) {
-    setError('全ての項目を入力してください。')
-    setLoading(false)
-    return
-  }
-
-  if (password.length < 8) {
-    setError('パスワードは8文字以上である必要があります。')
-    setLoading(false)
-    return
-  }
-
-  if (password !== confirmPassword) {
-    setError('パスワードが一致しません。')
-    setLoading(false)
-    return
-  }
-
-  try {
-    // 1. メールアドレスの重複チェック（organizersテーブル）
-    const { data: existingOrganizer } = await supabase
-      .from('organizers')
-      .select('email')
-      .eq('email', email)
-      .single()
-
-    if (existingOrganizer) {
-      setError(
-        'このメールアドレスは既に主催者として登録されています。ログインページからログインしてください。'
-      )
+    // バリデーション
+    if (!organizerName || !email || !password || !confirmPassword) {
+      setError('全ての項目を入力してください。')
       setLoading(false)
       return
     }
 
-    // 2. メールアドレスの重複チェック（profilesテーブル）
-    const { data: existingProfile } = await supabase
-      .from('profiles')
-      .select('email')
-      .eq('email', email)
-      .single()
-
-    if (existingProfile) {
-      setError(
-        'このメールアドレスは既にタレントとして登録されています。\n\n「請求書ぴっと」では、1つのメールアドレスで1つの役割のみを持つことができます。\n\n主催者として登録したい場合は、別のメールアドレスをご使用ください。\n\nタレントとしてログインする場合は、以下からログインしてください。'
-      )
+    if (password.length < 8) {
+      setError('パスワードは8文字以上である必要があります。')
       setLoading(false)
       return
     }
 
-    // 3. ユニークな主催者コードを生成
-    let organizerCode = ''
-    let isUnique = false
-    let attempts = 0
-    const maxAttempts = 10
+    if (password !== confirmPassword) {
+      setError('パスワードが一致しません。')
+      setLoading(false)
+      return
+    }
 
-    while (!isUnique && attempts < maxAttempts) {
-      organizerCode = generateOrganizerCode()
-      const { data: existingCode } = await supabase
+    try {
+      // 1. メールアドレスの重複チェック（organizersテーブル）
+      const { data: existingOrganizer } = await supabase
         .from('organizers')
-        .select('organizer_code')
-        .eq('organizer_code', organizerCode)
+        .select('email')
+        .eq('email', email)
         .single()
 
-      if (!existingCode) {
-        isUnique = true
+      if (existingOrganizer) {
+        setError(
+          'このメールアドレスは既に主催者として登録されています。ログインページからログインしてください。'
+        )
+        setLoading(false)
+        return
       }
-      attempts++
-    }
 
-    if (!isUnique) {
-      setError('主催者コードの生成に失敗しました。もう一度お試しください。')
-      setLoading(false)
-      return
-    }
+      // 2. メールアドレスの重複チェック（profilesテーブル）
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('email', email)
+        .single()
 
-    console.log('=== 主催者登録開始 ===')
-    console.log('メール:', email)
-    console.log('主催者名:', organizerName)
-    console.log('主催者コード:', organizerCode)
+      if (existingProfile) {
+        setError(
+          'このメールアドレスは既にタレントとして登録されています。\n\n「請求書ぴっと」では、1つのメールアドレスで1つの役割のみを持つことができます。\n\n主催者として登録したい場合は、別のメールアドレスをご使用ください。\n\nタレントとしてログインする場合は、以下からログインしてください。'
+        )
+        setLoading(false)
+        return
+      }
 
-    // 4. Supabase Authにユーザーを登録
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email: email,
-      password: password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/confirm`,
-        data: {
-          role: 'organizer',
-          organizer_name: organizerName,
-          organizer_code: organizerCode,
+      // 3. ユニークな主催者コードを生成
+      let organizerCode = ''
+      let isUnique = false
+      let attempts = 0
+      const maxAttempts = 10
+
+      while (!isUnique && attempts < maxAttempts) {
+        organizerCode = generateOrganizerCode()
+        const { data: existingCode } = await supabase
+          .from('organizers')
+          .select('organizer_code')
+          .eq('organizer_code', organizerCode)
+          .single()
+
+        if (!existingCode) {
+          isUnique = true
+        }
+        attempts++
+      }
+
+      if (!isUnique) {
+        setError('主催者コードの生成に失敗しました。もう一度お試しください。')
+        setLoading(false)
+        return
+      }
+
+      console.log('=== 主催者登録開始 ===')
+      console.log('メール:', email)
+      console.log('主催者名:', organizerName)
+      console.log('主催者コード:', organizerCode)
+
+      // 4. Supabase Authにユーザーを登録
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email,
+        password: password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/confirm`,
+          data: {
+            role: 'organizer',
+            organizer_name: organizerName,
+            organizer_code: organizerCode,
+          },
         },
-      },
-    })
+      })
 
-    if (signUpError) {
-      console.error('サインアップエラー:', signUpError)
-      setError(`登録に失敗しました: ${signUpError.message}`)
+      if (signUpError) {
+        console.error('サインアップエラー:', signUpError)
+        setError(`登録に失敗しました: ${signUpError.message}`)
+        setLoading(false)
+        return
+      }
+
+      if (!data.user) {
+        setError('ユーザー情報の取得に失敗しました。')
+        setLoading(false)
+        return
+      }
+
+      console.log('=== Auth登録成功 ===')
+      console.log('ユーザーID:', data.user.id)
+      console.log('※ トリガーにより自動的にorganizersテーブルに挿入されます')
+
+      // 5. 成功（トリガーが自動的にorganizersに挿入）
+      setSuccess('登録が完了しました！\nメールアドレス宛に確認メールを送信しました。\nメール内のリンクをクリックして、メールアドレスを確認してください。')
       setLoading(false)
-      return
-    }
 
-    if (!data.user) {
-      setError('ユーザー情報の取得に失敗しました。')
+      // 7秒後にログインページへリダイレクト
+      setTimeout(() => {
+        router.push('/organizer/login')
+      }, 7000)
+    } catch (err) {
+      console.error('予期しないエラー:', err)
+      setError('予期しないエラーが発生しました。もう一度お試しください。')
       setLoading(false)
-      return
     }
-
-    console.log('=== Auth登録成功 ===')
-    console.log('ユーザーID:', data.user.id)
-
-    // 5. 主催者情報をorganizersテーブルに挿入
-    console.log('=== 主催者情報を挿入します ===')
-    
-    const { error: insertError } = await supabase
-      .from('organizers')
-      .insert([
-        {
-          id: data.user.id,
-          email: email,
-          name: organizerName,
-          organizer_code: organizerCode,
-        },
-      ])
-
-    if (insertError) {
-      console.error('=== 主催者情報の挿入エラー ===')
-      console.error('エラー詳細:', insertError)
-      
-      setError(`主催者情報の作成に失敗しました。\n詳細: ${insertError.message}`)
-      setLoading(false)
-      return
-    }
-
-    console.log('=== 主催者情報の挿入成功 ===')
-
-    // 6. 成功
-    setSuccess(true)
-    setLoading(false)
-
-    // 7秒後にログインページへリダイレクト
-    setTimeout(() => {
-      router.push('/organizer/login')
-    }, 7000)
-  } catch (err) {
-    console.error('予期しないエラー:', err)
-    setError('予期しないエラーが発生しました。もう一度お試しください。')
-    setLoading(false)
   }
-}
-
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50 p-4">
@@ -229,12 +204,8 @@ export default function OrganizerRegisterPage() {
 
         {success && (
           <Alert className="mb-4 bg-green-50 border-green-200">
-            <AlertDescription className="text-green-800 text-sm">
-              登録が完了しました！
-              <br />
-              メールアドレス宛に確認メールを送信しました。
-              <br />
-              メール内のリンクをクリックして、メールアドレスを確認してください。
+            <AlertDescription className="text-green-800 text-sm whitespace-pre-line">
+              {success}
             </AlertDescription>
           </Alert>
         )}
@@ -249,7 +220,7 @@ export default function OrganizerRegisterPage() {
               onChange={(e) => setOrganizerName(e.target.value)}
               placeholder="株式会社◯◯◯◯"
               required
-              disabled={loading || success}
+              disabled={loading || success !== ''}
               className="text-sm"
             />
           </div>
@@ -261,9 +232,8 @@ export default function OrganizerRegisterPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="info@invoice-pit.com"
               required
-              disabled={loading || success}
+              disabled={loading || success !== ''}
               className="text-sm"
             />
           </div>
@@ -276,7 +246,7 @@ export default function OrganizerRegisterPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              disabled={loading || success}
+              disabled={loading || success !== ''}
               className="text-sm"
             />
           </div>
@@ -289,17 +259,17 @@ export default function OrganizerRegisterPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              disabled={loading || success}
+              disabled={loading || success !== ''}
               className="text-sm"
             />
           </div>
 
           <Button
             type="submit"
-            disabled={loading || success}
+            disabled={loading || success !== ''}
             className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white text-sm"
           >
-            {loading ? '登録中...' : '登録する'}
+            {loading ? '登録中...' : success ? '登録完了' : '登録する'}
           </Button>
         </form>
 
