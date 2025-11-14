@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
-export default function ConfirmPage() {
+// メインコンポーネント（useSearchParamsを使用）
+function ConfirmContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [message, setMessage] = useState('メールアドレスを確認しています...')
@@ -40,7 +41,7 @@ export default function ConfirmPage() {
           setMessage(
             'メールリンクの有効期限が切れています。\n\n' +
             '新しく登録し直してください。\n' +
-            'メールが届いたら、すぐに（1分以内に）リンクをクリックしてください。'
+            'メールが届いたら、すぐに（60分以内に）リンクをクリックしてください。'
           )
         } else {
           setMessage(error_description || '認証に失敗しました。')
@@ -167,5 +168,26 @@ export default function ConfirmPage() {
         )}
       </div>
     </div>
+  )
+}
+
+// ローディングコンポーネント
+function Loading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-green-50 p-4">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="mt-4 text-gray-600">読み込み中...</p>
+      </div>
+    </div>
+  )
+}
+
+// エクスポートするコンポーネント（Suspenseでラップ）
+export default function ConfirmPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <ConfirmContent />
+    </Suspense>
   )
 }
