@@ -107,7 +107,7 @@ function ConfirmContent() {
 
         setMessage('✅ メールアドレスの確認が完了しました！\n\nログインページにリダイレクトします...')
 
-        // 7秒後にリダイレクト
+        // 3秒後にリダイレクト
         setTimeout(() => {
           if (organizerData) {
             console.log('✅ 主催者としてログインページへリダイレクト')
@@ -122,9 +122,9 @@ function ConfirmContent() {
             
             setTimeout(() => {
               router.push('/')
-            }, 7000)
+            }, 3000)
           }
-        }, 7000)
+        }, 3000)
 
       } catch (error) {
         console.error('予期しないエラー:', error)
