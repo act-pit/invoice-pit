@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { InvoiceItem, Organizer, Profile } from '@/types/database';
 import { checkSubscriptionLimits } from '@/lib/subscription-utils';
-import { INVOICE_CATEGORIES, getCategoryById, calculateWithholding } from '@/lib/invoice-categories';
+import { INVOICE_CATEGORIES, getCategoryById } from '@/lib/invoice-categories';
 
 export default function CreateInvoicePage() {
   const { user, loading: authLoading } = useAuth();
@@ -23,23 +23,22 @@ export default function CreateInvoicePage() {
   const [showProfileWarning, setShowProfileWarning] = useState(false);
 
   // フォームの状態
-  const [projectName, setProjectName] = useState('');
   const [workDate, setWorkDate] = useState('');
   const [paymentDueDate, setPaymentDueDate] = useState('');
   const [subject, setSubject] = useState('');
   const [items, setItems] = useState<InvoiceItem[]>([
-  {
-    name: '',
-    quantity: 1,  // ← 追加（デフォルト：1）
-    amount: 0,
-    category: '',
-    isTaxIncluded: false,
-    isWithholdingTarget: false,
-    isTaxExempt: false,
-  }
-]);
+    {
+      name: '',
+      quantity: 1,
+      amount: 0,
+      category: '',
+      isTaxIncluded: false,
+      isWithholdingTarget: false,
+      isTaxExempt: false,
+    }
+  ]);
 
-  const taxRate = 10; // 消費税率を10%固定
+  const taxRate = 10;
 
   const [notes, setNotes] = useState('平素は格別のご高配を賜り、厚く御礼申し上げます。\n下記の件につきまして、ご請求申し上げます。\nご査収のほど、よろしくお願いいたします。');
   const [recipientName, setRecipientName] = useState('');
@@ -51,13 +50,14 @@ export default function CreateInvoicePage() {
   const [verifiedOrganizer, setVerifiedOrganizer] = useState<Organizer | null>(null);
   const [verifying, setVerifying] = useState(false);
 
-    useEffect(() => {
+  // 認証チェック
+  useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/login');
+      router.push('/talent/login');
     }
   }, [user, authLoading, router]);
 
-  // プロフィールと制限チェック
+  // プロフィール読み込みと制限チェック
   useEffect(() => {
     const fetchProfileAndCheckLimits = async () => {
       if (!user) return;
@@ -67,13 +67,27 @@ export default function CreateInvoicePage() {
           .from('profiles')
           .select('*')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
-        if (error) throw error;
+        if (error) {
+          console.error('プロフィール取得エラー:', error);
+          return;
+        }
+
+        if (!profileData) {
+          console.warn('プロフィールが存在しません');
+          setShowProfileWarning(true);
+          return;
+        }
         
         setProfile(profileData);
 
-        // 制限チェック
+        // プロフィール完全性チェック
+        if (!isProfileComplete(profileData)) {
+          setShowProfileWarning(true);
+        }
+
+        // サブスクリプション制限チェック
         const limits = await checkSubscriptionLimits(profileData);
         setCanCreate(limits.canCreateInvoice);
         
@@ -81,20 +95,14 @@ export default function CreateInvoicePage() {
           setLimitMessage(limits.reason);
         }
       } catch (error) {
-        console.error('プロフィール取得エラー:', error);
+        console.error('プロフィールチェックエラー:', error);
       }
     };
 
     fetchProfileAndCheckLimits();
   }, [user]);
 
-    useEffect(() => {
-    if (profile && !isProfileComplete(profile)) {
-      setShowProfileWarning(true);
-    }
-  }, [profile]);
-
-  // 主催者コードを確認
+  // 主催者コード確認
   const verifyOrganizerCode = async () => {
     if (!organizerCode.trim()) {
       setVerifiedOrganizer(null);
@@ -107,7 +115,7 @@ export default function CreateInvoicePage() {
         .from('organizers')
         .select('*')
         .eq('organizer_code', organizerCode.trim().toUpperCase())
-        .single();
+        .maybeSingle();
 
       if (error || !data) {
         alert('主催者コードが見つかりません');
@@ -126,7 +134,7 @@ export default function CreateInvoicePage() {
   const addItem = () => {
     setItems([...items, {
       name: '',
-      quantity: 1,  // ← 追加
+      quantity: 1,
       amount: 0,
       category: '',
       isTaxIncluded: false,
@@ -134,7 +142,6 @@ export default function CreateInvoicePage() {
       isTaxExempt: false,
     }]);
   };
-
 
   const removeItem = (index: number) => {
     setItems(items.filter((_, i) => i !== index));
@@ -146,7 +153,6 @@ export default function CreateInvoicePage() {
     setItems(newItems);
   };
 
-  // カテゴリー選択時のプリセット適用
   const updateItemCategory = (index: number, categoryId: string) => {
     const category = getCategoryById(categoryId);
     const newItems = [...items];
@@ -165,88 +171,70 @@ export default function CreateInvoicePage() {
     setItems(newItems);
   };
 
-  // 税抜金額の合計を計算
   const calculateSubtotal = () => {
-  return items.reduce((sum, item) => {
-    const quantity = Number(item.quantity || 1);
-    let amount = Number(item.amount || 0) * quantity;  // ← 個数 × 単価
-    
-    // 値引き項目は自動的にマイナスにする
-    if (item.category === 'discount') {
-      amount = -Math.abs(amount);
-    }
-    
-    // 非課税の場合はそのまま
-    if (item.isTaxExempt) {
+    return items.reduce((sum, item) => {
+      const quantity = Number(item.quantity || 1);
+      let amount = Number(item.amount || 0) * quantity;
+      
+      if (item.category === 'discount') {
+        amount = -Math.abs(amount);
+      }
+      
+      if (item.isTaxExempt) {
+        return sum + amount;
+      }
+      
+      if (item.isTaxIncluded && taxRate > 0) {
+        const taxAmount = Math.floor(amount - (amount / (1 + taxRate / 100)));
+        return sum + (amount - taxAmount);
+      }
+      
       return sum + amount;
-    }
-    
-    // 税込の場合は税込金額から消費税を引いて税抜を算出
-    if (item.isTaxIncluded && taxRate > 0) {
-      const taxAmount = Math.floor(amount - (amount / (1 + taxRate / 100)));
-      return sum + (amount - taxAmount);
-    }
-    
-    // 税抜の場合はそのまま
-    return sum + amount;
-  }, 0);
-};
+    }, 0);
+  };
 
+  const calculateTax = () => {
+    return items.reduce((sum, item) => {
+      const quantity = Number(item.quantity || 1);
+      let amount = Number(item.amount || 0) * quantity;
+      
+      if (item.category === 'discount') {
+        amount = -Math.abs(amount);
+      }
+      
+      if (item.isTaxExempt) {
+        return sum;
+      }
+      
+      if (item.isTaxIncluded && taxRate > 0) {
+        return sum + Math.floor(amount - (amount / (1 + taxRate / 100)));
+      }
+      
+      return sum + Math.floor(amount * (taxRate / 100));
+    }, 0);
+  };
 
-  // 消費税の合計を計算
-const calculateTax = () => {
-  return items.reduce((sum, item) => {
-    const quantity = Number(item.quantity || 1);
-    let amount = Number(item.amount || 0) * quantity;  // ← 個数 × 単価
-    
-    // 値引き項目は自動的にマイナスにする
-    if (item.category === 'discount') {
-      amount = -Math.abs(amount);
-    }
-    
-    // 非課税の場合は0
-    if (item.isTaxExempt) {
-      return sum;
-    }
-    
-    // 税込の場合は税込金額から税抜を引いて消費税を算出
-    if (item.isTaxIncluded && taxRate > 0) {
-      return sum + Math.floor(amount - (amount / (1 + taxRate / 100)));
-    }
-    
-    // 税抜の場合は税率から計算
-    return sum + Math.floor(amount * (taxRate / 100));
-  }, 0);
-};
+  const calculateWithholdingTotal = () => {
+    return items.reduce((sum, item) => {
+      if (!item.isWithholdingTarget) return sum;
+      
+      const quantity = Number(item.quantity || 1);
+      let amount = Number(item.amount || 0) * quantity;
+      
+      if (item.category === 'discount') {
+        amount = -Math.abs(amount);
+      }
+      
+      let baseAmount = amount;
+      
+      if (item.isTaxIncluded && taxRate > 0) {
+        baseAmount = Math.floor(amount / (1 + taxRate / 100));
+      }
+      
+      return sum + Math.floor(baseAmount * 0.1021);
+    }, 0);
+  };
 
-
-  // 源泉徴収の合計を計算（自動計算）
-const calculateWithholdingTotal = () => {
-  return items.reduce((sum, item) => {
-    if (!item.isWithholdingTarget) return sum;
-    
-    const quantity = Number(item.quantity || 1);
-    let amount = Number(item.amount || 0) * quantity;  // ← 個数 × 単価
-    
-    // 値引き項目は自動的にマイナスにする
-    if (item.category === 'discount') {
-      amount = -Math.abs(amount);
-    }
-    
-    let baseAmount = amount;
-    
-    // 税込の場合は税抜に戻す
-    if (item.isTaxIncluded && taxRate > 0) {
-      baseAmount = Math.floor(amount / (1 + taxRate / 100));
-    }
-    
-    // 源泉徴収額を計算（10.21%）
-    return sum + Math.floor(baseAmount * 0.1021);
-  }, 0);
-};
-
-
-  // 合計金額を計算
   const calculateTotal = () => {
     const subtotal = calculateSubtotal();
     const tax = calculateTax();
@@ -263,120 +251,114 @@ const calculateWithholdingTotal = () => {
     return `INV-${year}${month}-${random}`;
   };
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  // 制限チェック
-  if (!canCreate) {
-    alert('請求書の作成制限に達しています。有料プランにアップグレードしてください。');
-    router.push('/subscription');
-    return;
-  }
-
-  // プレビューモーダルを表示
-  setShowPreviewModal(true);
-};
-
-// 実際の保存処理を行う関数
-const handleConfirmCreate = async () => {
-  setLoading(true);
-  setMessage('');
-  setShowPreviewModal(false);
-
-  try {
-    const subtotal = calculateSubtotal();
-    const tax = calculateTax();
-    const withholdingTotal = calculateWithholdingTotal();
-    const total = calculateTotal();
-    const invoiceNumber = generateInvoiceNumber();
-
-    // キャストの請求書として保存
-    const { data: invoiceData, error: invoiceError } = await supabase
-  .from('invoices')
-  .insert({
-    user_id: user!.id,
-    invoice_number: invoiceNumber,
-    work_date: workDate || null,
-    payment_due_date: paymentDueDate || null,
-    subject: subject,
-    recipient_name: recipientName || null,
-    recipient_type: recipientType || null,
-    recipient_address: recipientAddress || null,  // ← 追加
-    notes: notes || null,
-    items: items,
-    subtotal: subtotal,
-    tax: tax,
-    withholding: withholdingTotal,
-    total: total,
-    status: 'draft',
-    organizer_id: verifiedOrganizer?.id || null,
-  })
-  .select()
-  .single();
-
-
-    if (invoiceError) throw invoiceError;
-
-    // 請求書カウントを更新（トライアルユーザーのみ）
-    if (profile?.subscription_status === 'trial') {
-      await supabase
-        .from('profiles')
-        .update({ invoice_count: (profile.invoice_count || 0) + 1 })
-        .eq('id', user!.id);
+    // プロフィール未登録チェック
+    if (!profile || !isProfileComplete(profile)) {
+      setShowProfileWarning(true);
+      return;
     }
 
-    // 主催者が選択されている場合、主催者にも送信
-    if (verifiedOrganizer && invoiceData) {
-      // プロフィール情報を取得
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user!.id)
-        .single();
+    // 制限チェック
+    if (!canCreate) {
+      alert('請求書の作成制限に達しています。有料プランにアップグレードしてください。');
+      router.push('/talent/subscription');
+      return;
+    }
 
-      const { error: orgInvoiceError } = await supabase
-        .from('organizer_invoices')
+    setShowPreviewModal(true);
+  };
+
+  const handleConfirmCreate = async () => {
+    setLoading(true);
+    setMessage('');
+    setShowPreviewModal(false);
+
+    try {
+      const subtotal = calculateSubtotal();
+      const tax = calculateTax();
+      const withholdingTotal = calculateWithholdingTotal();
+      const total = calculateTotal();
+      const invoiceNumber = generateInvoiceNumber();
+
+      const { data: invoiceData, error: invoiceError } = await supabase
+        .from('invoices')
         .insert({
-          organizer_id: verifiedOrganizer.id,
-          cast_user_id: user!.id,
-          invoice_id: invoiceData.id,
+          user_id: user!.id,
           invoice_number: invoiceNumber,
-          cast_name: profileData?.full_name || user!.email || '',
-          cast_email: user!.email || '',
           work_date: workDate || null,
           payment_due_date: paymentDueDate || null,
           subject: subject,
+          recipient_name: recipientName || null,
+          recipient_type: recipientType || null,
+          recipient_address: recipientAddress || null,
+          notes: notes || null,
           items: items,
           subtotal: subtotal,
           tax: tax,
           withholding: withholdingTotal,
           total: total,
-          bank_name: profileData?.bank_name,
-          branch_name: profileData?.branch_name,
-          account_type: profileData?.account_type,
-          account_number: profileData?.account_number,
-          account_holder: profileData?.account_holder,
-          invoice_reg_number: profileData?.invoice_reg_number,
-          status: 'pending',
-        });
+          status: 'draft',
+          organizer_id: verifiedOrganizer?.id || null,
+        })
+        .select()
+        .single();
 
-      if (orgInvoiceError) throw orgInvoiceError;
+      if (invoiceError) throw invoiceError;
+
+      // トライアルユーザーのカウント更新
+      if (profile?.subscription_status === 'trial') {
+        await supabase
+          .from('profiles')
+          .update({ invoice_count: (profile.invoice_count || 0) + 1 })
+          .eq('id', user!.id);
+      }
+
+      // 主催者への送信
+      if (verifiedOrganizer && invoiceData) {
+        const { error: orgInvoiceError } = await supabase
+          .from('organizer_invoices')
+          .insert({
+            organizer_id: verifiedOrganizer.id,
+            cast_user_id: user!.id,
+            invoice_id: invoiceData.id,
+            invoice_number: invoiceNumber,
+            cast_name: profile?.full_name || user!.email || '',
+            cast_email: user!.email || '',
+            work_date: workDate || null,
+            payment_due_date: paymentDueDate || null,
+            subject: subject,
+            items: items,
+            subtotal: subtotal,
+            tax: tax,
+            withholding: withholdingTotal,
+            total: total,
+            bank_name: profile?.bank_name,
+            branch_name: profile?.branch_name,
+            account_type: profile?.account_type,
+            account_number: profile?.account_number,
+            account_holder: profile?.account_holder,
+            invoice_reg_number: profile?.invoice_reg_number,
+            status: 'pending',
+          });
+
+        if (orgInvoiceError) throw orgInvoiceError;
+      }
+
+      setMessage(verifiedOrganizer 
+        ? '請求書を作成し、主催者に送信しました！'
+        : '請求書を作成しました！');
+      
+      setTimeout(() => {
+        router.push('/talent/invoices');
+      }, 1500);
+    } catch (error: any) {
+      console.error('作成エラー:', error);
+      setMessage('作成に失敗しました: ' + error.message);
+      setLoading(false);
     }
-
-    setMessage(verifiedOrganizer 
-      ? '請求書を作成し、主催者に送信しました！'
-      : '請求書を作成しました！');
-    
-    setTimeout(() => {
-      router.push('/talent/invoices');
-    }, 1500);
-  } catch (error: any) {
-    console.error('作成エラー:', error);
-    setMessage('作成に失敗しました: ' + error.message);
-    setLoading(false);
-  }
-};
-
+  };
 
   if (authLoading) {
     return (
@@ -395,6 +377,7 @@ const handleConfirmCreate = async () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* ヘッダー */}
       <header className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-4 flex justify-between items-center">
           <h1 className="text-lg sm:text-2xl font-bold text-purple-600">請求書ぴっと</h1>
@@ -403,7 +386,6 @@ const handleConfirmCreate = async () => {
           </Button>
         </div>
       </header>
-
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
@@ -425,7 +407,6 @@ const handleConfirmCreate = async () => {
           }}
           className="space-y-6"
         >
-
           {/* 制限警告 */}
           {!canCreate && (
             <Card className="border-red-500 bg-red-50">
@@ -439,7 +420,7 @@ const handleConfirmCreate = async () => {
                     <p className="text-red-700 text-sm mb-3">{limitMessage}</p>
                     <button
                       type="button"
-                      onClick={() => router.push('/subscription')}
+                      onClick={() => router.push('/talent/subscription')}
                       className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors text-sm font-medium"
                     >
                       有料プランにアップグレード
@@ -450,7 +431,7 @@ const handleConfirmCreate = async () => {
             </Card>
           )}
 
-                    {/* トライアル情報表示 */}
+          {/* トライアル情報 */}
           {canCreate && profile?.subscription_status === 'trial' && limitMessage && (
             <Card className="border-yellow-500 bg-yellow-50">
               <CardContent className="pt-6">
@@ -463,7 +444,7 @@ const handleConfirmCreate = async () => {
                     <p className="text-yellow-700 text-sm mb-2">{limitMessage}</p>
                     <button
                       type="button"
-                      onClick={() => router.push('/subscription')}
+                      onClick={() => router.push('/talent/subscription')}
                       className="text-yellow-800 text-sm font-medium hover:text-yellow-900 underline underline-offset-2 hover:underline-offset-4 transition-all"
                     >
                       プランを確認 →
@@ -476,7 +457,6 @@ const handleConfirmCreate = async () => {
 
           {/* 主催者連携 */}
           <Card className="border-purple-200 bg-purple-50">
-
             <CardHeader>
               <CardTitle>主催者連携（任意）</CardTitle>
               <CardDescription>主催者コードを入力すると、請求書を直接送信できます</CardDescription>
@@ -508,66 +488,63 @@ const handleConfirmCreate = async () => {
                 </div>
               )}
 
+              {!verifiedOrganizer && (
+                <div className="border-t pt-4 space-y-4">
+                  <p className="text-sm font-medium text-gray-700">
+                    または、請求先を直接入力してください
+                  </p>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">請求先名</label>
+                    <input
+                      type="text"
+                      value={recipientName}
+                      onChange={(e) => setRecipientName(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      placeholder="例: 株式会社〇〇 または 山田太郎"
+                    />
+                  </div>
 
-              {/* 主催者未選択時の請求先入力 */}
-{!verifiedOrganizer && (
-  <div className="border-t pt-4 space-y-4">
-    <p className="text-sm font-medium text-gray-700">
-      または、請求先を直接入力してください
-    </p>
-    
-    <div className="space-y-2">
-      <label className="text-sm font-medium">請求先名</label>
-      <input
-        type="text"
-        value={recipientName}
-        onChange={(e) => setRecipientName(e.target.value)}
-        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-        placeholder="例: 株式会社〇〇 または 山田太郎"
-      />
-    </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">請求先住所（任意）</label>
+                    <input
+                      type="text"
+                      value={recipientAddress}
+                      onChange={(e) => setRecipientAddress(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      placeholder="例: 東京都渋谷区〇〇1-2-3"
+                    />
+                  </div>
 
-    <div className="space-y-2">
-      <label className="text-sm font-medium">請求先住所（任意）</label>
-      <input
-        type="text"
-        value={recipientAddress}
-        onChange={(e) => setRecipientAddress(e.target.value)}
-        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-        placeholder="例: 東京都渋谷区〇〇1-2-3"
-      />
-    </div>
-
-    <div className="space-y-2">
-      <label className="text-sm font-medium">敬称</label>
-      <div className="flex gap-4">
-        <label className="flex items-center gap-2">
-          <input
-            type="radio"
-            name="recipientType"
-            value="company"
-            checked={recipientType === 'company'}
-            onChange={(e) => setRecipientType('company')}
-            className="rounded"
-          />
-          <span className="text-sm">御中（会社・団体）</span>
-        </label>
-        <label className="flex items-center gap-2">
-          <input
-            type="radio"
-            name="recipientType"
-            value="individual"
-            checked={recipientType === 'individual'}
-            onChange={(e) => setRecipientType('individual')}
-            className="rounded"
-          />
-          <span className="text-sm">様（個人）</span>
-        </label>
-      </div>
-    </div>
-  </div>
-)}
-
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">敬称</label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="recipientType"
+                          value="company"
+                          checked={recipientType === 'company'}
+                          onChange={() => setRecipientType('company')}
+                          className="rounded"
+                        />
+                        <span className="text-sm">御中（会社・団体）</span>
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="recipientType"
+                          value="individual"
+                          checked={recipientType === 'individual'}
+                          onChange={() => setRecipientType('individual')}
+                          className="rounded"
+                        />
+                        <span className="text-sm">様（個人）</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -578,7 +555,7 @@ const handleConfirmCreate = async () => {
               <CardDescription>件名と日付を入力してください</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-               <div className="space-y-2">
+              <div className="space-y-2">
                 <label className="text-sm font-medium">件名</label>
                 <input
                   type="text"
@@ -610,7 +587,6 @@ const handleConfirmCreate = async () => {
                   />
                 </div>
               </div>
-
             </CardContent>
           </Card>
 
@@ -646,7 +622,6 @@ const handleConfirmCreate = async () => {
             <CardContent className="space-y-6">
               {items.map((item, index) => (
                 <div key={index} className="border rounded-lg p-4 space-y-4 bg-gray-50">
-                  {/* カテゴリー選択 */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium">項目ジャンル</label>
                     <select
@@ -664,7 +639,6 @@ const handleConfirmCreate = async () => {
                     </select>
                   </div>
 
-                  {/* 項目名（その他の場合のみ編集可能） */}
                   {item.category === 'other' && (
                     <div className="space-y-2">
                       <label className="text-sm font-medium">項目名</label>
@@ -679,59 +653,55 @@ const handleConfirmCreate = async () => {
                     </div>
                   )}
 
-                  {/* 個数と単価を並べて配置 */}
                   <div className="grid grid-cols-3 gap-4">
-                  {/* 個数 */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">個数</label>
-                    <input
-                      type="number"
-                      value={item.quantity}
-                      onChange={(e) => updateItem(index, 'quantity', Number(e.target.value) || 1)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      min="1"
-                      step="1"
-                      required
-                    />
-                  </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">個数</label>
+                      <input
+                        type="number"
+                        value={item.quantity}
+                        onChange={(e) => updateItem(index, 'quantity', Number(e.target.value) || 1)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        min="1"
+                        step="1"
+                        required
+                      />
+                    </div>
 
-                  {/* 単価 */}
-                  <div className="col-span-2 space-y-2">
-                    <label className="text-sm font-medium">
-                      単価
-                      {item.category === 'discount' && <span className="ml-2 text-xs text-red-600">(値引き額)</span>}
-                      {item.isTaxExempt && <span className="ml-2 text-xs text-gray-500">(非課税)</span>}
-                      {!item.isTaxExempt && item.isTaxIncluded && <span className="ml-2 text-xs text-gray-500">(税込)</span>}
-                      {!item.isTaxExempt && !item.isTaxIncluded && <span className="ml-2 text-xs text-gray-500">(税抜)</span>}
+                    <div className="col-span-2 space-y-2">
+                      <label className="text-sm font-medium">
+                        単価
+                        {item.category === 'discount' && <span className="ml-2 text-xs text-red-600">(値引き額)</span>}
+                        {item.isTaxExempt && <span className="ml-2 text-xs text-gray-500">(非課税)</span>}
+                        {!item.isTaxExempt && item.isTaxIncluded && <span className="ml-2 text-xs text-gray-500">(税込)</span>}
+                        {!item.isTaxExempt && !item.isTaxIncluded && <span className="ml-2 text-xs text-gray-500">(税抜)</span>}
                       </label>
                       <div className="relative">
                         {item.category === 'discount' && item.amount > 0 && (
                           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-red-600 font-bold pointer-events-none">
-                          -
+                            -
                           </div>
                         )}
                         <input
-                        type="number"
-                        value={item.amount === 0 ? '' : item.amount}
-                        onChange={(e) => {
-                          const value = e.target.value === '' ? 0 : Number(e.target.value);
-                          updateItem(index, 'amount', Math.abs(value));
-                        }}
-                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                          item.category === 'discount'
-                          ? 'border-red-300 text-red-600 font-semibold focus:ring-red-500 pl-8'
-                          : 'border-gray-300 focus:ring-purple-500'
-                        }`}
-                        placeholder={item.category === 'discount' ? '値引き額' : '単価'}
-                        required
-                        min="0"
-                        step="1"
-                       />
+                          type="number"
+                          value={item.amount === 0 ? '' : item.amount}
+                          onChange={(e) => {
+                            const value = e.target.value === '' ? 0 : Number(e.target.value);
+                            updateItem(index, 'amount', Math.abs(value));
+                          }}
+                          className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                            item.category === 'discount'
+                              ? 'border-red-300 text-red-600 font-semibold focus:ring-red-500 pl-8'
+                              : 'border-gray-300 focus:ring-purple-500'
+                          }`}
+                          placeholder={item.category === 'discount' ? '値引き額' : '単価'}
+                          required
+                          min="0"
+                          step="1"
+                        />
                       </div>
                     </div>
                   </div>
-  
-                  {/* 小計表示 */}
+
                   {item.quantity && item.amount > 0 && (
                     <div className="bg-purple-50 border border-purple-200 rounded-md px-3 py-2">
                       <p className="text-sm text-purple-900">
@@ -739,23 +709,17 @@ const handleConfirmCreate = async () => {
                         {item.quantity} × ¥{item.amount.toLocaleString()} = {' '}
                         <span className="font-bold text-purple-700">
                           ¥{(item.quantity * item.amount).toLocaleString()}
-                          </span>
-                          </p>
-                          </div>
-                        )}
+                        </span>
+                      </p>
+                    </div>
+                  )}
 
-
-                  {/* 詳細設定 */}
                   {item.category && (
                     <div className="space-y-2 pt-2 border-t">
                       <p className="text-xs font-medium text-gray-600 mb-2">詳細設定（変更可能）</p>
-                      
-                      {/* チェックボックスを横並びに */}
-                        <div className="flex flex-wrap gap-3 sm:gap-4">
-                        {/* 税込/税抜切り替え（非課税以外） */}
+                      <div className="flex flex-wrap gap-3 sm:gap-4">
                         {!item.isTaxExempt && (
-                          <label className="flex items-center gap-1.5 text-sm sm:text-base cursor-pointer">
-
+                          <label className="flex items-center gap-1.5 text-sm cursor-pointer">
                             <input
                               type="checkbox"
                               checked={item.isTaxIncluded}
@@ -766,8 +730,7 @@ const handleConfirmCreate = async () => {
                           </label>
                         )}
 
-                        {/* 源泉徴収対象 */}
-                        <label className="flex items-center gap-1.5 text-sm sm:text-sm cursor-pointer">
+                        <label className="flex items-center gap-1.5 text-sm cursor-pointer">
                           <input
                             type="checkbox"
                             checked={item.isWithholdingTarget}
@@ -777,8 +740,7 @@ const handleConfirmCreate = async () => {
                           <span>源泉徴収対象</span>
                         </label>
 
-                        {/* 非課税 */}
-                        <label className="flex items-center gap-1.5 text-sm sm:text-sm cursor-pointer">
+                        <label className="flex items-center gap-1.5 text-sm cursor-pointer">
                           <input
                             type="checkbox"
                             checked={item.isTaxExempt}
@@ -791,8 +753,6 @@ const handleConfirmCreate = async () => {
                     </div>
                   )}
 
-
-                  {/* 削除ボタン */}
                   {items.length > 1 && (
                     <button
                       type="button"
@@ -811,7 +771,6 @@ const handleConfirmCreate = async () => {
             </CardContent>
           </Card>
 
-
           {/* 金額計算 */}
           <Card>
             <CardHeader>
@@ -819,8 +778,6 @@ const handleConfirmCreate = async () => {
               <CardDescription>消費税や源泉徴収が自動計算されます。</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-
-              {/* 金額サマリー */}
               <div className="bg-gray-50 p-4 rounded-lg space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">小計（税抜）:</span>
@@ -840,7 +797,6 @@ const handleConfirmCreate = async () => {
                 </div>
               </div>
 
-              {/* 計算の説明 */}
               <div className="text-xs text-gray-500 space-y-1">
                 <p>• 源泉徴収対象の項目から自動で10.21%が計算されます</p>
                 <p>• 税込入力の項目は自動で税抜に換算されます</p>
@@ -868,35 +824,29 @@ const handleConfirmCreate = async () => {
         {showPreviewModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              {/* ヘッダー */}
               <div className="sticky top-0 bg-white border-b px-6 py-4">
                 <h3 className="text-xl font-bold text-gray-900">請求書プレビュー</h3>
                 <p className="text-sm text-gray-600 mt-1">内容を確認して、問題なければ作成してください</p>
               </div>
 
-              {/* プレビュー内容 */}
               <div className="px-6 py-6 space-y-6">
-                
-              {/* 請求先情報 */}
-              {verifiedOrganizer ? (
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <p className="text-sm font-medium text-purple-900 mb-1">送信先</p>
-                <p className="text-lg font-bold text-purple-700">{verifiedOrganizer.name} 御中</p>
-              </div>
-              ) : recipientName ? (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <p className="text-sm font-medium text-gray-700 mb-1">請求先</p>
-                <p className="text-lg font-bold text-gray-900">
-                  {recipientName} {recipientType === 'company' ? '御中' : '様'}
-                </p>
-                  {recipientAddress && (
-                <p className="text-sm text-gray-600 mt-1">{recipientAddress}</p>
-                )}
-                </div>
-              ) : null}
+                {verifiedOrganizer ? (
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <p className="text-sm font-medium text-purple-900 mb-1">送信先</p>
+                    <p className="text-lg font-bold text-purple-700">{verifiedOrganizer.name} 御中</p>
+                  </div>
+                ) : recipientName ? (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <p className="text-sm font-medium text-gray-700 mb-1">請求先</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {recipientName} {recipientType === 'company' ? '御中' : '様'}
+                    </p>
+                    {recipientAddress && (
+                      <p className="text-sm text-gray-600 mt-1">{recipientAddress}</p>
+                    )}
+                  </div>
+                ) : null}
 
-
-                {/* 基本情報 */}
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -918,55 +868,51 @@ const handleConfirmCreate = async () => {
                   </div>
                 </div>
 
-                {/* 請求項目 */}
-<div className="border-t pt-4">
-  <p className="text-sm font-semibold text-gray-700 mb-3">請求項目</p>
-  <div className="space-y-2">
-    {items.map((item, index) => {
-      if (!item.name || !item.amount) return null;
-      const isDiscount = item.category === 'discount';
-      const quantity = item.quantity || 1;
-      const unitPrice = item.amount;
-      const subtotal = quantity * unitPrice;
-      const displaySubtotal = isDiscount ? -Math.abs(subtotal) : subtotal;
-      
-      return (
-        <div key={index} className="py-2 border-b border-gray-100">
-          <div className="flex justify-between items-start">
-            <div className="flex-1">
-              <p className={`font-medium ${isDiscount ? 'text-red-600' : 'text-gray-900'}`}>
-                {item.name}
-              </p>
-              <div className="flex gap-2 mt-1">
-                {item.isTaxExempt && (
-                  <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">非課税</span>
-                )}
-                {!item.isTaxExempt && (
-                  <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
-                    {item.isTaxIncluded ? '税込' : '税抜'}
-                  </span>
-                )}
-                {item.isWithholdingTarget && (
-                  <span className="text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded">源泉徴収対象</span>
-                )}
-              </div>
-            </div>
-            <p className={`font-bold text-lg ${isDiscount ? 'text-red-600' : 'text-gray-900'}`}>
-              {isDiscount && '-'}¥{Math.abs(displaySubtotal).toLocaleString()}
-            </p>
-          </div>
-          {/* 個数・単価の詳細 */}
-          <p className="text-xs text-gray-500 mt-1">
-            {quantity} × ¥{unitPrice.toLocaleString()} = ¥{Math.abs(displaySubtotal).toLocaleString()}
-          </p>
-        </div>
-      );
-    })}
-  </div>
-</div>
+                <div className="border-t pt-4">
+                  <p className="text-sm font-semibold text-gray-700 mb-3">請求項目</p>
+                  <div className="space-y-2">
+                    {items.map((item, index) => {
+                      if (!item.name || !item.amount) return null;
+                      const isDiscount = item.category === 'discount';
+                      const quantity = item.quantity || 1;
+                      const unitPrice = item.amount;
+                      const subtotal = quantity * unitPrice;
+                      const displaySubtotal = isDiscount ? -Math.abs(subtotal) : subtotal;
+                      
+                      return (
+                        <div key={index} className="py-2 border-b border-gray-100">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <p className={`font-medium ${isDiscount ? 'text-red-600' : 'text-gray-900'}`}>
+                                {item.name}
+                              </p>
+                              <div className="flex gap-2 mt-1">
+                                {item.isTaxExempt && (
+                                  <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">非課税</span>
+                                )}
+                                {!item.isTaxExempt && (
+                                  <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
+                                    {item.isTaxIncluded ? '税込' : '税抜'}
+                                  </span>
+                                )}
+                                {item.isWithholdingTarget && (
+                                  <span className="text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded">源泉徴収対象</span>
+                                )}
+                              </div>
+                            </div>
+                            <p className={`font-bold text-lg ${isDiscount ? 'text-red-600' : 'text-gray-900'}`}>
+                              {isDiscount && '-'}¥{Math.abs(displaySubtotal).toLocaleString()}
+                            </p>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {quantity} × ¥{unitPrice.toLocaleString()} = ¥{Math.abs(displaySubtotal).toLocaleString()}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
 
-
-                {/* 金額計算 */}
                 <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">小計（税抜）</span>
@@ -988,7 +934,6 @@ const handleConfirmCreate = async () => {
                   </div>
                 </div>
 
-                {/* プロフィール情報の確認 */}
                 {profile && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <p className="text-sm font-medium text-blue-900 mb-2">振込先情報</p>
@@ -1006,17 +951,14 @@ const handleConfirmCreate = async () => {
                   </div>
                 )}
 
-              {/* 備考 */}
-              {notes && (
-                <div className="border-t pt-4">
-                  <p className="text-sm font-semibold text-gray-700 mb-2">備考</p>
-                  <p className="text-sm text-gray-600 whitespace-pre-wrap">{notes}</p>
+                {notes && (
+                  <div className="border-t pt-4">
+                    <p className="text-sm font-semibold text-gray-700 mb-2">備考</p>
+                    <p className="text-sm text-gray-600 whitespace-pre-wrap">{notes}</p>
                   </div>
                 )}
-                
               </div>
 
-              {/* フッター（ボタン） */}
               <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex justify-end gap-3">
                 <Button
                   type="button"
@@ -1039,7 +981,7 @@ const handleConfirmCreate = async () => {
           </div>
         )}
 
-              {/* ↓ ここに追加：プロフィール未登録警告モーダル */}
+        {/* プロフィール未登録警告モーダル */}
         {showProfileWarning && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
@@ -1080,11 +1022,9 @@ const handleConfirmCreate = async () => {
                   プロフィール情報を登録する
                 </Button>
               </div>
-
             </div>
           </div>
         )}
-
       </main>
     </div>
   );
