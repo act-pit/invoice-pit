@@ -4,10 +4,18 @@ import { useState } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import type { Database } from '@/types/database';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function OrganizerLoginPage() {
@@ -16,7 +24,7 @@ export default function OrganizerLoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  const supabase = createClientComponentClient<Database>();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,36 +32,59 @@ export default function OrganizerLoginPage() {
     setLoading(true);
 
     try {
-      // Supabase認証
+      console.log('=== 主催者ログイン開始 ===');
+      console.log('メール:', email);
+
+      // 1. Supabase認証
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (authError) {
+        console.error('❌ 認証エラー:', authError);
         setError('メールアドレスまたはパスワードが正しくありません');
         setLoading(false);
         return;
       }
 
-      // organizersテーブルで検証
-      const { data: organizerData, error: organizerError } = await supabase
-        .from('organizers')
-        .select('id')
-        .eq('id', authData.user.id)
-        .single();
+      console.log('✅ 認証成功 - ユーザーID:', authData.user.id);
 
-      if (!organizerData) {
-        setError('主催者アカウントが見つかりません。タレントの方はタレントログインをご利用ください。');
+      // 2. メール確認チェック
+      if (!authData.user.email_confirmed_at) {
+        console.warn('⚠️ メールアドレスが未確認');
+        setError(
+          `メールアドレスの確認が完了していません。\n\n${email} 宛に送信された確認メールを開き、リンクをクリックしてください。\n\n確認メールが届いていない場合は、迷惑メールフォルダもご確認ください。`
+        );
         await supabase.auth.signOut();
         setLoading(false);
         return;
       }
 
-      // 主催者ダッシュボードへ
+      // 3. organizersテーブルで検証
+      const { data: organizerData } = await supabase
+        .from('organizers')
+        .select('id, name, organizer_code')
+        .eq('id', authData.user.id)
+        .maybeSingle();
+
+      if (!organizerData) {
+        console.warn('⚠️ organizersテーブルにデータなし');
+        setError(
+          '主催者アカウントが見つかりません。タレントの方はタレントログインをご利用ください。'
+        );
+        await supabase.auth.signOut();
+        setLoading(false);
+        return;
+      }
+
+      console.log('✅ 主催者確認成功:', organizerData.name);
+
+      // 4. 主催者ダッシュボードへ
       router.push('/organizer/dashboard');
+      router.refresh();
     } catch (err) {
-      console.error('Login error:', err);
+      console.error('❌ ログインエラー:', err);
       setError('ログインに失敗しました');
       setLoading(false);
     }
@@ -72,7 +103,7 @@ export default function OrganizerLoginPage() {
           <CardContent className="space-y-4">
             {error && (
               <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription className="whitespace-pre-line text-sm">{error}</AlertDescription>
               </Alert>
             )}
             <div className="space-y-2">
@@ -84,6 +115,7 @@ export default function OrganizerLoginPage() {
                 value={email}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                 required
+                disabled={loading}
               />
             </div>
             <div className="space-y-2">
@@ -94,13 +126,14 @@ export default function OrganizerLoginPage() {
                 value={password}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                 required
+                disabled={loading}
               />
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button 
-              type="submit" 
-              className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700" 
+            <Button
+              type="submit"
+              className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
               disabled={loading}
             >
               {loading ? 'ログイン中...' : 'ログイン'}
