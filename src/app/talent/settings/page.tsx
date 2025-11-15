@@ -3,19 +3,33 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import type { Database } from '@/types/database';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Profile } from '@/types/database';
 import { OCCUPATION_OPTIONS, ACTIVITY_AREA_OPTIONS } from '@/lib/profile-options';
 
+type Profile = Database['public']['Tables']['profiles']['Row'];
 
 export default function SettingsPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
   const router = useRouter();
+  const supabase = createClientComponentClient<Database>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [profile, setProfile] = useState<Partial<Profile>>({
+  const [profile, setProfile] = useState<any>({
+    full_name: '',
+    phone: '',
+    occupation: '',
+    area: '',
+    postal_code: '',
+    address: '',
+    bank_name: '',
+    branch_name: '',
+    account_type: '',
+    account_number: '',
+    account_holder: '',
+    invoice_reg_number: '',
     occupation_types: [],
     activity_areas: [],
   });
@@ -23,35 +37,40 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/login');
-    } else if (user) {
+      router.push('/talent/login');
+    } else if (user && session) {
       loadProfile();
     }
-  }, [user, authLoading, router]);
+  }, [user, session, authLoading, router]);
 
   const loadProfile = async () => {
+    if (!user) return;
+
     try {
+      console.log('プロフィール読み込み開始:', user.id);
+
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', user!.id)
+        .eq('id', user.id)
         .single();
 
       if (error && error.code !== 'PGRST116') {
-        throw error;
+        console.error('プロフィール読み込みエラー:', error);
       }
 
       if (data) {
+        console.log('プロフィール読み込み成功:', data);
         setProfile({
           ...data,
           occupation_types: data.occupation_types || [],
           activity_areas: data.activity_areas || [],
         });
       } else {
-        // プロフィールが存在しない場合は初期値を設定
+        console.log('プロフィールが存在しません、初期値を設定');
         setProfile({
-          email: user!.email!,
-          full_name: user!.user_metadata?.full_name || '',
+          email: user.email!,
+          full_name: user.user_metadata?.full_name || '',
           occupation_types: [],
           activity_areas: [],
         });
@@ -65,75 +84,64 @@ export default function SettingsPage() {
     }
   };
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setSaving(true);
-  setMessage('');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setMessage('');
 
-  try {
-    // ===== 追加: 認証状態の詳細確認 =====
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log('🔐 セッション:', session);
-    console.log('🆔 セッションのユーザーID:', session?.user?.id);
-    console.log('🆔 useAuthのユーザーID:', user?.id);
-    console.log('🔑 アクセストークン:', session?.access_token?.substring(0, 20) + '...');
-    // ===== ここまで追加 =====
+    try {
+      if (!user) {
+        setMessage('セッションが切れています。再ログインしてください。');
+        router.push('/talent/login');
+        return;
+      }
 
-    console.log('🔍 保存開始');
-    console.log('保存データ:', {
-      full_name: profile.full_name,
-      bank_name: profile.bank_name,
-    });
+      console.log('保存開始:', {
+        userId: user.id,
+        profile: profile
+      });
 
-    const { data, error, count } = await supabase
-      .from('profiles')
-      .update({
-        email: user!.email!,
-        full_name: profile.full_name,
-        phone: profile.phone,
-        occupation: profile.occupation,
-        area: profile.area,
-        postal_code: profile.postal_code,
-        address: profile.address,
-        bank_name: profile.bank_name,
-        branch_name: profile.branch_name,
-        account_type: profile.account_type,
-        account_number: profile.account_number,
-        account_holder: profile.account_holder,
-        invoice_reg_number: profile.invoice_reg_number,
-        occupation_types: profile.occupation_types || [],
-        activity_areas: profile.activity_areas || [],
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', user!.id)
-      .select();
+      // UPDATEを実行（.select()なし）
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          email: user.email!,
+          full_name: profile.full_name,
+          phone: profile.phone,
+          occupation: profile.occupation,
+          area: profile.area,
+          postal_code: profile.postal_code,
+          address: profile.address,
+          bank_name: profile.bank_name,
+          branch_name: profile.branch_name,
+          account_type: profile.account_type,
+          account_number: profile.account_number,
+          account_holder: profile.account_holder,
+          invoice_reg_number: profile.invoice_reg_number,
+          occupation_types: profile.occupation_types || [],
+          activity_areas: profile.activity_areas || [],
+        })
+        .eq('id', user.id);
 
-    console.log('✅ 更新結果 data:', data);
-    console.log('❌ エラー error:', error);
-    console.log('📊 更新件数:', data?.length);
+      if (error) {
+        console.error('保存エラー:', error);
+        throw error;
+      }
 
-    if (error) throw error;
+      console.log('保存成功');
 
-    if (!data || data.length === 0) {
-      console.error('⚠️ 更新されたレコードが0件');
-      setMessage('保存に失敗しました: レコードが更新されませんでした');
-      return;
+      // 保存後、最新データを再取得
+      await loadProfile();
+
+      setMessage('保存しました！');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error: any) {
+      console.error('保存エラー詳細:', error);
+      setMessage('保存に失敗しました: ' + error.message);
+    } finally {
+      setSaving(false);
     }
-
-    setProfile(data[0]);  // ← 追加: 更新後のデータをstateに反映
-    setMessage('保存しました！');
-    setTimeout(() => setMessage(''), 3000);
-  } catch (error: any) {
-    console.error('保存エラー詳細:', error);
-    setMessage('保存に失敗しました: ' + error.message);
-  } finally {
-    setSaving(false);
-  }
-};
-
-
-
-
+  };
 
   if (authLoading || loading) {
     return (
@@ -157,7 +165,6 @@ const handleSubmit = async (e: React.FormEvent) => {
           </Button>
         </div>
       </header>
-
 
       {/* メインコンテンツ */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -193,7 +200,6 @@ const handleSubmit = async (e: React.FormEvent) => {
                   <label className="text-sm font-medium">
                     お名前 <span className="text-red-600">*</span>
                   </label>
-
                   <input
                     type="text"
                     value={profile.full_name || ''}
@@ -243,7 +249,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                             } else {
                               setProfile({
                                 ...profile,
-                                occupation_types: currentTypes.filter((t) => t !== option.value),
+                                occupation_types: currentTypes.filter((t: string) => t !== option.value),
                               });
                             }
                           }}
@@ -254,7 +260,6 @@ const handleSubmit = async (e: React.FormEvent) => {
                     ))}
                   </div>
                 </div>
-
 
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-sm font-medium">活動エリア（複数選択可能）</label>
@@ -274,7 +279,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                             } else {
                               setProfile({
                                 ...profile,
-                                activity_areas: currentAreas.filter((a) => a !== option.value),
+                                activity_areas: currentAreas.filter((a: string) => a !== option.value),
                               });
                             }
                           }}
@@ -285,7 +290,6 @@ const handleSubmit = async (e: React.FormEvent) => {
                     ))}
                   </div>
                 </div>
-
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">
@@ -337,7 +341,6 @@ const handleSubmit = async (e: React.FormEvent) => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                     placeholder="例: 三菱UFJ銀行"
                     required
-
                   />
                 </div>
 
@@ -363,7 +366,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     value={profile.account_type || ''}
                     onChange={(e) => setProfile({ ...profile, account_type: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  required
+                    required
                   >
                     <option value="">選択してください</option>
                     <option value="普通">普通</option>

@@ -4,13 +4,49 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import type { Database } from '@/types/database';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import type { Invoice, Profile } from '@/types/database';
+
+// 型定義
+type Invoice = Database['public']['Tables']['invoices']['Row'] & {
+  organizer_name?: string;
+  return_status?: string | null;
+  payment_status?: 'paid' | 'unpaid';
+  paid_date?: string | null;
+  organizer_id?: string | null;
+  withholding?: number;
+};
+
+// 源泉徴収を計算する関数
+const calculateWithholding = (items: any[]) => {
+  if (!items || !Array.isArray(items)) return 0;
+  
+  return items.reduce((sum, item) => {
+    if (!item.isWithholdingTarget) return sum;
+    
+    const quantity = item.quantity || 1;
+    let amount = item.amount * quantity;
+    
+    if (item.category === 'discount') {
+      amount = -Math.abs(amount);
+    }
+    
+    let baseAmount = amount;
+    
+    // 税込の場合は税抜に戻す
+    if (item.isTaxIncluded) {
+      baseAmount = Math.floor(amount / 1.1);
+    }
+    
+    return sum + Math.floor(baseAmount * 0.1021);
+  }, 0);
+};
 
 // 請求書ステータス表示コンポーネント
-function InvoiceStatusBadges({ invoice }: { invoice: any }) {
+function InvoiceStatusBadges({ invoice }: { invoice: Invoice }) {
+  const supabase = createClientComponentClient<Database>();
   const [returnStatus, setReturnStatus] = useState<string | null>(null);
   const [orgStatus, setOrgStatus] = useState<string | null>(null);
   const [organizerName, setOrganizerName] = useState<string | null>(null);
@@ -20,11 +56,13 @@ function InvoiceStatusBadges({ invoice }: { invoice: any }) {
       // 差し戻しステータスを取得
       const { data: invoiceData } = await supabase
         .from('invoices')
-        .select('return_status')
+        .select('*')
         .eq('id', invoice.id)
         .single();
       
-      if (invoiceData) setReturnStatus(invoiceData.return_status);
+      if (invoiceData) {
+        setReturnStatus((invoiceData as any).return_status);
+      }
 
       // 主催者側のステータスと主催者名を取得
       if (invoice.organizer_id) {
@@ -32,28 +70,29 @@ function InvoiceStatusBadges({ invoice }: { invoice: any }) {
           .from('organizer_invoices')
           .select('status')
           .eq('invoice_id', invoice.id)
-          .single();
+          .maybeSingle();
         
         if (orgData) setOrgStatus(orgData.status);
 
         // 主催者名を取得
         const { data: organizerData } = await supabase
           .from('organizers')
-          .select('name')
+          .select('*')
           .eq('id', invoice.organizer_id)
-          .single();
+          .maybeSingle();
         
-        if (organizerData) setOrganizerName(organizerData.name);
+        if (organizerData) {
+          setOrganizerName(organizerData.name || organizerData.company_name || organizerData.full_name || null);
+        }
       }
     };
 
     fetchStatuses();
-  }, [invoice.id, invoice.organizer_id]);
+  }, [invoice.id, invoice.organizer_id, supabase]);
 
   // ステータス判定
   const isPaid = invoice.payment_status === 'paid';
   const isReturned = returnStatus === 'returned';
-  const isDraft = invoice.status === 'draft' && !isReturned;
   const isApproved = orgStatus === 'approved';
   const isPendingApproval = invoice.organizer_id && orgStatus === 'pending';
 
@@ -73,59 +112,46 @@ function InvoiceStatusBadges({ invoice }: { invoice: any }) {
 
 
     {/* ステータスバッジ */}
-    <div className="flex flex-wrap gap-2">
-
-        {/* 入金済：これだけ表示 */}
-        {isPaid && (
-          <span className="text-xs px-2 py-1 rounded-full font-medium bg-green-100 text-green-700">
-            💰 入金済
+<div className="flex flex-wrap gap-2">
+    {/* 入金済以外のパターン */}
+    {!isPaid && (
+      <>
+        {/* 差し戻し */}
+        {isReturned && (
+          <span className="text-xs px-2 py-1 rounded-full font-medium bg-orange-100 text-orange-700">
+            🔄 差し戻し
           </span>
         )}
 
-        {/* 入金済以外のパターン */}
-        {!isPaid && (
+        {/* 主催者確認中 */}
+        {isPendingApproval && !isReturned && (
+          <span className="text-xs px-2 py-1 rounded-full font-medium bg-blue-100 text-blue-700">
+            👀 主催者確認中
+          </span>
+        )}
+
+        {/* 承認済 + 未入金 */}
+        {isApproved && !isPaid && (
           <>
-            {/* 下書き */}
-            {isDraft && (
-              <span className="text-xs px-2 py-1 rounded-full font-medium bg-gray-100 text-gray-700">
-                📝 下書き
-              </span>
-            )}
-
-            {/* 差し戻し */}
-            {isReturned && (
-              <span className="text-xs px-2 py-1 rounded-full font-medium bg-orange-100 text-orange-700">
-                🔄 差し戻し
-              </span>
-            )}
-
-            {/* 主催者確認中 */}
-            {isPendingApproval && !isReturned && (
-              <span className="text-xs px-2 py-1 rounded-full font-medium bg-blue-100 text-blue-700">
-                👀 主催者確認中
-              </span>
-            )}
-
-            {/* 承認済 + 未入金 */}
-            {isApproved && !isPaid && (
-              <>
-                <span className="text-xs px-2 py-1 rounded-full font-medium bg-green-100 text-green-700">
-                  ✅ 承認済
-                </span>
-                <span className="text-xs px-2 py-1 rounded-full font-medium bg-yellow-100 text-yellow-700">
-                  ⏳ 未入金
-                </span>
-              </>
-            )}
+            <span className="text-xs px-2 py-1 rounded-full font-medium bg-green-100 text-green-700">
+              ✅ 承認済
+            </span>
+            <span className="text-xs px-2 py-1 rounded-full font-medium bg-yellow-100 text-yellow-700">
+              ⏳ 未入金
+            </span>
           </>
         )}
-      </div>
+      </>
+    )}
+  </div>
+
     </div>
   );
 }
 
 
 export default function InvoicesPage() {
+  const supabase = createClientComponentClient<Database>();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -169,7 +195,7 @@ export default function InvoicesPage() {
     if (searchQuery) {
       result = result.filter(invoice => 
         invoice.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        invoice.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (invoice as any).subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         invoice.recipient_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (invoice as any).organizer_name?.toLowerCase().includes(searchQuery.toLowerCase())
       );
@@ -188,14 +214,14 @@ export default function InvoicesPage() {
         const dateB = new Date(b.created_at).getTime();
         return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
       } else {
-        return sortOrder === 'asc' ? a.total - b.total : b.total - a.total;
+        return sortOrder === 'asc' ? a.total_amount - b.total_amount : b.total_amount - a.total_amount;
       }
     });
 
     setFilteredInvoices(result);
-    const totalSales = invoices.reduce((sum, inv) => sum + inv.total, 0);
-    const paidAmount = invoices.filter(inv => inv.payment_status === 'paid').reduce((sum, inv) => sum + inv.total, 0);
-    const unpaidAmount = invoices.filter(inv => inv.payment_status === 'unpaid').reduce((sum, inv) => sum + inv.total, 0);
+    const totalSales = invoices.reduce((sum, inv) => sum + inv.total_amount, 0);
+    const paidAmount = invoices.filter(inv => inv.payment_status === 'paid').reduce((sum, inv) => sum + inv.total_amount, 0);
+    const unpaidAmount = invoices.filter(inv => inv.payment_status === 'unpaid').reduce((sum, inv) => sum + inv.total_amount, 0);
 
   setStats({
     totalSales,
@@ -210,24 +236,38 @@ export default function InvoicesPage() {
     const { data, error } = await supabase
       .from('invoices')
       .select('*')
-      .eq('user_id', user!.id)
+      .eq('talent_id', user!.id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    // 主催者情報を取得して結合
+    // 主催者情報を取得して結合 + 源泉徴収を計算
     const invoicesWithOrganizer = await Promise.all(
       (data || []).map(async (invoice) => {
-        if (invoice.organizer_id) {
+        // 源泉徴収を計算
+        const calculatedWithholding = calculateWithholding(invoice.items || []);
+
+        const extendedInvoice: Invoice = {
+          ...invoice,
+          payment_status: (invoice as any).payment_status || 'unpaid',
+          paid_date: (invoice as any).paid_date || null,
+          return_status: (invoice as any).return_status || null,
+          organizer_id: (invoice as any).organizer_id || null,
+          withholding: calculatedWithholding,  // 計算した値を追加
+        };
+
+        if (extendedInvoice.organizer_id) {
           const { data: organizerData } = await supabase
             .from('organizers')
-            .select('name')
-            .eq('id', invoice.organizer_id)
-            .single();
+            .select('*')
+            .eq('id', extendedInvoice.organizer_id)
+            .maybeSingle();
           
-          return { ...invoice, organizer_name: organizerData?.name };
+          if (organizerData) {
+            extendedInvoice.organizer_name = organizerData.name || organizerData.company_name || organizerData.full_name || undefined;
+          }
         }
-        return invoice;
+        return extendedInvoice;
       })
     );
 
@@ -251,7 +291,7 @@ export default function InvoicesPage() {
         .update({
           payment_status: newStatus,
           paid_date: paidDate,
-        })
+        } as any)
         .eq('id', invoice.id);
 
       if (error) throw error;
@@ -624,102 +664,131 @@ export default function InvoicesPage() {
           <div className="grid grid-cols-1 gap-3 sm:gap-4">
             {filteredInvoices.map((invoice) => (
               <Card 
-              key={invoice.id} 
-              className={`hover:shadow-lg transition-shadow ${
-                invoice.organizer_id ? 'border-l-4 border-l-purple-500 bg-purple-50/30' : ''
+  key={invoice.id} 
+  className={`hover:shadow-lg transition-shadow ${
+    invoice.organizer_id ? 'border-l-4 border-l-purple-500 bg-purple-50/30' : ''
+  } ${
+    invoice.payment_status === 'unpaid' ? 'bg-yellow-50/50 border-l-4 border-l-yellow-400' : ''
+  }`}
+>
+
+
+       <CardHeader className="pb-2 sm:pb-3">
+            {/* スマホ用：縦レイアウト */}
+          <div className="sm:hidden space-y-2">
+            {/* 入金済ボタンを右上に */}
+          <div className="flex justify-end">
+            <button
+             onClick={() => togglePaymentStatus(invoice)}
+              className={`px-5 py-1 rounded-full text-xs font-semibold transition-all shadow-sm flex items-center gap-1 ${
+                invoice.payment_status === 'paid'
+                  ? 'bg-green-100 text-green-800 hover:bg-green-200 hover:shadow-md'
+                  : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 hover:shadow-md border-1 border-yellow-300'
               }`}
-              >
+            >
+              {invoice.payment_status === 'paid' ? (
+                <>
+                  <span>✓</span>
+                  <span>入金済</span>
+                </>
+              ) : (
+                <>
+                  <span>👉 未入金</span>
+                </>
+              )}
+            </button>
+          </div>
 
-                <CardHeader className="pb-3 sm:pb-6">
-                  {/* スマホ用：縦レイアウト */}
-                  <div className="sm:hidden space-y-2">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-base">{invoice.subject || '件名未設定'}</CardTitle>
-                        <CardDescription className="text-xs">
-                          {invoice.invoice_number}
-                        </CardDescription>
-                      </div>
 
-                      <button
-                        onClick={() => togglePaymentStatus(invoice)}
-                        className={`px-2 py-1 rounded-full text-xs font-semibold transition-colors ${
-                          invoice.payment_status === 'paid'
-                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                            : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
-                        }`}
-                      >
-                        {invoice.payment_status === 'paid' ? '✓ 入金済' : '◯ 未入金'}
-                      </button>
-                    </div>
-                    
-                    <div className="flex justify-between items-center">
-                      <div className="text-xl font-bold text-purple-600">
-                        ¥{invoice.total.toLocaleString()}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {new Date(invoice.created_at).toLocaleDateString('ja-JP')}
-                      </div>
-                    </div>
-
-                    {invoice.paid_date && (
-                      <div className="text-xs text-green-600">
-                        入金: {new Date(invoice.paid_date).toLocaleDateString('ja-JP')}
-                      </div>
-                    )}
-
-                    <InvoiceStatusBadges invoice={invoice} />
+            {/* 件名を下に配置 */}
+            <div>
+              <CardTitle className="text-base">{(invoice as any).subject || '件名未設定'}</CardTitle>
+              <CardDescription className="text-xs">
+                {invoice.invoice_number}
+              </CardDescription>
+            </div>
+  
+            <div className="flex justify-between items-center">
+              <div className="text-xl font-bold text-purple-600">
+                ¥{invoice.total_amount.toLocaleString()}
+              </div>
+              <div className="text-xs text-gray-500 text-right">
+                <div>{new Date(invoice.created_at).toLocaleDateString('ja-JP')}</div>
+                {invoice.paid_date && (
+                  <div className="text-green-600 mt-0.5">
+                    入金: {new Date(invoice.paid_date).toLocaleDateString('ja-JP')}
                   </div>
+                )}
+              </div>
+            </div>
 
-                  {/* PC用：横レイアウト */}
-                  <div className="hidden sm:flex justify-between items-start">
-                    <div className="flex items-center gap-3">
-                      <div>
-                        <CardTitle className="text-lg">{invoice.subject || '件名未設定'}</CardTitle>
-                        <CardDescription>
-                          {invoice.invoice_number}
-                        </CardDescription>
-                      </div>
+            <InvoiceStatusBadges invoice={invoice} />
+          </div>
 
-                      <button
-                        onClick={() => togglePaymentStatus(invoice)}
-                        className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                          invoice.payment_status === 'paid'
-                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                            : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
-                        }`}
-                      >
-                        {invoice.payment_status === 'paid' ? '✓ 入金済' : '◯ 未入金'}
-                      </button>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-purple-600">
-                        ¥{invoice.total.toLocaleString()}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {new Date(invoice.created_at).toLocaleDateString('ja-JP')}
-                      </div>
-                      {invoice.paid_date && (
-                        <div className="text-xs text-green-600 mt-1">
-                          入金: {new Date(invoice.paid_date).toLocaleDateString('ja-JP')}
-                        </div>
-                      )}
-                      <InvoiceStatusBadges invoice={invoice} />
-                    </div>
-                  </div>
-                </CardHeader>
 
+            {/* PC用：横レイアウト */}
+        <div className="hidden sm:block">
+            {/* 入金済ボタンを右上に */}
+          <div className="flex justify-end mb-2">
+            <button
+              onClick={() => togglePaymentStatus(invoice)}
+              className={`px-5 py-1 rounded-full text-xs font-semibold transition-all shadow-sm flex items-center gap-1 ${
+                invoice.payment_status === 'paid'
+                  ? 'bg-green-100 text-green-800 hover:bg-green-200 hover:shadow-md'
+                  : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 hover:shadow-md border-1 border-yellow-300'
+              }`}
+             >
+              {invoice.payment_status === 'paid' ? (
+                <>
+                  <span>✓</span>
+                  <span>入金済</span>
+                </>
+              ) : (
+                <>
+                  <span>◯ 未入金</span>
+                </>
+              )}
+            </button>
+          </div>
+
+
+            {/* 件名と金額を横並び */}
+          <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <CardTitle className="text-lg">{(invoice as any).subject || '件名未設定'}</CardTitle>
+                <CardDescription>
+                  {invoice.invoice_number}
+                </CardDescription>
+              </div>
+              <div className="text-right ml-4">
+            <div className="text-2xl font-bold text-purple-600">
+              ¥{invoice.total_amount.toLocaleString()}
+            </div>
+            <div className="text-sm text-gray-500">
+              {new Date(invoice.created_at).toLocaleDateString('ja-JP')}
+              {invoice.paid_date && (
+                <span className="text-xs text-green-600 ml-2">
+                  入金: {new Date(invoice.paid_date).toLocaleDateString('ja-JP')}
+                </span>
+              )}
+            </div>
+            <InvoiceStatusBadges invoice={invoice} />
+            </div>
+
+          </div>
+        </div>
+      </CardHeader>
 
                 <CardContent className="pt-0">
                   {/* スマホ・PC共通：3項目を横並び */}
-                  <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-3 sm:mb-4">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-2 sm:mb-3">
                     <div>
                       <p className="text-xs sm:text-sm text-gray-500">消費税</p>
-                      <p className="text-sm sm:text-base font-medium">¥{invoice.tax.toLocaleString()}</p>
+                      <p className="text-sm sm:text-base font-medium">¥{invoice.tax_amount.toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-xs sm:text-sm text-gray-500">源泉徴収</p>
-                      <p className="text-sm sm:text-base font-medium text-red-600">-¥{invoice.withholding.toLocaleString()}</p>
+                      <p className="text-sm sm:text-base font-medium text-red-600">-¥{(invoice.withholding || 0).toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-xs sm:text-sm text-gray-500">支払期日</p>

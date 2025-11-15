@@ -3,20 +3,37 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import type { Database } from '@/types/database';
 import { isProfileComplete, getMissingProfileFields } from '@/lib/profile-check';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { InvoiceItem, Organizer, Profile } from '@/types/database';
 import { checkSubscriptionLimits } from '@/lib/subscription-utils';
 import { INVOICE_CATEGORIES, getCategoryById } from '@/lib/invoice-categories';
 
+// 型定義
+type Profile = Database['public']['Tables']['profiles']['Row'];
+type Organizer = Database['public']['Tables']['organizers']['Row'];
+type Subscription = Database['public']['Tables']['subscriptions']['Row'];
+
+interface InvoiceItem {
+  name: string;
+  quantity: number;
+  amount: number;
+  category: string;
+  isTaxIncluded: boolean;
+  isWithholdingTarget: boolean;
+  isTaxExempt: boolean;
+}
+
 export default function CreateInvoicePage() {
-  const { user, loading: authLoading } = useAuth();
+  const supabase = createClientComponentClient<Database>();
+  const { user, session, loading: authLoading } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [canCreate, setCanCreate] = useState(true);
   const [limitMessage, setLimitMessage] = useState('');
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -82,6 +99,19 @@ export default function CreateInvoicePage() {
         
         setProfile(profileData);
 
+        // サブスクリプション情報を取得
+        const { data: subscriptionData, error: subError } = await supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('talent_id', user.id)
+          .maybeSingle();
+
+        if (subError) {
+          console.error('サブスクリプション取得エラー:', subError);
+        } else {
+          setSubscription(subscriptionData);
+        }
+
         // プロフィール完全性チェック
         if (!isProfileComplete(profileData)) {
           setShowProfileWarning(true);
@@ -100,7 +130,7 @@ export default function CreateInvoicePage() {
     };
 
     fetchProfileAndCheckLimits();
-  }, [user]);
+  }, [user, supabase]);
 
   // 主催者コード確認
   const verifyOrganizerCode = async () => {
@@ -285,22 +315,19 @@ export default function CreateInvoicePage() {
       const { data: invoiceData, error: invoiceError } = await supabase
         .from('invoices')
         .insert({
-          user_id: user!.id,
+          talent_id: user!.id,
           invoice_number: invoiceNumber,
-          work_date: workDate || null,
-          payment_due_date: paymentDueDate || null,
-          subject: subject,
+          invoice_date: new Date().toISOString().split('T')[0],
+          payment_due_date: paymentDueDate || new Date().toISOString().split('T')[0],
+          recipient_company: recipientName || '',
           recipient_name: recipientName || null,
-          recipient_type: recipientType || null,
           recipient_address: recipientAddress || null,
           notes: notes || null,
-          items: items,
+          items: items as any,
           subtotal: subtotal,
-          tax: tax,
-          withholding: withholdingTotal,
-          total: total,
-          status: 'draft',
-          organizer_id: verifiedOrganizer?.id || null,
+          tax_amount: tax,
+          total_amount: total,
+          status: 'pending',
         })
         .select()
         .single();
@@ -308,11 +335,11 @@ export default function CreateInvoicePage() {
       if (invoiceError) throw invoiceError;
 
       // トライアルユーザーのカウント更新
-      if (profile?.subscription_status === 'trial') {
+      if (subscription?.status === 'trial') {
         await supabase
-          .from('profiles')
-          .update({ invoice_count: (profile.invoice_count || 0) + 1 })
-          .eq('id', user!.id);
+          .from('subscriptions')
+          .update({ invoice_count: (subscription.invoice_count || 0) + 1 })
+          .eq('talent_id', user!.id);
       }
 
       // 主催者への送信
@@ -321,26 +348,8 @@ export default function CreateInvoicePage() {
           .from('organizer_invoices')
           .insert({
             organizer_id: verifiedOrganizer.id,
-            cast_user_id: user!.id,
             invoice_id: invoiceData.id,
-            invoice_number: invoiceNumber,
-            cast_name: profile?.full_name || user!.email || '',
-            cast_email: user!.email || '',
-            work_date: workDate || null,
-            payment_due_date: paymentDueDate || null,
-            subject: subject,
-            items: items,
-            subtotal: subtotal,
-            tax: tax,
-            withholding: withholdingTotal,
-            total: total,
-            bank_name: profile?.bank_name,
-            branch_name: profile?.branch_name,
-            account_type: profile?.account_type,
-            account_number: profile?.account_number,
-            account_holder: profile?.account_holder,
-            invoice_reg_number: profile?.invoice_reg_number,
-            status: 'pending',
+            status: 'received',
           });
 
         if (orgInvoiceError) throw orgInvoiceError;
@@ -432,7 +441,7 @@ export default function CreateInvoicePage() {
           )}
 
           {/* トライアル情報 */}
-          {canCreate && profile?.subscription_status === 'trial' && limitMessage && (
+          {canCreate && subscription?.status === 'trial' && limitMessage && (
             <Card className="border-yellow-500 bg-yellow-50">
               <CardContent className="pt-6">
                 <div className="flex items-start gap-3">
@@ -483,7 +492,7 @@ export default function CreateInvoicePage() {
               {verifiedOrganizer && (
                 <div className="bg-green-50 border border-green-200 rounded-md p-3">
                   <p className="text-green-800 font-medium">
-                    ✅ {verifiedOrganizer.name} に送信されます
+                    ✅ {verifiedOrganizer.name || verifiedOrganizer.company_name || verifiedOrganizer.full_name} に送信されます
                   </p>
                 </div>
               )}
@@ -833,7 +842,7 @@ export default function CreateInvoicePage() {
                 {verifiedOrganizer ? (
                   <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                     <p className="text-sm font-medium text-purple-900 mb-1">送信先</p>
-                    <p className="text-lg font-bold text-purple-700">{verifiedOrganizer.name} 御中</p>
+                    <p className="text-lg font-bold text-purple-700">{verifiedOrganizer.name || verifiedOrganizer.company_name || verifiedOrganizer.full_name} 御中</p>
                   </div>
                 ) : recipientName ? (
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -938,9 +947,9 @@ export default function CreateInvoicePage() {
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <p className="text-sm font-medium text-blue-900 mb-2">振込先情報</p>
                     <div className="text-sm text-blue-800 space-y-1">
-                      {profile.bank_name && profile.branch_name ? (
+                      {profile.bank_name && (profile.branch_name || profile.bank_branch) ? (
                         <>
-                          <p>{profile.bank_name} {profile.branch_name}</p>
+                          <p>{profile.bank_name} {profile.branch_name || profile.bank_branch}</p>
                           <p>{profile.account_type === 'normal' ? '普通' : '当座'} {profile.account_number}</p>
                           <p>{profile.account_holder}</p>
                         </>
