@@ -2,7 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Invoice, Profile } from '@/types/database';
 
-export async function generateInvoicePDF(invoice: Invoice, profile: Profile) {
+export async function generateInvoicePDF(invoice: any, profile: Profile) {
   const doc = new jsPDF();
   
   let yPosition = 20;
@@ -79,9 +79,9 @@ export async function generateInvoicePDF(invoice: Invoice, profile: Profile) {
   }
 
   // 請求項目テーブル
-  const tableData = invoice.items.map((item: any) => [
-    item.name,
-    `JPY ${item.amount.toLocaleString()}`
+  const tableData = ((invoice.items as any[]) || []).map((item: any) => [
+  item.name,
+  `JPY ${item.amount.toLocaleString()}`
   ]);
 
   autoTable(doc, {

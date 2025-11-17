@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase/client';
 import { isProfileComplete, getMissingProfileFields } from '@/lib/profile-check';
 import { Profile } from '@/types/database'; 
 
@@ -29,7 +29,7 @@ export default function TalentDashboardPage() {
   }, [user]);
 
   const loadProfile = async () => {
-    const supabase = createClientComponentClient();
+    const supabase = createClient();
       try {
     const { data, error } = await supabase
       .from('profiles')

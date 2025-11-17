@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ const generateOrganizerCode = (length = 8) => {  // ← 6から8に変更
 
 export default function OrganizerRegisterPage() {
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
   
   // フォームステート
   const [organizerName, setOrganizerName] = useState('');

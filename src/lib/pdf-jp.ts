@@ -3,7 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { Invoice, Profile } from '@/types/database';
 import { NotoSansJPBase64 } from './font-base64';
 
-export async function generateInvoicePDFJapanese(invoice: Invoice, profile: Profile) {
+export async function generateInvoicePDFJapanese(invoice: any, profile: Profile) {
   const doc = new jsPDF();
   
   // 日本語フォントを追加
@@ -79,10 +79,11 @@ export async function generateInvoicePDFJapanese(invoice: Invoice, profile: Prof
   }
 
   // 請求項目テーブル
-  const tableData = invoice.items.map((item: any) => [
-    item.name,
-    `¥${item.amount.toLocaleString()}`
+  const tableData = ((invoice.items as any[]) || []).map((item: any) => [
+  item.name,
+  `¥${item.amount.toLocaleString()}`
   ]);
+
 
   autoTable(doc, {
     startY: yPosition,

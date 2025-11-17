@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/types/database';
 import { Button } from '@/components/ui/button';
 
@@ -26,7 +26,7 @@ type Organizer = Database['public']['Tables']['organizers']['Row'];
 
 export default function InvoicePrintPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
-  const supabase = createClientComponentClient<Database>();
+  const supabase = createClient();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);

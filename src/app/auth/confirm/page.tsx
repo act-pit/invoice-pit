@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@/lib/supabase/client'
 
 // メインコンポーネント（useSearchParamsを使用）
 function ConfirmContent() {
@@ -15,7 +15,7 @@ function ConfirmContent() {
     const confirmEmail = async () => {
       console.log('=== メール認証確認ページ ===')
       
-      const supabase = createClientComponentClient()
+      const supabase = createClient()
       
       // URLからパラメータを取得
       const token_hash = searchParams.get('token_hash')
