@@ -103,7 +103,7 @@ export default function CreateInvoicePage() {
         const { data: subscriptionData, error: subError } = await supabase
           .from('subscriptions')
           .select('*')
-          .eq('talent_id', user.id)
+          .eq('user_id', user.id)
           .maybeSingle();
 
         if (subError) {
@@ -118,7 +118,7 @@ export default function CreateInvoicePage() {
         }
 
         // サブスクリプション制限チェック
-        const limits = await checkSubscriptionLimits(profileData);
+        const limits = await checkSubscriptionLimits(subscriptionData);
         setCanCreate(limits.canCreateInvoice);
         
         if (limits.reason) {
@@ -315,45 +315,63 @@ export default function CreateInvoicePage() {
       const { data: invoiceData, error: invoiceError } = await supabase
         .from('invoices')
         .insert({
-          talent_id: user!.id,
+          user_id: user!.id,
           invoice_number: invoiceNumber,
-          invoice_date: new Date().toISOString().split('T')[0],
+          work_date: workDate || new Date().toISOString().split('T')[0],
           payment_due_date: paymentDueDate || new Date().toISOString().split('T')[0],
-          recipient_company: recipientName || '',
           recipient_name: recipientName || null,
           recipient_address: recipientAddress || null,
           notes: notes || null,
           items: items as any,
           subtotal: subtotal,
           tax_amount: tax,
+          withholding: withholdingTotal,
           total_amount: total,
-          status: 'pending',
+          payment_status: 'pending',
+          organizer_id: verifiedOrganizer?.id || null,
         })
         .select()
         .single();
 
       if (invoiceError) throw invoiceError;
 
-      // トライアルユーザーのカウント更新
-      if (subscription?.status === 'trial') {
-        await supabase
-          .from('subscriptions')
-          .update({ invoice_count: (subscription.invoice_count || 0) + 1 })
-          .eq('talent_id', user!.id);
-      }
+      // 【修正後】すべてのユーザーでカウント更新
+  await supabase
+  .from('subscriptions')
+  .update({ invoice_count: (subscription?.invoice_count || 0) + 1 })
+  .eq('user_id', user!.id)
+  .eq('user_type', 'talent');
 
       // 主催者への送信
-      if (verifiedOrganizer && invoiceData) {
-        const { error: orgInvoiceError } = await supabase
-          .from('organizer_invoices')
-          .insert({
-            organizer_id: verifiedOrganizer.id,
-            invoice_id: invoiceData.id,
-            status: 'received',
-          });
+  if (verifiedOrganizer && invoiceData) {
+  const { error: orgInvoiceError } = await supabase
+    .from('organizer_invoices')
+    .insert({
+      organizer_id: verifiedOrganizer.id,
+      invoice_id: invoiceData.id,
+      invoice_number: invoiceNumber,
+      cast_name: profile?.full_name || user!.email || '',
+      cast_email: user!.email || '',
+      subject: subject || null,
+      work_date: workDate || new Date().toISOString().split('T')[0],
+      payment_due_date: paymentDueDate || new Date().toISOString().split('T')[0],
+      items: items as any,
+      subtotal: subtotal,
+      tax: tax,
+      withholding: withholdingTotal,
+      total: total,
+      bank_name: profile?.bank_name || null,
+      branch_name: profile?.branch_name || null,
+      account_type: profile?.account_type || null,
+      account_number: profile?.account_number || null,
+      account_holder: profile?.account_holder || null,
+      invoice_reg_number: profile?.invoice_reg_number || null,
+      status: 'pending',
+    });
 
-        if (orgInvoiceError) throw orgInvoiceError;
-      }
+    if (orgInvoiceError) throw orgInvoiceError;
+  }
+
 
       setMessage(verifiedOrganizer 
         ? '請求書を作成し、主催者に送信しました！'
@@ -373,7 +391,7 @@ export default function CreateInvoicePage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">読み込み中...</p>
         </div>
       </div>
@@ -389,7 +407,7 @@ export default function CreateInvoicePage() {
       {/* ヘッダー */}
       <header className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-4 flex justify-between items-center">
-          <h1 className="text-lg sm:text-2xl font-bold text-purple-600">請求書ぴっと</h1>
+          <h1 className="text-lg sm:text-2xl font-bold text-blue-600">請求書ぴっと</h1>
           <Button onClick={() => router.push('/talent/dashboard')} variant="outline" size="sm" className="text-xs sm:text-sm">
             ← ダッシュボードに戻る
           </Button>
@@ -465,7 +483,7 @@ export default function CreateInvoicePage() {
           )}
 
           {/* 主催者連携 */}
-          <Card className="border-purple-200 bg-purple-50">
+          <Card className="border-blue-200 bg-blue-50">
             <CardHeader>
               <CardTitle>主催者連携（任意）</CardTitle>
               <CardDescription>主催者コードを入力すると、請求書を直接送信できます</CardDescription>
@@ -476,7 +494,7 @@ export default function CreateInvoicePage() {
                   type="text"
                   value={organizerCode}
                   onChange={(e) => setOrganizerCode(e.target.value.toUpperCase())}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="8桁のコードを入力"
                   maxLength={8}
                 />
@@ -509,7 +527,7 @@ export default function CreateInvoicePage() {
                       type="text"
                       value={recipientName}
                       onChange={(e) => setRecipientName(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="例: 株式会社〇〇 または 山田太郎"
                     />
                   </div>
@@ -520,7 +538,7 @@ export default function CreateInvoicePage() {
                       type="text"
                       value={recipientAddress}
                       onChange={(e) => setRecipientAddress(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="例: 東京都渋谷区〇〇1-2-3"
                     />
                   </div>
@@ -570,19 +588,20 @@ export default function CreateInvoicePage() {
                   type="text"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="例: 2024年12月分出演料"
                 />
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">作業日</label>
+                  <label className="text-sm font-medium">請求日 <span className="text-red-600">*</span></label>
                   <input
                     type="date"
                     value={workDate}
                     onChange={(e) => setWorkDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
                   />
                 </div>
 
@@ -592,7 +611,7 @@ export default function CreateInvoicePage() {
                     type="date"
                     value={paymentDueDate}
                     onChange={(e) => setPaymentDueDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -611,7 +630,7 @@ export default function CreateInvoicePage() {
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[100px]"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
                   placeholder="平素は格別のご高配を賜り、厚く御礼申し上げます。"
                   rows={4}
                 />
@@ -636,7 +655,7 @@ export default function CreateInvoicePage() {
                     <select
                       value={item.category || ''}
                       onChange={(e) => updateItemCategory(index, e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     >
                       <option value="">選択してください</option>
@@ -655,7 +674,7 @@ export default function CreateInvoicePage() {
                         type="text"
                         value={item.name}
                         onChange={(e) => updateItem(index, 'name', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="項目名を入力"
                         required
                       />
@@ -669,7 +688,7 @@ export default function CreateInvoicePage() {
                         type="number"
                         value={item.quantity}
                         onChange={(e) => updateItem(index, 'quantity', Number(e.target.value) || 1)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         min="1"
                         step="1"
                         required
@@ -700,7 +719,7 @@ export default function CreateInvoicePage() {
                           className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
                             item.category === 'discount'
                               ? 'border-red-300 text-red-600 font-semibold focus:ring-red-500 pl-8'
-                              : 'border-gray-300 focus:ring-purple-500'
+                              : 'border-gray-300 focus:ring-blue-500'
                           }`}
                           placeholder={item.category === 'discount' ? '値引き額' : '単価'}
                           required
@@ -712,11 +731,11 @@ export default function CreateInvoicePage() {
                   </div>
 
                   {item.quantity && item.amount > 0 && (
-                    <div className="bg-purple-50 border border-purple-200 rounded-md px-3 py-2">
-                      <p className="text-sm text-purple-900">
+                    <div className="bg-blue-50 border border-blue-200 rounded-md px-3 py-2">
+                      <p className="text-sm text-blue-900">
                         <span className="font-medium">小計:</span>{' '}
                         {item.quantity} × ¥{item.amount.toLocaleString()} = {' '}
-                        <span className="font-bold text-purple-700">
+                        <span className="font-bold text-blue-700">
                           ¥{(item.quantity * item.amount).toLocaleString()}
                         </span>
                       </p>
@@ -802,7 +821,7 @@ export default function CreateInvoicePage() {
                 </div>
                 <div className="border-t pt-2 flex justify-between">
                   <span className="font-bold text-lg">合計:</span>
-                  <span className="font-bold text-lg text-purple-600">¥{calculateTotal().toLocaleString()}</span>
+                  <span className="font-bold text-lg text-blue-600">¥{calculateTotal().toLocaleString()}</span>
                 </div>
               </div>
 
@@ -823,7 +842,7 @@ export default function CreateInvoicePage() {
             >
               キャンセル
             </Button>
-            <Button type="submit" disabled={loading} className="border-1 border-purple-600">
+            <Button type="submit" disabled={loading} className="border-1 border-blue-600">
               {loading ? '作成中...' : verifiedOrganizer ? '作成して送信' : '請求書を作成'}
             </Button>
           </div>
@@ -840,9 +859,9 @@ export default function CreateInvoicePage() {
 
               <div className="px-6 py-6 space-y-6">
                 {verifiedOrganizer ? (
-                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                    <p className="text-sm font-medium text-purple-900 mb-1">送信先</p>
-                    <p className="text-lg font-bold text-purple-700">{verifiedOrganizer.name || verifiedOrganizer.company_name || verifiedOrganizer.full_name} 御中</p>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm font-medium text-blue-900 mb-1">送信先</p>
+                    <p className="text-lg font-bold text-blue-700">{verifiedOrganizer.name || verifiedOrganizer.company_name || verifiedOrganizer.full_name} 御中</p>
                   </div>
                 ) : recipientName ? (
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -866,7 +885,7 @@ export default function CreateInvoicePage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">作業日</p>
+                      <p className="text-xs text-gray-500 mb-1">作成日</p>
                       <p className="font-medium text-gray-900">{workDate || '（未設定）'}</p>
                     </div>
 
@@ -939,7 +958,7 @@ export default function CreateInvoicePage() {
                   )}
                   <div className="border-t pt-2 flex justify-between">
                     <span className="font-bold text-lg">合計</span>
-                    <span className="font-bold text-2xl text-purple-600">¥{calculateTotal().toLocaleString()}</span>
+                    <span className="font-bold text-2xl text-blue-600">¥{calculateTotal().toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -950,7 +969,7 @@ export default function CreateInvoicePage() {
                       {profile.bank_name && (profile.branch_name || profile.bank_branch) ? (
                         <>
                           <p>{profile.bank_name} {profile.branch_name || profile.bank_branch}</p>
-                          <p>{profile.account_type === 'normal' ? '普通' : '当座'} {profile.account_number}</p>
+                          <p>{profile.account_type} {profile.account_number}</p>
                           <p>{profile.account_holder}</p>
                         </>
                       ) : (

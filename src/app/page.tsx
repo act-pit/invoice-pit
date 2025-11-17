@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-50">
       <div className="container mx-auto px-4 py-12 sm:py-16">
         {/* ヘッダー */}
         <div className="text-center mb-12 sm:mb-16">
@@ -20,7 +20,7 @@ export default function HomePage() {
         <div className="grid md:grid-cols-2 gap-6 sm:gap-8 max-w-5xl mx-auto">
           {/* タレント向け */}
           <Link href="/talent" className="block h-full">
-            <Card className="hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:scale-105 border-2 hover:border-purple-300">
+            <Card className="hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:scale-105 border-2 hover:border-blue-300">
               <CardHeader className="text-center pb-4">
                 <div className="text-6xl sm:text-7xl mb-4">🎭</div>
                 <CardTitle className="text-xl sm:text-3xl font-bold text-gray-900">
@@ -33,23 +33,23 @@ export default function HomePage() {
                 </p>
                 <ul className="space-y-3 text-gray-700">
                   <li className="flex items-start">
-                    <span className="text-purple-600 mr-2 font-bold">✓</span>
+                    <span className="text-blue-600 mr-2 font-bold">✓</span>
                     <span className="text-sm sm:text-base">請求書を簡単に受取・管理</span>
                   </li>
                   <li className="flex items-start">
-                    <span className="text-purple-600 mr-2 font-bold">✓</span>
+                    <span className="text-blue-600 mr-2 font-bold">✓</span>
                     <span className="text-sm sm:text-base">プロフィール情報を一元管理</span>
                   </li>
                   <li className="flex items-start">
-                    <span className="text-purple-600 mr-2 font-bold">✓</span>
+                    <span className="text-blue-600 mr-2 font-bold">✓</span>
                     <span className="text-sm sm:text-base">過去の請求書を検索・ダウンロード</span>
                   </li>
                   <li className="flex items-start">
-                    <span className="text-purple-600 mr-2 font-bold">✓</span>
+                    <span className="text-blue-600 mr-2 font-bold">✓</span>
                     <span className="text-sm sm:text-base">モバイル完全対応</span>
                   </li>
                 </ul>
-                <Button className="w-full mt-6 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-5 text-base sm:text-lg">
+                <Button className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-5 text-base sm:text-lg">
                   詳しく見る →
                 </Button>
               </CardContent>

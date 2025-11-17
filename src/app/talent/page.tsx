@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function TalentHomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-purple-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-pink-50 to-blue-100">
       <div className="container mx-auto px-4 py-8 sm:py-12">
         {/* ヘッダー */}
         <div className="text-center mb-8 sm:mb-12">
@@ -20,14 +20,14 @@ export default function TalentHomePage() {
 
         {/* 機能紹介 */}
         <div className="max-w-4xl mx-auto mb-8 sm:mb-12">
-          <Card className="shadow-xl border-2 border-purple-200">
-            <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50">
+          <Card className="shadow-xl border-2 border-blue-200">
+            <CardHeader className="bg-gradient-to-r from-blue-50 to-pink-50">
               <CardTitle className="text-lg sm:text-2xl text-center">✨ こんな機能があります</CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
               <div className="grid sm:grid-cols-2 gap-6">
                 {/* 機能1 */}
-                <div className="flex items-start space-x-3 p-4 rounded-lg bg-purple-50 hover:bg-purple-100 transition-colors">
+                <div className="flex items-start space-x-3 p-4 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors">
                   <span className="text-2xl sm:text-4xl flex-shrink-0">📨</span>
                   <div>
                     <h3 className="font-bold text-base sm:text-lg text-gray-900 mb-1">請求書を簡単受取</h3>
@@ -36,7 +36,7 @@ export default function TalentHomePage() {
                 </div>
 
                 {/* 機能2 */}
-                <div className="flex items-start space-x-3 p-4 rounded-lg bg-purple-50 hover:bg-purple-100 transition-colors">
+                <div className="flex items-start space-x-3 p-4 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors">
                   <span className="text-2xl sm:text-4xl flex-shrink-0">👤</span>
                   <div>
                     <h3 className="font-bold text-base sm:text-lg text-gray-900 mb-1">プロフィール管理</h3>
@@ -45,7 +45,7 @@ export default function TalentHomePage() {
                 </div>
 
                 {/* 機能3 */}
-                <div className="flex items-start space-x-3 p-4 rounded-lg bg-purple-50 hover:bg-purple-100 transition-colors">
+                <div className="flex items-start space-x-3 p-4 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors">
                   <span className="text-2xl sm:text-4xl flex-shrink-0">🔍</span>
                   <div>
                     <h3 className="font-bold text-base sm:text-lg text-gray-900 mb-1">履歴検索</h3>
@@ -54,7 +54,7 @@ export default function TalentHomePage() {
                 </div>
 
                 {/* 機能4 */}
-                <div className="flex items-start space-x-3 p-4 rounded-lg bg-purple-50 hover:bg-purple-100 transition-colors">
+                <div className="flex items-start space-x-3 p-4 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors">
                   <span className="text-2xl sm:text-4xl flex-shrink-0">📱</span>
                   <div>
                     <h3 className="font-bold text-base sm:text-lg text-gray-900 mb-1">モバイル対応</h3>
@@ -71,7 +71,7 @@ export default function TalentHomePage() {
           <Link href="/talent/register" className="block">
             <Button 
               size="lg" 
-              className="w-full text-sm sm:text-lg py-5 sm:py-7 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold shadow-lg"
+              className="w-full text-sm sm:text-lg py-5 sm:py-7 bg-gradient-to-r from-blue-600 to-pink-600 hover:from-blue-700 hover:to-pink-700 text-white font-bold shadow-lg"
             >
               🚀 無料で新規登録
             </Button>
@@ -81,7 +81,7 @@ export default function TalentHomePage() {
             <Button 
               variant="outline" 
               size="lg" 
-              className="w-full text-sm sm:text-lg py-5 sm:py-7 border-2 border-purple-600 text-purple-600 hover:bg-purple-50 font-semibold"
+              className="w-full text-sm sm:text-lg py-5 sm:py-7 border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold"
             >
               ログイン
             </Button>

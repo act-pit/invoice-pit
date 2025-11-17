@@ -3,123 +3,156 @@
 import { useState } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function TalentLoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
   const router = useRouter();
   const supabase = createClientComponentClient();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('=== ログイン処理開始 ===');
+    console.log('Email:', email);
+    console.log('Password length:', password.length);
+    
     setError('');
     setLoading(true);
 
     try {
-      // Supabase認証
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      console.log('Supabaseログイン試行中...');
+      // Supabaseでログイン
+
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (authError) {
-        setError('メールアドレスまたはパスワードが正しくありません');
-        setLoading(false);
-        return;
-      }
+      if (signInError) throw signInError;
 
-      // profilesテーブルで検証
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', authData.user.id)
-        .single();
+      if (data.user) {
+        // メール確認済みかチェック
+        if (!data.user.email_confirmed_at) {
+          setError('メールアドレスの確認が完了していません。メールを確認してください。');
+          await supabase.auth.signOut();
+          setLoading(false);
+          return;
+        }
 
-      if (!profileData) {
-        setError('タレントアカウントが見つかりません。主催者の方は主催者ログインをご利用ください。');
+                // profilesテーブルでタレントか確認
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', data.user.id)
+          .maybeSingle();
+
+        console.log('Profile check:', { profile, profileError }); // デバッグ用
+
+        if (profileError) {
+          console.error('Profile error:', profileError);
+        }
+
+        if (profile) {
+          // タレントとして確認できた
+          console.log('Profile found, redirecting...');
+          router.push('/talent/dashboard');
+          return;
+        }
+
+        // タレントではない
+        console.log('Profile not found');
+        setError('タレントアカウントが見つかりません。');
         await supabase.auth.signOut();
-        setLoading(false);
-        return;
-      }
 
-      // タレントダッシュボードへ
-      router.push('/talent/dashboard');
-    } catch (err) {
+      }
+    } catch (err: any) {
       console.error('Login error:', err);
-      setError('ログインに失敗しました');
+      console.error('Error details:', JSON.stringify(err, null, 2)); 
+      setError(err.message || 'ログインに失敗しました');
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">キャストログイン</CardTitle>
-          <CardDescription className="text-center">
-            個人アカウントでログインしてください
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleLogin}>
-          <CardContent className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="email">メールアドレス</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">パスワード</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <Button 
-              type="submit" 
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700" 
+    <div className="min-h-screen bg-blue-100 flex items-center justify-center px-4">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-xl border-2 border-gray-300 p-8">
+        <h1 className="text-3xl font-semibold text-blue-600 mb-2 text-center">
+          タレントログイン
+        </h1>
+        <p className="text-gray-600 mb-6 text-center text-sm">
+          請求書ぴっとへおかえりなさい
+        </p>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4 text-sm">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              メールアドレス
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+              placeholder="example@email.com"
               disabled={loading}
-            >
-              {loading ? 'ログイン中...' : 'ログイン'}
-            </Button>
-            <div className="text-sm text-center text-gray-600 space-y-2">
-              <div>
-                <Link href="/talent/register" className="text-purple-600 hover:underline">
-                  タレント新規登録はこちら
-                </Link>
-              </div>
-              <div>
-                <Link href="/organizer/login" className="text-gray-500 hover:underline">
-                  主催者の方はこちら
-                </Link>
-              </div>
-            </div>
-          </CardFooter>
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              パスワード
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+              placeholder="••••••••"
+              disabled={loading}
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium text-base hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            {loading ? 'ログイン中...' : 'ログイン'}
+          </button>
         </form>
-      </Card>
+
+        <div className="mt-6 space-y-3">
+          <div className="text-center">
+            <a 
+              href="/talent/register" 
+              className="text-sm text-gray-600 hover:text-blue-600 transition"
+            >
+              アカウントをお持ちでない方はこちら
+            </a>
+          </div>
+          
+          <div className="text-center pt-2 border-t border-gray-200">
+            <a 
+              href="/organizer/login" 
+              className="text-sm text-gray-600 hover:text-green-600 transition"
+            >
+              主催者の方はこちら
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

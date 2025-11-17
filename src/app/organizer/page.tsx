@@ -91,7 +91,7 @@ export default function OrganizerHomePage() {
         {/* フッターリンク */}
         <div className="text-center mt-8 sm:mt-12 text-sm text-gray-600">
           タレントの方は
-          <Link href="/talent" className="text-purple-600 hover:underline font-semibold ml-1">
+          <Link href="/talent" className="text-blue-600 hover:underline font-semibold ml-1">
             こちら
           </Link>
         </div>

@@ -1,3 +1,4 @@
+// api/stripe/create-checkout/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { createClient } from '@supabase/supabase-js';
@@ -7,7 +8,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await request.json();
+    const { userId, priceId, userType } = await request.json();
 
     if (!userId) {
       return NextResponse.json(
@@ -16,11 +17,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // デフォルト値の設定
+    const finalPriceId = priceId || process.env.STRIPE_PRICE_TALENT_PREMIUM!;
+    const finalUserType = userType || 'talent';
+
     // Get user profile
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('email')
+      .select('email, full_name')
       .eq('id', userId)
       .single();
 
@@ -37,19 +42,21 @@ export async function POST(request: NextRequest) {
       payment_method_types: ['card'],
       line_items: [
         {
-          price: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID!,
+          price: finalPriceId,
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/subscription/cancelled`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/${finalUserType}/subscription?success=true`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/${finalUserType}/subscription?canceled=true`,
       customer_email: profile.email,
       metadata: {
         userId: userId,
+        userType: finalUserType,
       },
       subscription_data: {
         metadata: {
           userId: userId,
+          userType: finalUserType,
         },
       },
     });

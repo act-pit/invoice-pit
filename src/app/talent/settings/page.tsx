@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
@@ -35,19 +35,12 @@ export default function SettingsPage() {
   });
   const [message, setMessage] = useState('');
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/talent/login');
-    } else if (user && session) {
-      loadProfile();
-    }
-  }, [user, session, authLoading, router]);
-
-  const loadProfile = async () => {
+  // loadProfile を useCallback でメモ化
+  const loadProfile = useCallback(async () => {
     if (!user) return;
 
     try {
-      console.log('プロフィール読み込み開始:', user.id);
+      console.log('📊 プロフィール読み込み開始:', user.id);
 
       const { data, error } = await supabase
         .from('profiles')
@@ -56,18 +49,18 @@ export default function SettingsPage() {
         .single();
 
       if (error && error.code !== 'PGRST116') {
-        console.error('プロフィール読み込みエラー:', error);
+        console.error('❌ プロフィール読み込みエラー:', error);
       }
 
       if (data) {
-        console.log('プロフィール読み込み成功:', data);
+        console.log('✅ プロフィール読み込み成功:', data);
         setProfile({
           ...data,
           occupation_types: data.occupation_types || [],
           activity_areas: data.activity_areas || [],
         });
       } else {
-        console.log('プロフィールが存在しません、初期値を設定');
+        console.log('⚠️ プロフィールが存在しません、初期値を設定');
         setProfile({
           email: user.email!,
           full_name: user.user_metadata?.full_name || '',
@@ -77,12 +70,33 @@ export default function SettingsPage() {
       }
 
     } catch (error: any) {
-      console.error('プロフィール読み込みエラー:', error);
+      console.error('💥 プロフィール読み込みエラー:', error);
       setMessage('プロフィールの読み込みに失敗しました');
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, supabase]); // user と supabase のみ依存
+
+  // useEffect を修正：router を削除、loadProfile を追加
+  useEffect(() => {
+    console.log('🔄 useEffect実行:', { authLoading, user: !!user, session: !!session });
+
+    if (authLoading) {
+      console.log('⏳ 認証中...');
+      return;
+    }
+
+    if (!user) {
+      console.log('❌ ユーザーなし、ログインページへ');
+      router.push('/talent/login');
+      return;
+    }
+
+    if (user && session) {
+      console.log('✅ ユーザー確認、プロフィール読み込み開始');
+      loadProfile();
+    }
+  }, [authLoading, user, session, loadProfile]); // router を削除、loadProfile を追加
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,12 +110,11 @@ export default function SettingsPage() {
         return;
       }
 
-      console.log('保存開始:', {
+      console.log('💾 保存開始:', {
         userId: user.id,
         profile: profile
       });
 
-      // UPDATEを実行（.select()なし）
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -124,20 +137,20 @@ export default function SettingsPage() {
         .eq('id', user.id);
 
       if (error) {
-        console.error('保存エラー:', error);
+        console.error('❌ 保存エラー:', error);
         throw error;
       }
 
-      console.log('保存成功');
+      console.log('✅ 保存成功');
 
       // 保存後、最新データを再取得
       await loadProfile();
 
-      setMessage('保存しました！');
+      setMessage('✅ 保存しました！');
       setTimeout(() => setMessage(''), 3000);
     } catch (error: any) {
-      console.error('保存エラー詳細:', error);
-      setMessage('保存に失敗しました: ' + error.message);
+      console.error('💥 保存エラー詳細:', error);
+      setMessage('❌ 保存に失敗しました: ' + error.message);
     } finally {
       setSaving(false);
     }
@@ -147,7 +160,7 @@ export default function SettingsPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">読み込み中...</p>
         </div>
       </div>
@@ -159,7 +172,7 @@ export default function SettingsPage() {
       {/* ヘッダー */}
       <header className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-4 flex justify-between items-center">
-          <h1 className="text-lg sm:text-2xl font-bold text-purple-600">請求書ぴっと</h1>
+          <h1 className="text-lg sm:text-2xl font-bold text-blue-600">請求書ぴっと</h1>
           <Button onClick={() => router.push('/talent/dashboard')} variant="outline" size="sm" className="text-xs sm:text-sm">
             ← ダッシュボードに戻る
           </Button>
@@ -174,7 +187,7 @@ export default function SettingsPage() {
         </div>
 
         {message && (
-          <div className={`mb-6 p-4 rounded-md ${message.includes('失敗') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+          <div className={`mb-6 p-4 rounded-md ${message.includes('失敗') || message.includes('❌') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
             {message}
           </div>
         )}
@@ -204,7 +217,7 @@ export default function SettingsPage() {
                     type="text"
                     value={profile.full_name || ''}
                     onChange={(e) => setProfile({ ...profile, full_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="山田 太郎"
                     required
                   />
@@ -226,7 +239,7 @@ export default function SettingsPage() {
                     type="tel"
                     value={profile.phone || ''}
                     onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="090-1234-5678"
                   />
                 </div>
@@ -299,7 +312,7 @@ export default function SettingsPage() {
                     type="text"
                     value={profile.postal_code || ''}
                     onChange={(e) => setProfile({ ...profile, postal_code: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="123-4567"
                     required                    
                   />
@@ -313,7 +326,7 @@ export default function SettingsPage() {
                     type="text"
                     value={profile.address || ''}
                     onChange={(e) => setProfile({ ...profile, address: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="東京都渋谷区..."
                     required
                   />
@@ -338,7 +351,7 @@ export default function SettingsPage() {
                     type="text"
                     value={profile.bank_name || ''}
                     onChange={(e) => setProfile({ ...profile, bank_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="例: 三菱UFJ銀行"
                     required
                   />
@@ -352,7 +365,7 @@ export default function SettingsPage() {
                     type="text"
                     value={profile.branch_name || ''}
                     onChange={(e) => setProfile({ ...profile, branch_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="例: 渋谷支店"
                     required
                   />
@@ -365,7 +378,7 @@ export default function SettingsPage() {
                   <select
                     value={profile.account_type || ''}
                     onChange={(e) => setProfile({ ...profile, account_type: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   >
                     <option value="">選択してください</option>
@@ -382,7 +395,7 @@ export default function SettingsPage() {
                     type="text"
                     value={profile.account_number || ''}
                     onChange={(e) => setProfile({ ...profile, account_number: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="1234567"
                     required
                   />
@@ -396,7 +409,7 @@ export default function SettingsPage() {
                     type="text"
                     value={profile.account_holder || ''}
                     onChange={(e) => setProfile({ ...profile, account_holder: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="ヤマダ タロウ"
                     required
                   />
@@ -408,7 +421,7 @@ export default function SettingsPage() {
                     type="text"
                     value={profile.invoice_reg_number || ''}
                     onChange={(e) => setProfile({ ...profile, invoice_reg_number: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="T1234567890123"
                   />
                   <p className="text-xs text-gray-500">インボイス制度に登録している場合のみ入力してください</p>

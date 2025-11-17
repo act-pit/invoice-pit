@@ -8,6 +8,7 @@ import type { Database } from '@/types/database';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { INVOICE_CATEGORIES, getCategoryById } from '@/lib/invoice-categories';
+import { AlertCircle } from 'lucide-react';
 
 // 型定義
 type Invoice = Database['public']['Tables']['invoices']['Row'];
@@ -32,6 +33,9 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+
+  // 請求書データ（差し戻し情報を含む）
+  const [invoice, setInvoice] = useState<Invoice | null>(null);
 
   // フォームの状態（新規作成と同じ）
   const [workDate, setWorkDate] = useState('');
@@ -92,6 +96,9 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
 
       if (invoiceError) throw invoiceError;
       if (!invoiceData) throw new Error('請求書が見つかりません');
+
+      // 請求書データを保存（差し戻し情報を含む）
+      setInvoice(invoiceData);
 
       // フォームに値をセット
       setInvoiceNumber(invoiceData.invoice_number || '');
@@ -261,29 +268,63 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
       const withholdingTotal = calculateWithholdingTotal();
       const total = calculateTotal();
 
-      // 請求書を更新（新規作成と同じデータ構造）
+      // 更新データ
+      const updateData: any = {
+        subject: subject || null,
+        work_date: workDate || new Date().toISOString().split('T')[0],
+        payment_due_date: paymentDueDate || null,
+        recipient_name: recipientName || null,
+        recipient_address: recipientAddress || null,
+        recipient_postal_code: recipientPostalCode || null,
+        notes: notes || null,
+        items: items as any,
+        subtotal: subtotal,
+        tax_amount: tax,
+        withholding: withholdingTotal,
+        total_amount: total,
+        updated_at: new Date().toISOString(),
+      };
+
+      // 差し戻し状態をクリア（再承認待ちに戻す）
+      if (invoice?.return_status === 'returned') {
+        updateData.status = 'pending';
+        updateData.return_status = null;
+        updateData.return_comment = null;
+        updateData.return_date = null;
+        updateData.returned_by = null;
+      }
+
+      // 請求書を更新
       const { error: updateError } = await supabase
         .from('invoices')
-        .update({
-          subject: subject || null,
-          work_date: workDate || null,
-          payment_due_date: paymentDueDate || null,
-          recipient_company: recipientName || '',
-          recipient_name: recipientName || null,
-          recipient_type: recipientType,
-          recipient_address: recipientAddress || null,
-          recipient_postal_code: recipientPostalCode || null,
-          notes: notes || null,
-          items: items as any,
-          subtotal: subtotal,
-          tax_amount: tax,
-          withholding: withholdingTotal,
-          total_amount: total,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', resolvedParams.id);
 
       if (updateError) throw updateError;
+
+      // 主催者側の organizer_invoices も更新
+      if (invoice?.organizer_id) {
+        const { error: orgError } = await supabase
+          .from('organizer_invoices')
+          .update({
+            subject: subject || null,
+            work_date: workDate || new Date().toISOString().split('T')[0],
+            payment_due_date: paymentDueDate || null,
+            items: items as any,
+            subtotal: subtotal,
+            tax: tax,
+            withholding: withholdingTotal,
+            total: total,
+            status: 'pending', // 再承認待ちに戻す
+            updated_at: new Date().toISOString(),
+          })
+          .eq('invoice_id', resolvedParams.id)
+          .eq('organizer_id', invoice.organizer_id);
+
+        if (orgError) {
+          console.error('主催者側の更新エラー:', orgError);
+        }
+      }
 
       setMessage('請求書を更新しました！');
       
@@ -301,7 +342,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">読み込み中...</p>
         </div>
       </div>
@@ -317,7 +358,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
       {/* ヘッダー */}
       <header className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-4 flex justify-between items-center">
-          <h1 className="text-lg sm:text-2xl font-bold text-purple-600">請求書ぴっと</h1>
+          <h1 className="text-lg sm:text-2xl font-bold text-blue-600">請求書ぴっと</h1>
           <Button onClick={() => router.push('/talent/invoices')} variant="outline" size="sm" className="text-xs sm:text-sm">
             ← 請求書一覧に戻る
           </Button>
@@ -329,6 +370,27 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
           <h2 className="text-3xl font-bold text-gray-900 mb-2">請求書編集</h2>
           <p className="text-gray-600">請求書番号: {invoiceNumber}</p>
         </div>
+
+        {/* 差し戻しアラート */}
+        {invoice?.return_status === 'returned' && invoice?.return_comment && (
+          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
+            <div className="flex items-start">
+              <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 mr-3 flex-shrink-0" />
+              <div className="flex-1">
+                <h3 className="text-red-800 font-semibold mb-1">差し戻しされました</h3>
+                <p className="text-red-700 text-sm mb-2">{invoice.return_comment}</p>
+                {invoice.return_date && (
+                  <p className="text-red-600 text-xs">
+                    差し戻し日時: {new Date(invoice.return_date).toLocaleString('ja-JP')}
+                  </p>
+                )}
+                <p className="text-red-800 text-sm font-medium mt-3">
+                  ✏️ 修正して再送信してください。更新すると再び承認待ち状態になります。
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {message && (
           <div className={`mb-6 p-4 rounded-md ${message.includes('失敗') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
@@ -347,7 +409,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
         >
           {/* 主催者情報（編集不可） */}
           {verifiedOrganizer && (
-            <Card className="border-purple-200 bg-purple-50">
+            <Card className="border-blue-200 bg-blue-50">
               <CardHeader>
                 <CardTitle>送信先（変更不可）</CardTitle>
               </CardHeader>
@@ -374,7 +436,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                     type="text"
                     value={recipientName}
                     onChange={(e) => setRecipientName(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="例: 株式会社〇〇 または 山田太郎"
                   />
                 </div>
@@ -385,7 +447,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                     type="text"
                     value={recipientPostalCode}
                     onChange={(e) => setRecipientPostalCode(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="例: 123-4567"
                   />
                 </div>
@@ -396,7 +458,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                     type="text"
                     value={recipientAddress}
                     onChange={(e) => setRecipientAddress(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="例: 東京都渋谷区〇〇1-2-3"
                   />
                 </div>
@@ -444,7 +506,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                   type="text"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="例: 2024年12月分出演料"
                 />
               </div>
@@ -456,7 +518,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                     type="date"
                     value={workDate}
                     onChange={(e) => setWorkDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
@@ -466,7 +528,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                     type="date"
                     value={paymentDueDate}
                     onChange={(e) => setPaymentDueDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -487,7 +549,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                     <select
                       value={item.category || ''}
                       onChange={(e) => updateItemCategory(index, e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     >
                       <option value="">選択してください</option>
@@ -506,7 +568,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                         type="text"
                         value={item.name}
                         onChange={(e) => updateItem(index, 'name', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="項目名を入力"
                         required
                       />
@@ -520,7 +582,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                         type="number"
                         value={item.quantity}
                         onChange={(e) => updateItem(index, 'quantity', Number(e.target.value) || 1)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         min="1"
                         step="1"
                         required
@@ -551,7 +613,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                           className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
                             item.category === 'discount'
                               ? 'border-red-300 text-red-600 font-semibold focus:ring-red-500 pl-8'
-                              : 'border-gray-300 focus:ring-purple-500'
+                              : 'border-gray-300 focus:ring-blue-500'
                           }`}
                           placeholder={item.category === 'discount' ? '値引き額' : '単価'}
                           required
@@ -563,11 +625,11 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                   </div>
 
                   {item.quantity && item.amount > 0 && (
-                    <div className="bg-purple-50 border border-purple-200 rounded-md px-3 py-2">
-                      <p className="text-sm text-purple-900">
+                    <div className="bg-blue-50 border border-blue-200 rounded-md px-3 py-2">
+                      <p className="text-sm text-blue-900">
                         <span className="font-medium">小計:</span>{' '}
                         {item.quantity} × ¥{item.amount.toLocaleString()} = {' '}
-                        <span className="font-bold text-purple-700">
+                        <span className="font-bold text-blue-700">
                           ¥{(item.quantity * item.amount).toLocaleString()}
                         </span>
                       </p>
@@ -652,7 +714,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                 </div>
                 <div className="border-t pt-2 flex justify-between">
                   <span className="font-bold text-lg">合計:</span>
-                  <span className="font-bold text-lg text-purple-600">¥{calculateTotal().toLocaleString()}</span>
+                  <span className="font-bold text-lg text-blue-600">¥{calculateTotal().toLocaleString()}</span>
                 </div>
               </div>
             </CardContent>
@@ -669,7 +731,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[100px]"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
                   placeholder="平素は格別のご高配を賜り、厚く御礼申し上げます。"
                   rows={4}
                 />
@@ -692,7 +754,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
           </div>
         </form>
 
-        {/* プレビューモーダル */}
+        {/* プレビューモーダル（既存のまま） */}
         {showPreviewModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -708,9 +770,9 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                 </div>
 
                 {verifiedOrganizer ? (
-                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                    <p className="text-sm font-medium text-purple-900 mb-1">送信先</p>
-                    <p className="text-lg font-bold text-purple-700">{verifiedOrganizer.name || verifiedOrganizer.company_name || verifiedOrganizer.full_name} 御中</p>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm font-medium text-blue-900 mb-1">送信先</p>
+                    <p className="text-lg font-bold text-blue-700">{verifiedOrganizer.name || verifiedOrganizer.company_name || verifiedOrganizer.full_name} 御中</p>
                   </div>
                 ) : recipientName ? (
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -807,7 +869,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                   )}
                   <div className="border-t pt-2 flex justify-between">
                     <span className="font-bold text-lg">合計</span>
-                    <span className="font-bold text-2xl text-purple-600">¥{calculateTotal().toLocaleString()}</span>
+                    <span className="font-bold text-2xl text-blue-600">¥{calculateTotal().toLocaleString()}</span>
                   </div>
                 </div>
 

@@ -6,9 +6,9 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/lib/supabase';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { isProfileComplete, getMissingProfileFields } from '@/lib/profile-check';
-import type { Profile } from '@/types/database';
+import { Profile } from '@/types/database'; 
 
 export default function TalentDashboardPage() {
   const { user, loading, signOut } = useAuth();
@@ -29,9 +29,10 @@ export default function TalentDashboardPage() {
   }, [user]);
 
   const loadProfile = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
+    const supabase = createClientComponentClient();
+      try {
+    const { data, error } = await supabase
+      .from('profiles')
         .select('*')
         .eq('id', user!.id)
         .single();
@@ -56,7 +57,7 @@ export default function TalentDashboardPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">読み込み中...</p>
         </div>
       </div>
@@ -68,13 +69,13 @@ export default function TalentDashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 relative">
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-cyan-50 to-indigo-100 relative">
       <div className="absolute inset-0 bg-white/30 backdrop-blur-3xl"></div>
       <div className="relative z-10">
         {/* ヘッダー */}
         <header className="bg-white shadow-sm border-b sticky top-0 z-20">
           <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-4 flex justify-between items-center">
-            <h1 className="text-lg sm:text-2xl font-bold text-purple-600">請求書ぴっと - タレント</h1>
+            <h1 className="text-lg sm:text-2xl font-bold text-blue-600">請求書ぴっと - タレント</h1>
             <div className="flex items-center gap-2 sm:gap-4">
               <span className="hidden sm:inline text-sm text-gray-900">
                 {profile?.full_name} 様
@@ -149,7 +150,7 @@ export default function TalentDashboardPage() {
               <CardContent>
                 <Link href="/talent/invoices/create" className="block">
                   <Button 
-                    className="w-full border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 hover:border-purple-700 transition-all text-xs sm:text-sm"
+                    className="w-full border-2 border-blue-600 bg-blue-600 text-white hover:bg-blue-700 hover:border-blue-700 transition-all text-xs sm:text-sm"
                   >
                     作成する
                   </Button>
@@ -170,7 +171,7 @@ export default function TalentDashboardPage() {
               <CardContent>
                 <Link href="/talent/invoices" className="block">
                   <Button 
-                    className="w-full border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 hover:border-purple-700 transition-all text-xs sm:text-sm"
+                    className="w-full border-2 border-blue-600 bg-blue-600 text-white hover:bg-blue-700 hover:border-blue-700 transition-all text-xs sm:text-sm"
                   >
                     一覧を見る
                   </Button>
@@ -191,7 +192,7 @@ export default function TalentDashboardPage() {
               <CardContent>
                 <Link href="/talent/settings" className="block">
                   <Button 
-                    className="w-full border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 hover:border-purple-700 transition-all text-xs sm:text-sm"
+                    className="w-full border-2 border-blue-600 bg-blue-600 text-white hover:bg-blue-700 hover:border-blue-700 transition-all text-xs sm:text-sm"
                   >
                     設定を開く
                   </Button>
@@ -210,7 +211,7 @@ export default function TalentDashboardPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Link href="/subscription" className="block">
+                <Link href="/talent/subscription" className="block">
                   <Button 
                     className="w-full border-2 border-yellow-600 bg-yellow-600 text-white hover:bg-yellow-700 hover:border-yellow-700 transition-all font-semibold text-xs sm:text-sm"
                   >

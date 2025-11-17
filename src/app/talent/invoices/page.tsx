@@ -17,7 +17,9 @@ type Invoice = Database['public']['Tables']['invoices']['Row'] & {
   paid_date?: string | null;
   organizer_id?: string | null;
   withholding?: number;
+  status?: 'pending' | 'approved' | 'paid' | 'returned' | 'draft';
 };
+
 
 // 源泉徴収を計算する関数
 const calculateWithholding = (items: any[]) => {
@@ -46,73 +48,28 @@ const calculateWithholding = (items: any[]) => {
 
 // 請求書ステータス表示コンポーネント
 function InvoiceStatusBadges({ invoice }: { invoice: Invoice }) {
-  const supabase = createClientComponentClient<Database>();
-  const [returnStatus, setReturnStatus] = useState<string | null>(null);
-  const [orgStatus, setOrgStatus] = useState<string | null>(null);
-  const [organizerName, setOrganizerName] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchStatuses = async () => {
-      // 差し戻しステータスを取得
-      const { data: invoiceData } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('id', invoice.id)
-        .single();
-      
-      if (invoiceData) {
-        setReturnStatus((invoiceData as any).return_status);
-      }
-
-      // 主催者側のステータスと主催者名を取得
-      if (invoice.organizer_id) {
-        const { data: orgData } = await supabase
-          .from('organizer_invoices')
-          .select('status')
-          .eq('invoice_id', invoice.id)
-          .maybeSingle();
-        
-        if (orgData) setOrgStatus(orgData.status);
-
-        // 主催者名を取得
-        const { data: organizerData } = await supabase
-          .from('organizers')
-          .select('*')
-          .eq('id', invoice.organizer_id)
-          .maybeSingle();
-        
-        if (organizerData) {
-          setOrganizerName(organizerData.name || organizerData.company_name || organizerData.full_name || null);
-        }
-      }
-    };
-
-    fetchStatuses();
-  }, [invoice.id, invoice.organizer_id, supabase]);
-
-  // ステータス判定
+  // すでに invoice に含まれているデータを直接使用
   const isPaid = invoice.payment_status === 'paid';
-  const isReturned = returnStatus === 'returned';
-  const isApproved = orgStatus === 'approved';
-  const isPendingApproval = invoice.organizer_id && orgStatus === 'pending';
-
+  const isReturned = invoice.return_status === 'returned';
+  const isApproved = invoice.status === 'approved';
+  const isPendingApproval = invoice.organizer_id && invoice.status === 'pending';
 
   return (
   <div className="space-y-2">
     {/* 相手先表示 */}
-{organizerName ? (
-  <span className="inline-flex items-center text-xs px-2 py-1 rounded-full font-medium bg-purple-100 text-purple-700">
-    🏢 {organizerName}
-  </span>
-) : invoice.recipient_name ? (
-  <span className="inline-flex items-center text-xs px-2 py-1 rounded-full font-medium bg-gray-100 text-gray-700">
-    📄 {invoice.recipient_name}
-  </span>
-) : null}
+    {invoice.organizer_name ? (
+    <span className="inline-flex items-center text-xs px-2 py-1 rounded-full font-medium bg-blue-100 text-blue-700">
+      🏢 {invoice.organizer_name}
+    </span>
+    ) : invoice.recipient_name ? (
+    <span className="inline-flex items-center text-xs px-2 py-1 rounded-full font-medium bg-gray-100 text-gray-700">
+      📄 {invoice.recipient_name}
+    </span>
+    ) : null}
 
 
     {/* ステータスバッジ */}
-<div className="flex flex-wrap gap-2">
+  <div className="flex flex-wrap gap-2">
     {/* 入金済以外のパターン */}
     {!isPaid && (
       <>
@@ -145,7 +102,7 @@ function InvoiceStatusBadges({ invoice }: { invoice: Invoice }) {
     )}
   </div>
 
-    </div>
+  </div>
   );
 }
 
@@ -169,6 +126,8 @@ export default function InvoicesPage() {
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<'all' | 'unpaid' | 'paid'>('all');
   const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -230,13 +189,27 @@ export default function InvoicesPage() {
   });
   }, [invoices, activeTab, searchQuery, paymentStatusFilter, sortBy, sortOrder]);  // ← activeTab追加
 
+  // 編集可能かどうかを判定
+  const canEditInvoice = (invoice: Invoice): boolean => {
+    // 主催者連携していない場合は常に編集可能
+    if (!invoice.organizer_id) return true;
+    
+    // 入金済みの場合は編集不可
+    if (invoice.payment_status === 'paid') return false;
+    
+    // 差し戻しの場合は編集可能
+    if (invoice.return_status === 'returned') return true;
+    
+    // それ以外（主催者確認中）は編集不可
+    return false;
+  };
 
   const loadInvoices = async () => {
   try {
     const { data, error } = await supabase
       .from('invoices')
       .select('*')
-      .eq('talent_id', user!.id)
+      .eq('user_id', user!.id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -253,10 +226,12 @@ export default function InvoicesPage() {
           paid_date: (invoice as any).paid_date || null,
           return_status: (invoice as any).return_status || null,
           organizer_id: (invoice as any).organizer_id || null,
-          withholding: calculatedWithholding,  // 計算した値を追加
+          withholding: calculatedWithholding,
+          status: 'draft', // デフォルト値
         };
 
         if (extendedInvoice.organizer_id) {
+          // 主催者情報を取得
           const { data: organizerData } = await supabase
             .from('organizers')
             .select('*')
@@ -265,6 +240,17 @@ export default function InvoicesPage() {
           
           if (organizerData) {
             extendedInvoice.organizer_name = organizerData.name || organizerData.company_name || organizerData.full_name || undefined;
+          }
+
+          // 主催者側のステータスを取得
+          const { data: orgInvoiceData } = await supabase
+            .from('organizer_invoices')
+            .select('status')
+            .eq('invoice_id', invoice.id)
+            .maybeSingle();
+          
+          if (orgInvoiceData) {
+            extendedInvoice.status = orgInvoiceData.status;
           }
         }
         return extendedInvoice;
@@ -308,30 +294,49 @@ export default function InvoicesPage() {
     }
   };
 
-  const deleteInvoice = async (id: string) => {
-    if (!confirm('この請求書を削除しますか？')) return;
+  const openDeleteModal = (id: string) => {
+  setDeletingInvoiceId(id);
+  setDeleteModalOpen(true);
+};
 
-    try {
-      const { error } = await supabase
-        .from('invoices')
-        .delete()
-        .eq('id', id);
+const deleteInvoice = async () => {
+  if (!deletingInvoiceId) return;
 
-      if (error) throw error;
+  try {
+    // 主催者側のデータも削除
+    const { error: orgError } = await supabase
+      .from('organizer_invoices')
+      .delete()
+      .eq('invoice_id', deletingInvoiceId);
 
-      setInvoices(invoices.filter(inv => inv.id !== id));
-      alert('削除しました');
-    } catch (error: any) {
-      console.error('削除エラー:', error);
-      alert('削除に失敗しました');
+    if (orgError && orgError.code !== 'PGRST116') {
+      console.error('主催者側データ削除エラー:', orgError);
     }
-  };
+
+    // タレント側のデータを削除
+    const { error } = await supabase
+      .from('invoices')
+      .delete()
+      .eq('id', deletingInvoiceId);
+
+    if (error) throw error;
+
+    // UIから削除
+    setInvoices(invoices.filter(inv => inv.id !== deletingInvoiceId));
+    alert('削除しました');
+    setDeleteModalOpen(false);
+    setDeletingInvoiceId(null);
+  } catch (error: any) {
+    console.error('削除エラー:', error);
+    alert('削除に失敗しました');
+  }
+};
 
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">読み込み中...</p>
         </div>
       </div>
@@ -346,7 +351,7 @@ export default function InvoicesPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-4 flex justify-between items-center">
-          <h1 className="text-lg sm:text-2xl font-bold text-purple-600">請求書ぴっと</h1>
+          <h1 className="text-lg sm:text-2xl font-bold text-blue-600">請求書ぴっと</h1>
           <Button onClick={() => router.push('/talent/dashboard')} variant="outline" size="sm" className="text-xs sm:text-sm">
             <span className="hidden sm:inline">← ダッシュボードに戻る</span>
             <span className="sm:hidden">← ダッシュボードに戻る</span>
@@ -404,7 +409,7 @@ export default function InvoicesPage() {
                 }}
                 className={`flex-1 px-2 sm:px-6 py-2 sm:py-3 rounded-md font-medium transition-all text-xs sm:text-base ${
                   activeTab === 'all'
-                    ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-md'
+                    ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md'
                     : 'text-gray-600 hover:bg-gray-50'
                 }`}
               >
@@ -440,7 +445,7 @@ export default function InvoicesPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="請求書番号、請求先名等で検索..."
-                className="w-full px-4 py-2 pl-9 sm:pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                className="w-full px-4 py-2 pl-9 sm:pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
               <svg 
                 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400"
@@ -472,15 +477,15 @@ export default function InvoicesPage() {
         <div className="mb-4 sm:mb-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-3">
             {/* 総売上 */}
-            <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
               <CardContent className="py-2 px-3 sm:pt-4 sm:pb-3 sm:px-3">
                 <div className="flex sm:flex-col items-center sm:items-start justify-between sm:justify-start">
-                  <p className="text-xs sm:text-xs font-medium text-purple-700 sm:mb-1">📊 総売上</p>
+                  <p className="text-xs sm:text-xs font-medium text-blue-700 sm:mb-1">📊 総売上</p>
                   <div className="text-right sm:text-left">
-                    <p className="text-sm sm:text-xl font-bold text-purple-900">
+                    <p className="text-sm sm:text-xl font-bold text-blue-900">
                       ¥{stats.totalSales.toLocaleString()}
                     </p>
-                    <p className="text-xs sm:text-xs text-purple-600">
+                    <p className="text-xs sm:text-xs text-blue-600">
                       {invoices.length}件
                     </p>
                   </div>
@@ -560,7 +565,7 @@ export default function InvoicesPage() {
                   <select
                     value={paymentStatusFilter}
                     onChange={(e) => setPaymentStatusFilter(e.target.value as 'all' | 'unpaid' | 'paid')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   >
                     <option value="all">すべて</option>
                     <option value="unpaid">未入金</option>
@@ -573,7 +578,7 @@ export default function InvoicesPage() {
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as 'date' | 'amount')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   >
                     <option value="date">作成日順</option>
                     <option value="amount">金額順</option>
@@ -585,7 +590,7 @@ export default function InvoicesPage() {
                   <select
                     value={sortOrder}
                     onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   >
                     <option value="desc">{sortBy === 'date' ? '新しい順' : '高い順'}</option>
                     <option value="asc">{sortBy === 'date' ? '古い順' : '低い順'}</option>
@@ -601,7 +606,7 @@ export default function InvoicesPage() {
                 <select
                   value={paymentStatusFilter}
                   onChange={(e) => setPaymentStatusFilter(e.target.value as 'all' | 'unpaid' | 'paid')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="all">すべて</option>
                   <option value="unpaid">未入金</option>
@@ -614,7 +619,7 @@ export default function InvoicesPage() {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as 'date' | 'amount')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="date">作成日順</option>
                   <option value="amount">金額順</option>
@@ -626,7 +631,7 @@ export default function InvoicesPage() {
                 <select
                   value={sortOrder}
                   onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="desc">{sortBy === 'date' ? '新しい順' : '高い順'}</option>
                   <option value="asc">{sortBy === 'date' ? '古い順' : '低い順'}</option>
@@ -666,7 +671,7 @@ export default function InvoicesPage() {
               <Card 
   key={invoice.id} 
   className={`hover:shadow-lg transition-shadow ${
-    invoice.organizer_id ? 'border-l-4 border-l-purple-500 bg-purple-50/30' : ''
+    invoice.organizer_id ? 'border-l-4 border-l-blue-500 bg-blue-50/30' : ''
   } ${
     invoice.payment_status === 'unpaid' ? 'bg-yellow-50/50 border-l-4 border-l-yellow-400' : ''
   }`}
@@ -709,7 +714,7 @@ export default function InvoicesPage() {
             </div>
   
             <div className="flex justify-between items-center">
-              <div className="text-xl font-bold text-purple-600">
+              <div className="text-xl font-bold text-blue-600">
                 ¥{invoice.total_amount.toLocaleString()}
               </div>
               <div className="text-xs text-gray-500 text-right">
@@ -761,7 +766,7 @@ export default function InvoicesPage() {
                 </CardDescription>
               </div>
               <div className="text-right ml-4">
-            <div className="text-2xl font-bold text-purple-600">
+            <div className="text-2xl font-bold text-blue-600">
               ¥{invoice.total_amount.toLocaleString()}
             </div>
             <div className="text-sm text-gray-500">
@@ -806,19 +811,38 @@ export default function InvoicesPage() {
                         🖨️ 印刷・PDF保存
                       </Button>
                     </Link>
-                    <Link href={`/talent/invoices/${invoice.id}/edit`}>
-                      <Button size="sm" variant="outline" className="text-xs h-8">
-                        ✏️ 編集
+                    {canEditInvoice(invoice) ? (
+                      <Link href={`/talent/invoices/${invoice.id}/edit`}>
+                       <Button size="sm" variant="outline" className="text-xs h-8">
+                         ✏️ 編集
+                       </Button>
+                     </Link>
+                   ) : (
+                      <Button 
+                       size="sm" 
+                       variant="outline" 
+                       className="text-xs h-8 opacity-50 cursor-not-allowed"
+                       onClick={(e) => {
+                         e.preventDefault();
+                         if (invoice.payment_status === 'paid') {
+                           alert('入金済みのため、編集できません。');
+                         } else {
+                           alert('ただいま主催者確認中のため、編集できません。');
+                         }
+                       }}
+                       >
+                        🔒 編集不可
                       </Button>
-                    </Link>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="text-red-600 text-xs h-8"
-                      onClick={() => deleteInvoice(invoice.id)}
-                    >
-                      🗑️ 削除
-                    </Button>
+                    )}
+
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-red-600 text-xs h-8"
+                        onClick={() => openDeleteModal(invoice.id)}
+                       >
+                        🗑️ 削除
+                      </Button>
                   </div>
                 </CardContent>
 
@@ -828,6 +852,53 @@ export default function InvoicesPage() {
         )}
         
       </main>
+
+            {/* 削除確認モーダル */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-start gap-4 mb-4">
+              <div className="flex-shrink-0">
+                <svg className="h-12 w-12 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-gray-900 mb-2">
+                  請求書を削除
+                </h3>
+                <p className="text-sm text-gray-600 mb-1">
+                  この請求書を削除しますか？
+                </p>
+                <p className="text-sm text-red-600 font-medium">
+                  ⚠️ この操作は取り消せません。
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setDeleteModalOpen(false);
+                  setDeletingInvoiceId(null);
+                }}
+              >
+                キャンセル
+              </Button>
+              <Button
+                size="sm"
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={deleteInvoice}
+              >
+                削除する
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -1,8 +1,7 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import type { Database } from '@/types/database';
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -10,17 +9,39 @@ export async function GET(request: NextRequest) {
   const type = requestUrl.searchParams.get('type'); // 'talent' or 'organizer'
 
   if (code) {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore });
-
-    // コードを交換してセッションを確立
+    const cookieStore = await cookies();
+    
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: any) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options: any) {
+            cookieStore.set({ name, value: '', ...options });
+          },
+        },
+      }
+    );
+    
+    // コードをセッションに交換
     await supabase.auth.exchangeCodeForSession(code);
   }
 
-  // リダイレクト先を決定
-  if (type === 'organizer') {
-    return NextResponse.redirect(new URL('/organizer/login?confirmed=true', request.url));
-  } else {
-    return NextResponse.redirect(new URL('/talent/login?confirmed=true', request.url));
+  // タイプに応じてリダイレクト
+  if (type === 'talent') {
+    return NextResponse.redirect(new URL('/talent/dashboard', request.url));
   }
+  
+  if (type === 'organizer') {
+    return NextResponse.redirect(new URL('/organizer/dashboard', request.url));
+  }
+
+  // タイプが不明な場合はトップページへ
+  return NextResponse.redirect(new URL('/', request.url));
 }

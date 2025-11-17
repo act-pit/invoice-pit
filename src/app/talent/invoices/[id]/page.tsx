@@ -82,7 +82,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
         .from('invoices')
         .select('*')
         .eq('id', resolvedParams.id)
-        .eq('talent_id', user!.id)
+        .eq('user_id', user!.id)
         .maybeSingle();
 
       if (invoiceError) throw invoiceError;
@@ -139,7 +139,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">読み込み中...</p>
         </div>
       </div>
@@ -245,7 +245,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
           </Button>
           <Button 
             onClick={handlePrint} 
-            className="bg-purple-600 hover:bg-purple-700 text-xs sm:text-sm"
+            className="bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm"
             size="sm"
           >
             🖨️ 印刷・PDF保存

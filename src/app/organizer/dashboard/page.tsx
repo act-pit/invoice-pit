@@ -53,69 +53,7 @@ function ReturnStatusBadge({ invoiceId }: { invoiceId: string }) {
   );
 }
 
-// 差し戻し状態に応じたボタン表示コンポーネント
-function ReturnStatusButtons({ 
-  invoiceId, 
-  onApprove, 
-  onReturn 
-}: { 
-  invoiceId: string | null;
-  onApprove: () => void;
-  onReturn: () => void;
-}) {
-  const [returnStatus, setReturnStatus] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!invoiceId) {
-      setLoading(false);
-      return;
-    }
-
-    const fetchReturnStatus = async () => {
-      try {
-        const { data } = await supabase
-          .from('invoices')
-          .select('return_status')
-          .eq('id', invoiceId)
-          .single();
-        
-        if (data) setReturnStatus(data.return_status);
-      } catch (err) {
-        console.error('エラー:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchReturnStatus();
-  }, [invoiceId]);
-
-  const isReturned = returnStatus === 'returned';
-
-  return (
-    <>
-      <Button 
-        size="sm" 
-        onClick={onApprove}
-        disabled={isReturned}
-        className={`text-xs sm:text-sm border-2 ${isReturned ? 'opacity-50 cursor-not-allowed' : 'border-purple-400'}`}
-      >
-        {isReturned ? '🔒 承認不可' : '✅ 承認'}
-      </Button>
-      {!isReturned && (
-        <Button 
-          size="sm" 
-          variant="outline"
-          className="text-xs sm:text-sm border-2 border-orange-500 text-orange-600 hover:bg-orange-50"
-          onClick={onReturn}
-        >
-          ↩️ 差し戻し
-        </Button>
-      )}
-    </>
-  );
-}
 
 export default function OrganizerDashboardPage() {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -237,41 +175,53 @@ export default function OrganizerDashboardPage() {
   };
 
   const handleReturn = async () => {
-    if (!returnComment.trim()) {
-      alert('差し戻し理由を入力してください');
+  if (!returnComment.trim()) {
+    alert('差し戻し理由を入力してください');
+    return;
+  }
+
+  if (!returningInvoiceId) return;
+
+  setIsSubmitting(true);
+
+  try {
+    console.log('🔄 差し戻し開始 - returningInvoiceId:', returningInvoiceId);
+    
+    const { data: orgInvoiceData, error: fetchError } = await supabase
+      .from('organizer_invoices')
+      .select('invoice_id, status')
+      .eq('id', returningInvoiceId)
+      .single();
+
+    console.log('📊 organizer_invoices データ:', orgInvoiceData);
+    console.log('❌ エラー:', fetchError);
+
+    if (fetchError) throw fetchError;
+    
+    if (!orgInvoiceData.invoice_id) {
+      alert('関連する請求書が見つかりません');
       return;
     }
 
-    if (!returningInvoiceId) return;
+    console.log('🎯 更新対象の invoice_id:', orgInvoiceData.invoice_id);
+    console.log('👤 user.id:', user?.id);
 
-    setIsSubmitting(true);
+    const { data: updateResult, error: invoiceError } = await supabase
+      .from('invoices')
+      .update({
+        return_status: 'returned',
+        return_comment: returnComment,
+        return_date: new Date().toISOString(),
+        returned_by: user!.id,
+        status: 'draft',
+      })
+      .eq('id', orgInvoiceData.invoice_id)
+      .select();  // ← 追加：更新結果を取得
 
-    try {
-      const { data: orgInvoiceData, error: fetchError } = await supabase
-        .from('organizer_invoices')
-        .select('invoice_id, status')
-        .eq('id', returningInvoiceId)
-        .single();
+    console.log('✅ 更新結果:', updateResult);
+    console.log('❌ 更新エラー:', invoiceError);
 
-      if (fetchError) throw fetchError;
-      
-      if (!orgInvoiceData.invoice_id) {
-        alert('関連する請求書が見つかりません');
-        return;
-      }
-
-      const { error: invoiceError } = await supabase
-        .from('invoices')
-        .update({
-          return_status: 'returned',
-          return_comment: returnComment,
-          return_date: new Date().toISOString(),
-          returned_by: user!.id,
-          status: 'draft',
-        })
-        .eq('id', orgInvoiceData.invoice_id);
-
-      if (invoiceError) throw invoiceError;
+    if (invoiceError) throw invoiceError;
 
       const { error: orgError } = await supabase
         .from('organizer_invoices')
@@ -372,7 +322,7 @@ export default function OrganizerDashboardPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">読み込み中...</p>
         </div>
       </div>
@@ -385,7 +335,7 @@ export default function OrganizerDashboardPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 relative">
+      <div className="min-h-screen bg-gradient-to-br from-blue-100 via-pink-50 to-blue-100 relative">
         <div className="absolute inset-0 bg-white/30 backdrop-blur-3xl"></div>
         <div className="relative z-10">
           {/* ヘッダー */}
@@ -444,8 +394,10 @@ export default function OrganizerDashboardPage() {
                     size="sm"
                     className="text-xs sm:text-sm border-2 border-green-400"
                     onClick={() => {
-                      navigator.clipboard.writeText(organizer.organizer_code);
-                      alert('コードをコピーしました！');
+                      if (organizer.organizer_code) {
+                        navigator.clipboard.writeText(organizer.organizer_code);
+                        alert('コードをコピーしました！');
+                      }
                     }}
                   >
                     📋 コピー
@@ -506,7 +458,7 @@ export default function OrganizerDashboardPage() {
                       placeholder="キャスト名・請求書番号で検索..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   
@@ -515,7 +467,7 @@ export default function OrganizerDashboardPage() {
                     <select
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value as any)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="all">全て</option>
                       <option value="pending">未承認</option>
@@ -530,7 +482,7 @@ export default function OrganizerDashboardPage() {
                     onClick={exportToCSV} 
                     variant="outline"
                     size="sm"
-                    className="text-xs sm:text-sm border-2 border-purple-400"
+                    className="text-xs sm:text-sm border-2 border-blue-400"
                   >
                     📊 CSV出力
                   </Button>
@@ -561,8 +513,8 @@ export default function OrganizerDashboardPage() {
                         </div>
                         
                         <div className="text-left sm:text-right">
-                          <div className="text-xl sm:text-2xl font-bold text-purple-600">
-                            ¥{invoice.total.toLocaleString()}
+                          <div className="text-xl sm:text-2xl font-bold text-blue-600">
+                            ¥{(invoice.total || 0).toLocaleString()}
                           </div>
                           <div className="flex flex-col items-start sm:items-end gap-1 mt-1">
                             <div className={`text-xs sm:text-sm font-medium ${
@@ -583,15 +535,15 @@ export default function OrganizerDashboardPage() {
   <div className="grid grid-cols-3 gap-3 sm:gap-4">
     <div className="text-sm sm:text-base">
       <p className="text-gray-500">消費税</p>
-      <p className="font-medium">¥{invoice.tax.toLocaleString()}</p>
+      <p className="font-medium">¥{(invoice.tax || 0).toLocaleString()}</p>
     </div>
     <div className="text-sm sm:text-base">
       <p className="text-gray-500">源泉徴収</p>
-      <p className="font-medium text-red-600">-¥{invoice.withholding.toLocaleString()}</p>
+      <p className="font-medium text-red-600">-¥{(invoice.withholding || 0).toLocaleString()}</p>
     </div>
     <div className="text-base sm:text-lg">
       <p className="text-gray-500 font-semibold">支払期日</p>
-      <p className="font-bold text-purple-600">
+      <p className="font-bold text-blue-600">
         {invoice.payment_due_date 
           ? new Date(invoice.payment_due_date).toLocaleDateString('ja-JP')
           : '-'}
@@ -615,35 +567,52 @@ export default function OrganizerDashboardPage() {
 
 
                       <div className="flex flex-wrap gap-2">
-                        {invoice.status === 'pending' && (
-                          <ReturnStatusButtons 
-                            key={`${invoice.id}-${refreshKey}`}
-                            invoiceId={invoice.invoice_id}
-                            onApprove={() => updateInvoiceStatus(invoice.id, 'approved')}
-                            onReturn={() => {
-                              setReturningInvoiceId(invoice.id);
-                              setIsReturnModalOpen(true);
-                            }}
-                          />
-                        )}
-                        {invoice.status === 'approved' && (
-                          <Button 
-                            size="sm" 
-                            className="text-xs sm:text-sm border-2 border-green-600"
-                            onClick={() => updateInvoiceStatus(invoice.id, 'paid')}
-                          >
-                            💰 支払済み
-                          </Button>
-                        )}
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          className="text-xs sm:text-sm border-2 border-gray-300"
-                          onClick={() => setSelectedInvoice(invoice)}
-                        >
-                          👁️ 詳細
-                        </Button>
-                      </div>
+  {invoice.status === 'pending' && (
+    <>
+      <Button 
+        size="sm" 
+        onClick={() => updateInvoiceStatus(invoice.id, 'approved')}
+        className="text-xs sm:text-sm border-2 border-blue-400"
+      >
+        ✅ 承認
+      </Button>
+      <Button 
+        size="sm" 
+        variant="outline"
+        className="text-xs sm:text-sm border-2 border-orange-500 text-orange-600 hover:bg-orange-50"
+        onClick={() => {
+          setReturningInvoiceId(invoice.id);
+          setIsReturnModalOpen(true);
+        }}
+      >
+        ↩️ 差し戻し
+      </Button>
+    </>
+  )}
+  {invoice.status === 'approved' && (
+    <Button 
+      size="sm" 
+      className="text-xs sm:text-sm border-2 border-green-600"
+      onClick={() => updateInvoiceStatus(invoice.id, 'paid')}
+    >
+      💰 支払済み
+    </Button>
+  )}
+  {invoice.status === 'returned' && (
+    <div className="text-xs sm:text-sm text-orange-600 font-medium px-3 py-2 bg-orange-50 rounded-md">
+      ⏳ タレントによる修正を待っています
+    </div>
+  )}
+  <Button 
+    size="sm" 
+    variant="outline"
+    className="text-xs sm:text-sm border-2 border-gray-300"
+    onClick={() => setSelectedInvoice(invoice)}
+  >
+    👁️ 詳細
+  </Button>
+</div>
+
                     </CardContent>
                   </Card>
                 ))
@@ -697,12 +666,12 @@ export default function OrganizerDashboardPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {selectedInvoice.items.map((item: any, index: number) => (
-                        <tr key={index} className="border-b">
-                          <td className="p-2">{item.name}</td>
-                          <td className="text-right p-2">¥{item.amount.toLocaleString()}</td>
-                        </tr>
-                      ))}
+                      {selectedInvoice.items && Array.isArray(selectedInvoice.items) && selectedInvoice.items.map((item: any, index: number) => (
+                      <tr key={index} className="border-b">
+                        <td className="p-2">{item.name}</td>
+                       <td className="text-right p-2">¥{item.amount.toLocaleString()}</td>
+                      </tr>
+                     ))}
                     </tbody>
                   </table>
                 </div>
@@ -712,19 +681,19 @@ export default function OrganizerDashboardPage() {
                   <div className="bg-gray-50 p-3 sm:p-4 rounded-lg space-y-2 text-xs sm:text-sm">
                     <div className="flex justify-between">
                       <span>小計:</span>
-                      <span>¥{selectedInvoice.subtotal.toLocaleString()}</span>
+                      <span>¥{(selectedInvoice.subtotal || 0).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>消費税:</span>
-                      <span>¥{selectedInvoice.tax.toLocaleString()}</span>
+                      <span>¥{(selectedInvoice.tax || 0).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between text-red-600">
                       <span>源泉徴収:</span>
-                      <span>-¥{selectedInvoice.withholding.toLocaleString()}</span>
+                      <span>-¥{(selectedInvoice.withholding || 0).toLocaleString()}</span>
                     </div>
                     <div className="border-t pt-2 flex justify-between font-bold text-base sm:text-lg">
                       <span>合計:</span>
-                      <span className="text-purple-600">¥{selectedInvoice.total.toLocaleString()}</span>
+                      <span className="text-blue-600">¥{(selectedInvoice.total || 0).toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
@@ -747,7 +716,7 @@ export default function OrganizerDashboardPage() {
               <div className="mt-4 sm:mt-6 flex justify-end">
                 <Button 
                   onClick={() => setSelectedInvoice(null)}
-                  className="text-xs sm:text-sm border-2 border-purple-400"
+                  className="text-xs sm:text-sm border-2 border-blue-400"
                 >
                   閉じる
                 </Button>
