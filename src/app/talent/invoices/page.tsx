@@ -669,13 +669,15 @@ const deleteInvoice = async () => {
           <div className="grid grid-cols-1 gap-3 sm:gap-4">
             {filteredInvoices.map((invoice) => (
               <Card 
-  key={invoice.id} 
-  className={`hover:shadow-lg transition-shadow ${
-    invoice.organizer_id ? 'border-l-4 border-l-blue-500 bg-blue-50/30' : ''
-  } ${
-    invoice.payment_status === 'unpaid' ? 'bg-yellow-50/50 border-l-4 border-l-yellow-400' : ''
-  }`}
->
+                key={invoice.id} 
+               className={`hover:shadow-lg transition-shadow ${
+                  invoice.payment_status === 'unpaid'
+                    ? 'bg-yellow-50/50 border-l-4 border-l-yellow-400' 
+                   : invoice.organizer_id 
+                     ? 'border-l-4 border-l-blue-500 bg-blue-50/30' 
+                     : ''
+               }`}
+              >
 
 
        <CardHeader className="pb-2 sm:pb-3">

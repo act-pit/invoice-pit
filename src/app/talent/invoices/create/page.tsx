@@ -327,7 +327,7 @@ export default function CreateInvoicePage() {
           tax_amount: tax,
           withholding: withholdingTotal,
           total_amount: total,
-          payment_status: 'pending',
+          payment_status: 'unpaid',
           organizer_id: verifiedOrganizer?.id || null,
         })
         .select()

@@ -240,6 +240,7 @@ export interface Database {
           return_comment: string | null
           return_date: string | null
           returned_by: string | null
+          payment_status: 'paid' | 'unpaid' | null 
           created_at: string
           updated_at: string
           paid_date: string | null
@@ -269,6 +270,7 @@ export interface Database {
           return_comment?: string | null
           return_date?: string | null
           returned_by?: string | null
+          payment_status?: 'paid' | 'unpaid' | null
           created_at?: string
           updated_at?: string
           paid_date?: string | null
@@ -298,6 +300,7 @@ export interface Database {
           return_comment?: string | null
           return_date?: string | null
           returned_by?: string | null
+          payment_status?: 'paid' | 'unpaid' | null
           created_at?: string
           updated_at?: string
           paid_date?: string | null
