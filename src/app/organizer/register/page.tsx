@@ -148,7 +148,7 @@ const { data: insertedData, error: orgInsertError } = await supabase
 console.log('📊 挿入結果:', { data: insertedData, error: orgInsertError });
 
 if (orgInsertError) {
-  console.error('❌ 主催者情報挿入エラー:', orgInsertError);
+  console.error('主催者情報挿入エラー:', orgInsertError.message, orgInsertError.code);
   console.error('❌ エラー詳細:', {
     message: orgInsertError.message,
     details: orgInsertError.details,
