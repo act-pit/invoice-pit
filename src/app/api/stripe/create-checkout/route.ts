@@ -46,8 +46,8 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/${finalUserType}/subscription?success=true`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/${finalUserType}/subscription?canceled=true`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://invoice-pit.com'}/${finalUserType}/subscription/success`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://invoice-pit.com'}/${finalUserType}/subscription/cancelled`,
       customer_email: profile.email,
       metadata: {
         userId: userId,
