@@ -59,7 +59,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/login');
+      router.push('/talent/login');
     } else if (user) {
       loadData();
     }

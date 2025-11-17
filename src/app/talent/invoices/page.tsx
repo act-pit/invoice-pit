@@ -132,7 +132,7 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/login');
+      router.push('/talent/login');
     } else if (user) {
       loadInvoices();
     }

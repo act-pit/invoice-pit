@@ -17,7 +17,7 @@ function SuccessContent() {
     }
 
     if (!user) {
-      router.push('/login');
+      router.push('/talent/login');
       return;
     }
 

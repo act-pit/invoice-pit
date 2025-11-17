@@ -15,7 +15,7 @@ export default function SubscriptionCancelledPage() {
     }
 
     if (!user) {
-      router.push('/login');
+      router.push('/talent/login');
     }
   }, [user, authLoading, router]);
 
