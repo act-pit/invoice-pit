@@ -175,97 +175,96 @@ const loadData = async () => {
     <>
       {/* 印刷用CSS */}
       <style jsx global>{`
-        @media print {
-          .no-print {
-            display: none !important;
-          }
-          body {
-            margin: 0;
-            padding: 0;
-          }
-          .print-container {
-            max-width: 90%;
-            margin: 0 auto;
-            padding: 18mm 18mm;
-            box-shadow: none;
-          }
-          .mobile-card-view {
-            display: none !important;
-          }
-          .desktop-table-view {
-            display: table !important;
-          }
-              @media screen {
+  /* 画面表示用のスタイル */
+  @media screen {
     .print-container {
-      max-width: 210mm !important;
-      min-height: 297mm !important;
-      margin: 0 auto !important;
-      padding: 15mm 15mm !important;
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 1rem;
+      background: white;
     }
-  }
-          @page {
-            margin: 0;
-            size: A4 portrait;
-          }
-        }
-        
-        /* 画面表示用のスタイル */
-@media screen {
-  .print-container {
-    max-width: 100%;
-    margin: 0 auto;
-    padding: 1rem;
-    background: white;
+    
+    /* PC画面 */
+    @media (min-width: 768px) {
+      .print-container {
+        max-width: 210mm;
+        min-height: 297mm;
+        margin: 20px auto;
+        padding: 15mm 15mm;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+      .mobile-card-view {
+        display: none !important;
+      }
+      .desktop-table-view {
+        display: table !important;
+      }
+    }
+    
+    /* スマホ画面（画面表示時のみ） */
+    @media (max-width: 767px) {
+      .print-container {
+        padding: 1rem 0.75rem;
+      }
+      .mobile-card-view {
+        display: block !important;
+      }
+      .desktop-table-view {
+        display: none !important;
+      }
+    }
   }
   
-  /* PC画面 */
-  @media (min-width: 768px) {
-    .print-container {
-      max-width: 210mm;
-      min-height: 297mm;
-      margin: 20px auto;
-      padding: 15mm 15mm;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  /* ========================================
+     印刷用CSS（最後に配置して強制適用）
+     ======================================== */
+  @media print {
+    /* 印刷時は画面表示用のスタイルを全て無効化 */
+    * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
+    
+    .no-print {
+      display: none !important;
+    }
+    
+    body {
+      margin: 0 !important;
+      padding: 0 !important;
+      background: white !important;
+    }
+    
+    .print-container {
+      max-width: 90% !important;
+      margin: 0 auto !important;
+      padding: 18mm 18mm !important;
+      box-shadow: none !important;
+      background: white !important;
+    }
+    
+    /* 印刷時は必ずテーブル表示（デバイスサイズ無視） */
     .mobile-card-view {
       display: none !important;
     }
+    
     .desktop-table-view {
       display: table !important;
+      width: 100% !important;
+    }
+    
+    /* レスポンシブの影響を完全に無効化 */
+    .print-container > * {
+      max-width: 100% !important;
+    }
+    
+    @page {
+      margin: 0;
+      size: A4 portrait;
     }
   }
-  
-  /* スマホ画面（画面表示時のみ適用） */
-  @media (max-width: 767px) {
-    .print-container {
-      padding: 1rem 0.75rem;
-    }
-    /* 画面表示時はカード表示 */
-    .mobile-card-view {
-      display: block !important;
-    }
-    .desktop-table-view {
-      display: none !important;
-    }
-  }
-}
+`}</style>
 
-/* 印刷時は画面サイズに関係なくPC版レイアウトを適用 */
-@media print {
-  .print-container {
-    max-width: 90% !important;
-    padding: 18mm 18mm !important;
-  }
-  /* 印刷時は必ずテーブル表示 */
-  .mobile-card-view {
-    display: none !important;
-  }
-  .desktop-table-view {
-    display: table !important;
-  }
-}
-
-      `}</style>
 
       {/* 画面表示時のボタン */}
       <div className="no-print bg-gray-50 py-3 sm:py-4 sticky top-0 z-50 border-b">
