@@ -139,10 +139,24 @@ const loadData = async () => {
 
 
   const handlePrint = () => {
-  console.log('🖨️ 印刷ボタンが押されました');
-  alert('印刷機能を実行します'); // デバッグ用
-  window.print();
+  // スマホ判定
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  
+  if (isMobile) {
+    // スマホ：PC版レイアウトを強制適用
+    document.body.classList.add('mobile-force-print');
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        document.body.classList.remove('mobile-force-print');
+      }, 100);
+    }, 100);
+  } else {
+    // PC：通常通り
+    window.print();
+  }
 };
+
 
 
   if (loading) {  // authLoading を削除
@@ -201,7 +215,7 @@ const loadData = async () => {
       }
     }
     
-    /* スマホ画面（画面表示時のみ） */
+    /* スマホ画面 */
     @media (max-width: 767px) {
       .print-container {
         padding: 1rem 0.75rem;
@@ -215,55 +229,82 @@ const loadData = async () => {
     }
   }
   
-  /* ========================================
-     印刷用CSS（最後に配置して強制適用）
-     ======================================== */
+  /* 印刷用CSS */
   @media print {
-    /* 印刷時は画面表示用のスタイルを全て無効化 */
-    * {
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-    
     .no-print {
       display: none !important;
     }
-    
     body {
-      margin: 0 !important;
-      padding: 0 !important;
-      background: white !important;
+      margin: 0;
+      padding: 0;
     }
-    
     .print-container {
-      max-width: 90% !important;
-      margin: 0 auto !important;
-      padding: 18mm 18mm !important;
-      box-shadow: none !important;
-      background: white !important;
+      max-width: 90%;
+      margin: 0 auto;
+      padding: 18mm 18mm;
+      box-shadow: none;
     }
-    
-    /* 印刷時は必ずテーブル表示（デバイスサイズ無視） */
     .mobile-card-view {
       display: none !important;
     }
-    
     .desktop-table-view {
       display: table !important;
-      width: 100% !important;
     }
-    
-    /* レスポンシブの影響を完全に無効化 */
-    .print-container > * {
-      max-width: 100% !important;
-    }
-    
     @page {
       margin: 0;
       size: A4 portrait;
     }
   }
+  
+  /* スマホから印刷時の強制PC版レイアウト */
+  body.mobile-force-print .print-container {
+    max-width: 210mm !important;
+    padding: 15mm !important;
+  }
+  
+  body.mobile-force-print .mobile-card-view {
+    display: none !important;
+  }
+  
+  body.mobile-force-print .desktop-table-view {
+    display: table !important;
+  }
+  
+  /* PC版の詳細スタイルを強制適用 */
+  body.mobile-force-print .print-container h1 {
+    font-size: 1.875rem !important;
+  }
+  
+  body.mobile-force-print .print-container .text-xs {
+    font-size: 11px !important;
+  }
+  
+  body.mobile-force-print .print-container .text-sm {
+    font-size: 13px !important;
+  }
+  
+  body.mobile-force-print .print-container .border-gray-400 {
+    width: 180px !important;
+    min-width: 180px !important;
+  }
+  
+  body.mobile-force-print .flex-col {
+    flex-direction: row !important;
+  }
+  
+  body.mobile-force-print .sm\\:flex-row {
+    flex-direction: row !important;
+  }
+  
+  body.mobile-force-print .sm\\:justify-between {
+    justify-content: space-between !important;
+  }
+  
+  body.mobile-force-print .w-full.sm\\:w-auto {
+    width: auto !important;
+  }
 `}</style>
+
 
 
       {/* 画面表示時のボタン */}
