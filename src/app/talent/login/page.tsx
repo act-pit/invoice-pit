@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link'; 
 
 export default function TalentLoginPage() {
   const [email, setEmail] = useState('');
@@ -135,21 +136,22 @@ export default function TalentLoginPage() {
 
         <div className="mt-6 space-y-3">
           <div className="text-center">
-            <a 
-              href="/talent/register" 
-              className="text-sm text-gray-600 hover:text-blue-600 transition"
-            >
-              アカウントをお持ちでない方はこちら
-            </a>
+            <Link 
+            href="/talent/register" 
+            className="text-sm text-gray-600 hover:text-blue-600 transition"
+          >
+            アカウントをお持ちでない方はこちら
+          </Link>
           </div>
           
           <div className="text-center pt-2 border-t border-gray-200">
-            <a 
+            <Link 
               href="/organizer/login" 
-              className="text-sm text-gray-600 hover:text-green-600 transition"
+             className="text-sm text-gray-600 hover:text-green-600 transition"
             >
               主催者の方はこちら
-            </a>
+            </Link>
+
           </div>
         </div>
       </div>

@@ -66,12 +66,14 @@ export async function updateSession(request: NextRequest) {
 
   // 保護されたルートの定義
   const isTalentProtected = path.startsWith('/talent') && 
+    path !== '/talent' &&
     !path.startsWith('/talent/login') && 
-    !path.startsWith('/talent/signup')
+    !path.startsWith('/talent/register')
   
   const isOrganizerProtected = path.startsWith('/organizer') && 
+    path !== '/organizer' &&
     !path.startsWith('/organizer/login') && 
-    !path.startsWith('/organizer/signup')
+    !path.startsWith('/organizer/register')
 
   // ✅ 未ログインで保護されたページにアクセス → ログインページへ（これだけ有効）
   if (!user) {
