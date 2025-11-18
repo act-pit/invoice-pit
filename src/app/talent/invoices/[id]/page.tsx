@@ -139,8 +139,11 @@ const loadData = async () => {
 
 
   const handlePrint = () => {
-    window.print();
-  };
+  console.log('🖨️ 印刷ボタンが押されました');
+  alert('印刷機能を実行します'); // デバッグ用
+  window.print();
+};
+
 
   if (loading) {  // authLoading を削除
   return (
