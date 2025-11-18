@@ -10,31 +10,22 @@ function SuccessContent() {
   const { user, loading: authLoading } = useAuth();
   const [countdown, setCountdown] = useState(5);
 
-  useEffect(() => {
-    // 認証状態のロード中は何もしない
-    if (authLoading) {
-      return;
-    }
+useEffect(() => {
+  // Countdown timer
+  const timer = setInterval(() => {
+    setCountdown((prev) => {
+      if (prev <= 1) {
+        clearInterval(timer);
+        router.push('/dashboard');
+        return 0;
+      }
+      return prev - 1;
+    });
+  }, 1000);
 
-    if (!user) {
-      router.push('/talent/login');
-      return;
-    }
+  return () => clearInterval(timer);
+}, [router]);
 
-    // Countdown timer
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          router.push('/dashboard');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [user, authLoading, router]);
 
   const sessionId = searchParams.get('session_id');
 

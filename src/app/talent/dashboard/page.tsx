@@ -16,26 +16,27 @@ export default function TalentDashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showProfileAlert, setShowProfileAlert] = useState(false);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/talent/login');
-    }
-  }, [user, loading, router]);
 
   useEffect(() => {
-    if (user) {
-      loadProfile();
-    }
-  }, [user]);
+  loadProfile();
+}, []);
 
-  const loadProfile = async () => {
-    const supabase = createClient();
-      try {
+const loadProfile = async () => {
+  const supabase = createClient();
+  try {
+    // ✅ Supabaseから直接ユーザーを取得
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      console.error('ユーザーが取得できませんでした');
+      return;
+    }
+
     const { data, error } = await supabase
       .from('profiles')
-        .select('*')
-        .eq('id', user!.id)
-        .single();
+      .select('*')
+      .eq('id', user.id)
+      .single();
 
       if (error) throw error;
 
@@ -53,20 +54,6 @@ export default function TalentDashboardPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">読み込み中...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100 via-cyan-50 to-indigo-100 relative">

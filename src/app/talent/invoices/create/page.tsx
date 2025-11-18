@@ -67,70 +67,70 @@ export default function CreateInvoicePage() {
   const [verifiedOrganizer, setVerifiedOrganizer] = useState<Organizer | null>(null);
   const [verifying, setVerifying] = useState(false);
 
-  // 認証チェック
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/talent/login');
-    }
-  }, [user, authLoading, router]);
-
   // プロフィール読み込みと制限チェック
-  useEffect(() => {
-    const fetchProfileAndCheckLimits = async () => {
-      if (!user) return;
+useEffect(() => {
+  const fetchProfileAndCheckLimits = async () => {
+    // ✅ Supabaseから直接ユーザーを取得
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      console.error('ユーザーが取得できませんでした');
+      return;
+    }
 
-      try {
-        const { data: profileData, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .maybeSingle();
+    try {
+      const { data: profileData, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
 
-        if (error) {
-          console.error('プロフィール取得エラー:', error);
-          return;
-        }
-
-        if (!profileData) {
-          console.warn('プロフィールが存在しません');
-          setShowProfileWarning(true);
-          return;
-        }
-        
-        setProfile(profileData);
-
-        // サブスクリプション情報を取得
-        const { data: subscriptionData, error: subError } = await supabase
-          .from('subscriptions')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (subError) {
-          console.error('サブスクリプション取得エラー:', subError);
-        } else {
-          setSubscription(subscriptionData);
-        }
-
-        // プロフィール完全性チェック
-        if (!isProfileComplete(profileData)) {
-          setShowProfileWarning(true);
-        }
-
-        // サブスクリプション制限チェック
-        const limits = await checkSubscriptionLimits(subscriptionData);
-        setCanCreate(limits.canCreateInvoice);
-        
-        if (limits.reason) {
-          setLimitMessage(limits.reason);
-        }
-      } catch (error) {
-        console.error('プロフィールチェックエラー:', error);
+      if (error) {
+        console.error('プロフィール取得エラー:', error);
+        return;
       }
-    };
 
-    fetchProfileAndCheckLimits();
-  }, [user, supabase]);
+      if (!profileData) {
+        console.warn('プロフィールが存在しません');
+        setShowProfileWarning(true);
+        return;
+      }
+      
+      setProfile(profileData);
+
+      // サブスクリプション情報を取得
+      const { data: subscriptionData, error: subError } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (subError) {
+        console.error('サブスクリプション取得エラー:', subError);
+      } else {
+        setSubscription(subscriptionData);
+      }
+
+      // プロフィール完全性チェック
+      if (!isProfileComplete(profileData)) {
+        setShowProfileWarning(true);
+      }
+
+      // サブスクリプション制限チェック
+      const limits = await checkSubscriptionLimits(subscriptionData);
+      setCanCreate(limits.canCreateInvoice);
+      
+      if (limits.reason) {
+        setLimitMessage(limits.reason);
+      }
+    } catch (error) {
+      console.error('プロフィールチェックエラー:', error);
+    }
+  };
+
+  fetchProfileAndCheckLimits();
+}, []); // ✅ 空配列に変更
+
 
   // 主催者コード確認
   const verifyOrganizerCode = async () => {
@@ -386,21 +386,6 @@ export default function CreateInvoicePage() {
       setLoading(false);
     }
   };
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">読み込み中...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">

@@ -1,10 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    turbo: {
-      root: __dirname,
-    },
-  },
+  // Next.js 16 では turbo 設定は不要（デフォルトで有効）
 };
 
 module.exports = nextConfig;

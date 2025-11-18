@@ -69,76 +69,79 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceDate, setInvoiceDate] = useState('');
 
-  // 認証チェック
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/talent/login');
-    }
-  }, [user, authLoading, router]);
+// 請求書データを読み込む
+useEffect(() => {
+  if (resolvedParams.id) {
+    loadInvoiceData();
+  }
+}, [resolvedParams.id]); // ✅ user を依存配列から削除
 
-  // 請求書データを読み込む
-  useEffect(() => {
-    if (user && resolvedParams.id) {
-      loadInvoiceData();
-    }
-  }, [user, resolvedParams.id]);
+const loadInvoiceData = async () => {
+  try {
+    setLoading(true);
 
-  const loadInvoiceData = async () => {
-    try {
-      setLoading(true);
-
-      // 請求書データを取得
-      const { data: invoiceData, error: invoiceError } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('id', resolvedParams.id)
-        .single();
-
-      if (invoiceError) throw invoiceError;
-      if (!invoiceData) throw new Error('請求書が見つかりません');
-
-      // 請求書データを保存（差し戻し情報を含む）
-      setInvoice(invoiceData);
-
-      // フォームに値をセット
-      setInvoiceNumber(invoiceData.invoice_number || '');
-      setInvoiceDate(invoiceData.invoice_date || '');
-      setSubject(invoiceData.subject || '');
-      setWorkDate(invoiceData.work_date || '');
-      setPaymentDueDate(invoiceData.payment_due_date || '');
-      setRecipientName(invoiceData.recipient_company || '');
-      setRecipientType((invoiceData.recipient_type as 'company' | 'individual') || 'company');
-      setRecipientAddress(invoiceData.recipient_address || '');
-      setRecipientPostalCode(invoiceData.recipient_postal_code || '');
-      setNotes(invoiceData.notes || '');
-      setOrganizerId(invoiceData.organizer_id);
-
-      // 明細データを復元（JSONB形式）
-      if (invoiceData.items && Array.isArray(invoiceData.items)) {
-        setItems(invoiceData.items as InvoiceItem[]);
-      }
-
-      // 主催者情報を取得
-      if (invoiceData.organizer_id) {
-        const { data: organizerData } = await supabase
-          .from('organizers')
-          .select('*')
-          .eq('id', invoiceData.organizer_id)
-          .single();
-        
-        if (organizerData) {
-          setVerifiedOrganizer(organizerData);
-        }
-      }
-
-    } catch (error: any) {
-      console.error('請求書読み込みエラー:', error);
-      alert(`請求書の読み込みに失敗しました: ${error.message}`);
+    // ✅ Supabaseから直接ユーザーを取得
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      console.error('ユーザーが取得できませんでした');
       router.push('/talent/invoices');
-    } finally {
-      setLoading(false);
+      return;
     }
-  };
+
+    // 請求書データを取得
+    const { data: invoiceData, error: invoiceError } = await supabase
+      .from('invoices')
+      .select('*')
+      .eq('id', resolvedParams.id)
+      .single();
+
+    if (invoiceError) throw invoiceError;
+    if (!invoiceData) throw new Error('請求書が見つかりません');
+
+    // 請求書データを保存（差し戻し情報を含む）
+    setInvoice(invoiceData);
+
+    // フォームに値をセット
+    setInvoiceNumber(invoiceData.invoice_number || '');
+    setInvoiceDate(invoiceData.invoice_date || '');
+    setSubject(invoiceData.subject || '');
+    setWorkDate(invoiceData.work_date || '');
+    setPaymentDueDate(invoiceData.payment_due_date || '');
+    setRecipientName(invoiceData.recipient_company || '');
+    setRecipientType((invoiceData.recipient_type as 'company' | 'individual') || 'company');
+    setRecipientAddress(invoiceData.recipient_address || '');
+    setRecipientPostalCode(invoiceData.recipient_postal_code || '');
+    setNotes(invoiceData.notes || '');
+    setOrganizerId(invoiceData.organizer_id);
+
+    // 明細データを復元（JSONB形式）
+    if (invoiceData.items && Array.isArray(invoiceData.items)) {
+      setItems(invoiceData.items as InvoiceItem[]);
+    }
+
+    // 主催者情報を取得
+    if (invoiceData.organizer_id) {
+      const { data: organizerData } = await supabase
+        .from('organizers')
+        .select('*')
+        .eq('id', invoiceData.organizer_id)
+        .single();
+      
+      if (organizerData) {
+        setVerifiedOrganizer(organizerData);
+      }
+    }
+
+  } catch (error: any) {
+    console.error('請求書読み込みエラー:', error);
+    alert(`請求書の読み込みに失敗しました: ${error.message}`);
+    router.push('/talent/invoices');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const addItem = () => {
     setItems([...items, {
@@ -338,20 +341,16 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
     }
   };
 
-  if (authLoading || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">読み込み中...</p>
-        </div>
+  if (loading) {  // authLoading を削除
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="mt-4 text-gray-600">読み込み中...</p>
       </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
+    </div>
+  );
+}
 
   return (
     <div className="min-h-screen bg-gray-50">

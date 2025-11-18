@@ -129,14 +129,10 @@ export default function InvoicesPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
 
+useEffect(() => {
+  loadInvoices();
+}, []);
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/talent/login');
-    } else if (user) {
-      loadInvoices();
-    }
-  }, [user, authLoading, router]);
 
    // フィルタリング処理
   useEffect(() => {
@@ -206,17 +202,36 @@ export default function InvoicesPage() {
 
   const loadInvoices = async () => {
   try {
+    console.log('🔵 [loadInvoices] 開始');
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log('🔵 [loadInvoices] User:', user ? 'あり' : 'なし');
+    
+    if (!user) {
+      console.error('❌ [loadInvoices] ユーザーが取得できませんでした');
+      setLoading(false);
+      return;
+    }
+
+    console.log('🔵 [loadInvoices] User ID:', user.id);
+
     const { data, error } = await supabase
       .from('invoices')
       .select('*')
-      .eq('user_id', user!.id)
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
+    console.log('🔵 [loadInvoices] データ取得結果:', data ? `${data.length}件` : 'なし', 'エラー:', error);
+
     if (error) throw error;
+
+    console.log('🔵 [loadInvoices] 主催者情報取得開始');
 
     // 主催者情報を取得して結合 + 源泉徴収を計算
     const invoicesWithOrganizer = await Promise.all(
       (data || []).map(async (invoice) => {
+          console.log('🔵 [loadInvoices] 処理中:', invoice.invoice_number);
+
         // 源泉徴収を計算
         const calculatedWithholding = calculateWithholding(invoice.items || []);
 
@@ -231,6 +246,8 @@ export default function InvoicesPage() {
         };
 
         if (extendedInvoice.organizer_id) {
+            console.log('🔵 [loadInvoices] 主催者ID:', extendedInvoice.organizer_id);
+
           // 主催者情報を取得
           const { data: organizerData } = await supabase
             .from('organizers')
@@ -253,11 +270,16 @@ export default function InvoicesPage() {
             extendedInvoice.status = orgInvoiceData.status;
           }
         }
+          console.log('🟢 [loadInvoices] 完了:', invoice.invoice_number);
+
         return extendedInvoice;
       })
     );
+console.log('🟢 [loadInvoices] 全件処理完了:', invoicesWithOrganizer.length, '件');
 
+console.log('🔵 [loadInvoices] setInvoices 実行前');
     setInvoices(invoicesWithOrganizer || []);
+    console.log('🔵 [loadInvoices] setInvoices 実行後');
   } catch (error: any) {
     console.error('請求書読み込みエラー:', error);
   } finally {
@@ -332,20 +354,17 @@ const deleteInvoice = async () => {
   }
 };
 
-  if (authLoading || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">読み込み中...</p>
-        </div>
+  if (loading) {  // authLoading を削除
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="mt-4 text-gray-600">読み込み中...</p>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  if (!user) {
-    return null;
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">

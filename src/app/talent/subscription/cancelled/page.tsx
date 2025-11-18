@@ -8,17 +8,6 @@ export default function SubscriptionCancelledPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
-  useEffect(() => {
-    // 認証状態のロード中は何もしない
-    if (authLoading) {
-      return;
-    }
-
-    if (!user) {
-      router.push('/talent/login');
-    }
-  }, [user, authLoading, router]);
-
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">

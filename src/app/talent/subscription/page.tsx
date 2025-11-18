@@ -23,19 +23,13 @@ export default function TalentSubscriptionPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/talent/login')
-    }
-  }, [user, authLoading, router])
-
-  useEffect(() => {
-    if (user) {
-      loadData()
-    }
-  }, [user])
+  loadData()
+}, [])
 
   async function loadData() {
     try {
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        if (userError || !user) throw new Error('認証エラー')
       // プロフィールを取得
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
@@ -46,25 +40,25 @@ export default function TalentSubscriptionPage() {
       if (profileError) throw profileError
       setProfile(profileData)
 
-      // subscriptionデータを取得
-      const { data: subData, error: subError } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('user_id', user!.id)
-        .eq('user_type', 'talent')
-        .single()
+          // subscriptionデータを取得
+    const { data: subData, error: subError } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', user.id)  // ← user!.id から user.id に変更
+      .eq('user_type', 'talent')
+      .single()
 
-      if (subError) {
-        // subscriptionが存在しない場合は新規作成
-        if (subError.code === 'PGRST116') {
-          const trialEndDate = new Date()
-          trialEndDate.setMonth(trialEndDate.getMonth() + 3)
+    if (subError) {
+      // subscriptionが存在しない場合は新規作成
+      if (subError.code === 'PGRST116') {
+        const trialEndDate = new Date()
+        trialEndDate.setMonth(trialEndDate.getMonth() + 3)
 
-          const { data: newSub, error: createError } = await supabase
-            .from('subscriptions')
-            .insert({
-              user_id: user!.id,
-              user_type: 'talent',
+        const { data: newSub, error: createError } = await supabase
+          .from('subscriptions')
+          .insert({
+            user_id: user.id,  // ← user!.id から user.id に変更
+            user_type: 'talent',
               plan: 'free',
               status: 'trial',
               invoice_count: 0,
@@ -197,7 +191,7 @@ const handleCancel = async () => {
 }
 
 
-  if (authLoading || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -208,9 +202,6 @@ const handleCancel = async () => {
     )
   }
 
-  if (!user) {
-    return null
-  }
 
   if (error) {
     return (

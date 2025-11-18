@@ -35,85 +35,78 @@ export default function SettingsPage() {
   });
   const [message, setMessage] = useState('');
 
-  // loadProfile を useCallback でメモ化
-  const loadProfile = useCallback(async () => {
-    if (!user) return;
+// loadProfile を useCallback でメモ化（修正版）
+const loadProfile = useCallback(async () => {
+  // ✅ Supabaseから直接ユーザーを取得
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    console.error('ユーザーが取得できませんでした');
+    return;
+  }
 
-    try {
-      console.log('📊 プロフィール読み込み開始:', user.id);
+  try {
+    console.log('📊 プロフィール読み込み開始:', user.id);
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('❌ プロフィール読み込みエラー:', error);
-      }
-
-      if (data) {
-        console.log('✅ プロフィール読み込み成功:', data);
-        setProfile({
-          ...data,
-          occupation_types: data.occupation_types || [],
-          activity_areas: data.activity_areas || [],
-        });
-      } else {
-        console.log('⚠️ プロフィールが存在しません、初期値を設定');
-        setProfile({
-          email: user.email!,
-          full_name: user.user_metadata?.full_name || '',
-          occupation_types: [],
-          activity_areas: [],
-        });
-      }
-
-    } catch (error: any) {
-      console.error('💥 プロフィール読み込みエラー:', error);
-      setMessage('プロフィールの読み込みに失敗しました');
-    } finally {
-      setLoading(false);
-    }
-  }, [user, supabase]); // user と supabase のみ依存
-
-  // useEffect を修正：router を削除、loadProfile を追加
-  useEffect(() => {
-    console.log('🔄 useEffect実行:', { authLoading, user: !!user, session: !!session });
-
-    if (authLoading) {
-      console.log('⏳ 認証中...');
-      return;
+    if (error && error.code !== 'PGRST116') {
+      console.error('❌ プロフィール読み込みエラー:', error);
     }
 
+    if (data) {
+      console.log('✅ プロフィール読み込み成功:', data);
+      setProfile({
+        ...data,
+        occupation_types: data.occupation_types || [],
+        activity_areas: data.activity_areas || [],
+      });
+    } else {
+      console.log('⚠️ プロフィールが存在しません、初期値を設定');
+      setProfile({
+        email: user.email!,
+        full_name: user.user_metadata?.full_name || '',
+        occupation_types: [],
+        activity_areas: [],
+      });
+    }
+
+  } catch (error: any) {
+    console.error('💥 プロフィール読み込みエラー:', error);
+    setMessage('プロフィールの読み込みに失敗しました');
+  } finally {
+    setLoading(false);
+  }
+}, [supabase]); // ✅ user を依存配列から削除
+
+useEffect(() => {
+  loadProfile();
+}, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setSaving(true);
+  setMessage('');
+
+  try {
+    // ✅ Supabaseから直接ユーザーを取得
+    const { data: { user } } = await supabase.auth.getUser();
+    
     if (!user) {
-      console.log('❌ ユーザーなし、ログインページへ');
+      setMessage('セッションが切れています。再ログインしてください。');
       router.push('/talent/login');
       return;
     }
 
-    if (user && session) {
-      console.log('✅ ユーザー確認、プロフィール読み込み開始');
-      loadProfile();
-    }
-  }, [authLoading, user, session, loadProfile]); // router を削除、loadProfile を追加
+    console.log('💾 保存開始:', {
+      userId: user.id,
+      profile: profile
+    });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setMessage('');
-
-    try {
-      if (!user) {
-        setMessage('セッションが切れています。再ログインしてください。');
-        router.push('/talent/login');
-        return;
-      }
-
-      console.log('💾 保存開始:', {
-        userId: user.id,
-        profile: profile
-      });
 
       const { error } = await supabase
         .from('profiles')
@@ -156,16 +149,17 @@ export default function SettingsPage() {
     }
   };
 
-  if (authLoading || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">読み込み中...</p>
-        </div>
+  if (loading) {  // authLoading を削除
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="mt-4 text-gray-600">読み込み中...</p>
       </div>
-    );
-  }
+    </div>
+  );
+}
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -224,14 +218,15 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">メールアドレス</label>
-                  <input
-                    type="email"
-                    value={user?.email || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
-                    disabled
-                  />
-                </div>
+  <label className="text-sm font-medium">メールアドレス</label>
+  <input
+    type="email"
+    value={profile.email || ''}  // ✅ profile から取得
+    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+    disabled
+  />
+</div>
+
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">電話番号</label>

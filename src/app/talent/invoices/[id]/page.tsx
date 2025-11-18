@@ -57,94 +57,101 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
     }, 0);
   };
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/talent/login');
-    } else if (user) {
-      loadData();
+
+// ✅ useEffect を追加
+useEffect(() => {
+  loadData();
+}, []);
+
+const loadData = async () => {
+  try {
+    // ✅ Supabaseから直接ユーザーを取得
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      console.error('ユーザーが取得できませんでした');
+      return;
     }
-  }, [user, authLoading, router]);
 
-  const loadData = async () => {
-    try {
-      // プロフィール取得
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user!.id)
-        .maybeSingle();
+    // プロフィール取得
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .maybeSingle();
 
-      if (profileError) throw profileError;
-      setProfile(profileData);
+    if (profileError) throw profileError;
+    setProfile(profileData);
 
-      // 請求書取得
-      const { data: invoiceData, error: invoiceError } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('id', resolvedParams.id)
-        .eq('user_id', user!.id)
-        .maybeSingle();
+    // 請求書取得
+    const { data: invoiceData, error: invoiceError } = await supabase
+      .from('invoices')
+      .select('*')
+      .eq('id', resolvedParams.id)
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-      if (invoiceError) throw invoiceError;
-      
-      if (!invoiceData) {
-        alert('請求書が見つかりません');
-        router.push('/talent/invoices');
-        return;
-      }
-
-      // itemsから源泉徴収を計算
-      const calculatedWithholding = calculateWithholding(invoiceData.items || []);
-
-      // 型変換
-      const extendedInvoice: Invoice = {
-        ...invoiceData,
-        subject: (invoiceData as any).subject || '',
-        recipient_name: invoiceData.recipient_name || '',
-        recipient_type: (invoiceData as any).recipient_type || 'company',
-        recipient_address: (invoiceData as any).recipient_address || '',
-        organizer_id: (invoiceData as any).organizer_id || null,
-        subtotal: invoiceData.subtotal,
-        tax: invoiceData.tax_amount,
-        withholding: calculatedWithholding,
-        total: invoiceData.total_amount,
-      };
-
-      setInvoice(extendedInvoice);
-
-      // 主催者情報取得（存在する場合）
-      if (extendedInvoice.organizer_id) {
-        const { data: organizerData } = await supabase
-          .from('organizers')
-          .select('*')
-          .eq('id', extendedInvoice.organizer_id)
-          .maybeSingle();
-        
-        if (organizerData) setOrganizer(organizerData);
-      }
-    } catch (error: any) {
-      console.error('データ読み込みエラー:', error);
-      alert('請求書の読み込みに失敗しました');
+    if (invoiceError) throw invoiceError;
+    
+    if (!invoiceData) {
+      alert('請求書が見つかりません');
       router.push('/talent/invoices');
-    } finally {
-      setLoading(false);
+      return;
     }
-  };
+
+    // itemsから源泉徴収を計算
+    const calculatedWithholding = calculateWithholding(invoiceData.items || []);
+
+    // 型変換
+    const extendedInvoice: Invoice = {
+      ...invoiceData,
+      subject: (invoiceData as any).subject || '',
+      recipient_name: invoiceData.recipient_name || '',
+      recipient_type: (invoiceData as any).recipient_type || 'company',
+      recipient_address: (invoiceData as any).recipient_address || '',
+      organizer_id: (invoiceData as any).organizer_id || null,
+      subtotal: invoiceData.subtotal,
+      tax: invoiceData.tax_amount,
+      withholding: calculatedWithholding,
+      total: invoiceData.total_amount,
+    };
+
+    setInvoice(extendedInvoice);
+
+    // 主催者情報取得（存在する場合）
+    if (extendedInvoice.organizer_id) {
+      const { data: organizerData } = await supabase
+        .from('organizers')
+        .select('*')
+        .eq('id', extendedInvoice.organizer_id)
+        .maybeSingle();
+      
+      if (organizerData) setOrganizer(organizerData);
+    }
+  } catch (error: any) {
+    console.error('データ読み込みエラー:', error);
+    alert('請求書の読み込みに失敗しました');
+    router.push('/talent/invoices');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const handlePrint = () => {
     window.print();
   };
 
-  if (authLoading || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">読み込み中...</p>
-        </div>
+  if (loading) {  // authLoading を削除
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="mt-4 text-gray-600">読み込み中...</p>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   if (!invoice || !profile) {
     return null;
