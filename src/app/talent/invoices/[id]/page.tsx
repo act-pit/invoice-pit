@@ -176,104 +176,95 @@ const loadData = async () => {
       {/* 印刷用CSS */}
       <style jsx global>{`
         @media print {
-  .no-print {
-    display: none !important;
+          .no-print {
+            display: none !important;
+          }
+          body {
+            margin: 0;
+            padding: 0;
+          }
+          .print-container {
+            max-width: 90%;
+            margin: 0 auto;
+            padding: 18mm 18mm;
+            box-shadow: none;
+          }
+          .mobile-card-view {
+            display: none !important;
+          }
+          .desktop-table-view {
+            display: table !important;
+          }
+              @media screen {
+    .print-container {
+      max-width: 210mm !important;
+      min-height: 297mm !important;
+      margin: 0 auto !important;
+      padding: 15mm 15mm !important;
+    }
   }
-  
-  body {
-    margin: 0 !important;
-    padding: 0 !important;
-    background: white !important;
-  }
-  
-  * {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-  
+          @page {
+            margin: 0;
+            size: A4 portrait;
+          }
+        }
+        
+        /* 画面表示用のスタイル */
+@media screen {
   .print-container {
-    max-width: 100% !important;
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 18mm 18mm !important;
-    box-shadow: none !important;
-    background: white !important;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 1rem;
+    background: white;
   }
   
-  /* スマホからの印刷でも強制的にテーブル表示 */
-  .mobile-card-view {
-    display: none !important;
+  /* PC画面 */
+  @media (min-width: 768px) {
+    .print-container {
+      max-width: 210mm;
+      min-height: 297mm;
+      margin: 20px auto;
+      padding: 15mm 15mm;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .mobile-card-view {
+      display: none !important;
+    }
+    .desktop-table-view {
+      display: table !important;
+    }
   }
   
-  .desktop-table-view {
-    display: table !important;
-    width: 100% !important;
-  }
-  
-  /* テーブルのスタイルを強制 */
-  .desktop-table-view table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-    font-size: 11px !important;
-  }
-  
-  .desktop-table-view th,
-  .desktop-table-view td {
-    border: 1px solid #666 !important;
-    padding: 8px 4px !important;
-  }
-  
-  .desktop-table-view th {
-    background-color: #333 !important;
-    color: white !important;
-  }
-  
-  @page {
-    margin: 0;
-    size: A4 portrait;
+  /* スマホ画面（画面表示時のみ適用） */
+  @media (max-width: 767px) {
+    .print-container {
+      padding: 1rem 0.75rem;
+    }
+    /* 画面表示時はカード表示 */
+    .mobile-card-view {
+      display: block !important;
+    }
+    .desktop-table-view {
+      display: none !important;
+    }
   }
 }
 
-        
-        /* 画面表示用のスタイル */
-        @media screen {
-          .print-container {
-            max-width: 100%;
-            margin: 0 auto;
-            padding: 1rem;
-            background: white;
-          }
-          
-          /* PC画面 */
-          @media (min-width: 768px) {
-            .print-container {
-              max-width: 210mm;
-              min-height: 297mm;
-              margin: 20px auto;
-              padding: 15mm 15mm;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            }
-            .mobile-card-view {
-              display: none !important;
-            }
-            .desktop-table-view {
-              display: table !important;
-            }
-          }
-          
-          /* スマホ画面 */
-          @media (max-width: 767px) {
-            .print-container {
-              padding: 1rem 0.75rem;
-            }
-            .mobile-card-view {
-              display: block !important;
-            }
-            .desktop-table-view {
-              display: none !important;
-            }
-          }
-        }
+/* 印刷時は画面サイズに関係なくPC版レイアウトを適用 */
+@media print {
+  .print-container {
+    max-width: 90% !important;
+    padding: 18mm 18mm !important;
+  }
+  /* 印刷時は必ずテーブル表示 */
+  .mobile-card-view {
+    display: none !important;
+  }
+  .desktop-table-view {
+    display: table !important;
+  }
+}
+
       `}</style>
 
       {/* 画面表示時のボタン */}
