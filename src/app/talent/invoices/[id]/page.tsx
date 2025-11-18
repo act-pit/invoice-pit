@@ -176,30 +176,64 @@ const loadData = async () => {
       {/* 印刷用CSS */}
       <style jsx global>{`
         @media print {
-          .no-print {
-            display: none !important;
-          }
-          body {
-            margin: 0;
-            padding: 0;
-          }
-          .print-container {
-            max-width: 90%;
-            margin: 0 auto;
-            padding: 18mm 18mm;
-            box-shadow: none;
-          }
-          .mobile-card-view {
-            display: none !important;
-          }
-          .desktop-table-view {
-            display: table !important;
-          }
-          @page {
-            margin: 0;
-            size: A4 portrait;
-          }
-        }
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+  
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  .print-container {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 18mm 18mm !important;
+    box-shadow: none !important;
+    background: white !important;
+  }
+  
+  /* スマホからの印刷でも強制的にテーブル表示 */
+  .mobile-card-view {
+    display: none !important;
+  }
+  
+  .desktop-table-view {
+    display: table !important;
+    width: 100% !important;
+  }
+  
+  /* テーブルのスタイルを強制 */
+  .desktop-table-view table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 11px !important;
+  }
+  
+  .desktop-table-view th,
+  .desktop-table-view td {
+    border: 1px solid #666 !important;
+    padding: 8px 4px !important;
+  }
+  
+  .desktop-table-view th {
+    background-color: #333 !important;
+    color: white !important;
+  }
+  
+  @page {
+    margin: 0;
+    size: A4 portrait;
+  }
+}
+
         
         /* 画面表示用のスタイル */
         @media screen {
