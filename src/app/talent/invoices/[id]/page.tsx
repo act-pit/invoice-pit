@@ -38,24 +38,25 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
   const calculateWithholding = (items: any[]) => {
     return items.reduce((sum, item) => {
       if (!item.isWithholdingTarget) return sum;
-
+      
       const quantity = item.quantity || 1;
       let amount = item.amount * quantity;
-
+      
       if (item.category === 'discount') {
         amount = -Math.abs(amount);
       }
-
+      
       let baseAmount = amount;
-
+      
       // 税込の場合は税抜に戻す
       if (item.isTaxIncluded) {
         baseAmount = Math.floor(amount / 1.1);
       }
-
+      
       return sum + Math.floor(baseAmount * 0.1021);
     }, 0);
   };
+
 
   useEffect(() => {
     loadData();
@@ -65,7 +66,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
     try {
       // Supabaseから直接ユーザーを取得
       const { data: { user } } = await supabase.auth.getUser();
-
+      
       if (!user) {
         console.error('ユーザーが取得できませんでした');
         return;
@@ -90,7 +91,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
         .maybeSingle();
 
       if (invoiceError) throw invoiceError;
-
+      
       if (!invoiceData) {
         alert('請求書が見つかりません');
         router.push('/talent/invoices');
@@ -123,7 +124,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
           .select('*')
           .eq('id', extendedInvoice.organizer_id)
           .maybeSingle();
-
+        
         if (organizerData) setOrganizer(organizerData);
       }
     } catch (error: any) {
@@ -146,6 +147,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
     window.print();
   };
 
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -163,10 +165,10 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
 
   // 請求先名を取得
   const recipientName = organizer?.name || organizer?.company_name || invoice.recipient_name || '';
-  const recipientSuffix = organizer
-    ? '御中'
-    : invoice.recipient_type === 'individual'
-      ? '様'
+  const recipientSuffix = organizer 
+    ? '御中' 
+    : invoice.recipient_type === 'individual' 
+      ? '様' 
       : '御中';
 
   // 請求先住所を取得
@@ -185,7 +187,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
           background: white;
           box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
-
+        
         /* デフォルト：テーブル表示 */
         .mobile-card-view {
           display: none !important;
@@ -195,21 +197,21 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
         }
         
         /* スマホ画面表示の時だけカード表示に変更 */
-        @media only screen and (max-width: 767px) {
-          .print-container {
-            max-width: 100%;
-            margin: 0 auto;
-            padding: 1rem 0.75rem;
-            box-shadow: none;
-          }
-          .mobile-card-view {
-            display: block;
-          }
-          .desktop-table-view {
-            display: none;
-          }
-        }
-        
+@media only screen and (max-width: 767px) {
+  .print-container {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 1rem 0.75rem;
+    box-shadow: none;
+  }
+  .mobile-card-view {
+    display: block;
+  }
+  .desktop-table-view {
+    display: none; 
+  }
+}
+
         /* 印刷用CSS */
         @media print {
           .no-print {
