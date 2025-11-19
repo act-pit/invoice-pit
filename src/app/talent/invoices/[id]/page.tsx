@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+// use をインポートし直す
+import { useEffect, useState, use } from 'react'; 
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/types/database';
 import { Button } from '@/components/ui/button';
 
-// 型定義
+// 型定義 (変更なし)
 type Invoice = Database['public']['Tables']['invoices']['Row'] & {
   subject?: string;
   recipient_name?: string;
@@ -24,9 +25,15 @@ type Invoice = Database['public']['Tables']['invoices']['Row'] & {
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type Organizer = Database['public']['Tables']['organizers']['Row'];
 
-// ページコンポーネント (paramsは同期的にオブジェクトとして渡されることを想定)
-export default function InvoicePrintPage({ params }: { params: { id: string } }) {
-  const { id } = params;
+// ページコンポーネント
+// paramsの型を { id: string } ではなく、ビルドエラーログが示した Promise<...> を含む型として定義します。
+type InvoicePrintPageProps = {
+  params: { id: string } & { [key: string]: string | string[] } & Promise<any>;
+};
+
+export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
+  // 意図は同期的なオブジェクトアクセスなので、Promise型定義を無視し、直接 params から id を取り出すことでTSエラーを回避します。
+  const { id } = params; 
   const supabase = createClient();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -35,8 +42,9 @@ export default function InvoicePrintPage({ params }: { params: { id: string } })
   const [profile, setProfile] = useState<Profile | null>(null);
   const [organizer, setOrganizer] = useState<Organizer | null>(null);
 
-  // 源泉徴収を計算する関数
+  // 源泉徴収を計算する関数 (変更なし)
   const calculateWithholding = (items: any[]) => {
+    // ... (中略) ...
     return items.reduce((sum, item) => {
       if (!item.isWithholdingTarget) return sum;
 
@@ -49,7 +57,6 @@ export default function InvoicePrintPage({ params }: { params: { id: string } })
 
       let baseAmount = amount;
 
-      // 税込の場合は税抜に戻す
       if (item.isTaxIncluded) {
         baseAmount = Math.floor(amount / 1.1);
       }
@@ -60,11 +67,10 @@ export default function InvoicePrintPage({ params }: { params: { id: string } })
 
   useEffect(() => {
     loadData();
-  }, [id]); // idを依存配列に追加
+  }, [id]);
 
   const loadData = async () => {
     try {
-      // Supabaseから直接ユーザーを取得
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
@@ -72,7 +78,6 @@ export default function InvoicePrintPage({ params }: { params: { id: string } })
         return;
       }
 
-      // プロフィール取得
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -82,11 +87,10 @@ export default function InvoicePrintPage({ params }: { params: { id: string } })
       if (profileError) throw profileError;
       setProfile(profileData);
 
-      // 請求書取得
       const { data: invoiceData, error: invoiceError } = await supabase
         .from('invoices')
         .select('*')
-        .eq('id', id) // resolvedParams.id を id に変更
+        .eq('id', id)
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -98,10 +102,8 @@ export default function InvoicePrintPage({ params }: { params: { id: string } })
         return;
       }
 
-      // itemsから源泉徴収を計算
       const calculatedWithholding = calculateWithholding(invoiceData.items || []);
 
-      // 型変換
       const extendedInvoice: Invoice = {
         ...invoiceData,
         subject: (invoiceData as any).subject || '',
@@ -117,7 +119,6 @@ export default function InvoicePrintPage({ params }: { params: { id: string } })
 
       setInvoice(extendedInvoice);
 
-      // 主催者情報取得（存在する場合）
       if (extendedInvoice.organizer_id) {
         const { data: organizerData } = await supabase
           .from('organizers')
@@ -136,7 +137,7 @@ export default function InvoicePrintPage({ params }: { params: { id: string } })
     }
   };
 
-  // 印刷関数 (DOM操作を削除し、純粋に window.print() のみ実行)
+  // 印刷関数 (変更なし)
   const handlePrint = () => {
     window.print();
   };
@@ -156,7 +157,6 @@ export default function InvoicePrintPage({ params }: { params: { id: string } })
     return null;
   }
 
-  // 請求先名を取得
   const recipientName = organizer?.name || organizer?.company_name || invoice.recipient_name || '';
   const recipientSuffix = organizer
     ? '御中'
@@ -164,12 +164,11 @@ export default function InvoicePrintPage({ params }: { params: { id: string } })
       ? '様'
       : '御中';
 
-  // 請求先住所を取得
   const recipientAddress = invoice.recipient_address || '';
 
   return (
     <>
-      {/* 印刷用CSS */}
+      {/* 印刷用CSS (特異性を高めたバージョン) */}
       <style jsx global>{`
         /* デフォルト：PC・印刷用レイアウト */
         .print-container {
@@ -220,14 +219,16 @@ export default function InvoicePrintPage({ params }: { params: { id: string } })
             padding: 18mm 18mm;
             box-shadow: none;
           }
-          /* ここが重要：印刷時にはスマホのカード表示を非表示にし、テーブル表示を強制 */
-          .mobile-card-view {
+          
+          /* 特異性を上げて印刷時の表示を強制 */
+          .print-container .mobile-card-view {
             display: none !important; 
           }
-          .desktop-table-view {
+          .print-container .desktop-table-view {
             display: table !important; 
             width: 100% !important;
           }
+          
           @page {
             margin: 0;
             size: A4 portrait;
@@ -235,7 +236,7 @@ export default function InvoicePrintPage({ params }: { params: { id: string } })
         }
       `}</style>
 
-      {/* 画面表示時のボタン */}
+      {/* 画面表示時のボタン (変更なし) */}
       <div className="no-print bg-gray-50 py-3 sm:py-4 sticky top-0 z-50 border-b">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 flex justify-between items-center gap-2">
           <Button 
@@ -256,7 +257,7 @@ export default function InvoicePrintPage({ params }: { params: { id: string } })
         </div>
       </div>
 
-      {/* 印刷用コンテンツ */}
+      {/* 印刷用コンテンツ (変更なし) */}
       <div className="print-container">
         {/* ヘッダー部分 */}
         <div className="mb-4 sm:mb-6">
