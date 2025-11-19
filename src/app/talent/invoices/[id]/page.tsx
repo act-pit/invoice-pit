@@ -136,10 +136,17 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
     }
   };
 
-  // シンプルな印刷関数
+  // 印刷関数：スマホでもテーブル表示を強制
   const handlePrint = () => {
+    const cards = document.querySelector('.mobile-card-view') as HTMLElement;
+    const table = document.querySelector('.desktop-table-view') as HTMLElement;
+    
+    if (cards) cards.style.display = 'none';
+    if (table) table.style.display = 'table';
+    
     window.print();
   };
+
 
   if (loading) {
     return (
