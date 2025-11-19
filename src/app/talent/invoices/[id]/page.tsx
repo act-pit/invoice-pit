@@ -58,117 +58,99 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
   };
 
 
-// ✅ useEffect を追加
-useEffect(() => {
-  loadData();
-}, []);
+  useEffect(() => {
+    loadData();
+  }, []);
 
-const loadData = async () => {
-  try {
-    // ✅ Supabaseから直接ユーザーを取得
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      console.error('ユーザーが取得できませんでした');
-      return;
-    }
-
-    // プロフィール取得
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (profileError) throw profileError;
-    setProfile(profileData);
-
-    // 請求書取得
-    const { data: invoiceData, error: invoiceError } = await supabase
-      .from('invoices')
-      .select('*')
-      .eq('id', resolvedParams.id)
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (invoiceError) throw invoiceError;
-    
-    if (!invoiceData) {
-      alert('請求書が見つかりません');
-      router.push('/talent/invoices');
-      return;
-    }
-
-    // itemsから源泉徴収を計算
-    const calculatedWithholding = calculateWithholding(invoiceData.items || []);
-
-    // 型変換
-    const extendedInvoice: Invoice = {
-      ...invoiceData,
-      subject: (invoiceData as any).subject || '',
-      recipient_name: invoiceData.recipient_name || '',
-      recipient_type: (invoiceData as any).recipient_type || 'company',
-      recipient_address: (invoiceData as any).recipient_address || '',
-      organizer_id: (invoiceData as any).organizer_id || null,
-      subtotal: invoiceData.subtotal,
-      tax: invoiceData.tax_amount,
-      withholding: calculatedWithholding,
-      total: invoiceData.total_amount,
-    };
-
-    setInvoice(extendedInvoice);
-
-    // 主催者情報取得（存在する場合）
-    if (extendedInvoice.organizer_id) {
-      const { data: organizerData } = await supabase
-        .from('organizers')
-        .select('*')
-        .eq('id', extendedInvoice.organizer_id)
-        .maybeSingle();
+  const loadData = async () => {
+    try {
+      // Supabaseから直接ユーザーを取得
+      const { data: { user } } = await supabase.auth.getUser();
       
-      if (organizerData) setOrganizer(organizerData);
+      if (!user) {
+        console.error('ユーザーが取得できませんでした');
+        return;
+      }
+
+      // プロフィール取得
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profileError) throw profileError;
+      setProfile(profileData);
+
+      // 請求書取得
+      const { data: invoiceData, error: invoiceError } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('id', resolvedParams.id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (invoiceError) throw invoiceError;
+      
+      if (!invoiceData) {
+        alert('請求書が見つかりません');
+        router.push('/talent/invoices');
+        return;
+      }
+
+      // itemsから源泉徴収を計算
+      const calculatedWithholding = calculateWithholding(invoiceData.items || []);
+
+      // 型変換
+      const extendedInvoice: Invoice = {
+        ...invoiceData,
+        subject: (invoiceData as any).subject || '',
+        recipient_name: invoiceData.recipient_name || '',
+        recipient_type: (invoiceData as any).recipient_type || 'company',
+        recipient_address: (invoiceData as any).recipient_address || '',
+        organizer_id: (invoiceData as any).organizer_id || null,
+        subtotal: invoiceData.subtotal,
+        tax: invoiceData.tax_amount,
+        withholding: calculatedWithholding,
+        total: invoiceData.total_amount,
+      };
+
+      setInvoice(extendedInvoice);
+
+      // 主催者情報取得（存在する場合）
+      if (extendedInvoice.organizer_id) {
+        const { data: organizerData } = await supabase
+          .from('organizers')
+          .select('*')
+          .eq('id', extendedInvoice.organizer_id)
+          .maybeSingle();
+        
+        if (organizerData) setOrganizer(organizerData);
+      }
+    } catch (error: any) {
+      console.error('データ読み込みエラー:', error);
+      alert('請求書の読み込みに失敗しました');
+      router.push('/talent/invoices');
+    } finally {
+      setLoading(false);
     }
-  } catch (error: any) {
-    console.error('データ読み込みエラー:', error);
-    alert('請求書の読み込みに失敗しました');
-    router.push('/talent/invoices');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
-
+  // シンプルな印刷関数
   const handlePrint = () => {
-  // スマホ判定
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  
-  if (isMobile) {
-    // スマホ：PC版レイアウトを強制適用
-    document.body.classList.add('mobile-force-print');
-    setTimeout(() => {
-      window.print();
-      setTimeout(() => {
-        document.body.classList.remove('mobile-force-print');
-      }, 100);
-    }, 100);
-  } else {
-    // PC：通常通り
     window.print();
-  }
-};
+  };
 
-
-
-  if (loading) {  // authLoading を削除
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">読み込み中...</p>
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">読み込み中...</p>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   if (!invoice || !profile) {
     return null;
@@ -189,123 +171,75 @@ const loadData = async () => {
     <>
       {/* 印刷用CSS */}
       <style jsx global>{`
-  /* 画面表示用のスタイル */
-  @media screen {
-    .print-container {
-      max-width: 100%;
-      margin: 0 auto;
-      padding: 1rem;
-      background: white;
-    }
-    
-    /* PC画面 */
-    @media (min-width: 768px) {
-      .print-container {
-        max-width: 210mm;
-        min-height: 297mm;
-        margin: 20px auto;
-        padding: 15mm 15mm;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      }
-      .mobile-card-view {
-        display: none !important;
-      }
-      .desktop-table-view {
-        display: table !important;
-      }
-    }
-    
-    /* スマホ画面 */
-    @media (max-width: 767px) {
-      .print-container {
-        padding: 1rem 0.75rem;
-      }
-      .mobile-card-view {
-        display: block !important;
-      }
-      .desktop-table-view {
-        display: none !important;
-      }
-    }
-  }
-  
-  /* 印刷用CSS */
-  @media print {
-    .no-print {
-      display: none !important;
-    }
-    body {
-      margin: 0;
-      padding: 0;
-    }
-    .print-container {
-      max-width: 90%;
-      margin: 0 auto;
-      padding: 18mm 18mm;
-      box-shadow: none;
-    }
-    .mobile-card-view {
-      display: none !important;
-    }
-    .desktop-table-view {
-      display: table !important;
-    }
-    @page {
-      margin: 0;
-      size: A4 portrait;
-    }
-  }
-  
-  /* スマホから印刷時の強制PC版レイアウト */
-  body.mobile-force-print .print-container {
-    max-width: 210mm !important;
-    padding: 15mm !important;
-  }
-  
-  body.mobile-force-print .mobile-card-view {
-    display: none !important;
-  }
-  
-  body.mobile-force-print .desktop-table-view {
-    display: table !important;
-  }
-  
-  /* PC版の詳細スタイルを強制適用 */
-  body.mobile-force-print .print-container h1 {
-    font-size: 1.875rem !important;
-  }
-  
-  body.mobile-force-print .print-container .text-xs {
-    font-size: 11px !important;
-  }
-  
-  body.mobile-force-print .print-container .text-sm {
-    font-size: 13px !important;
-  }
-  
-  body.mobile-force-print .print-container .border-gray-400 {
-    width: 180px !important;
-    min-width: 180px !important;
-  }
-  
-  body.mobile-force-print .flex-col {
-    flex-direction: row !important;
-  }
-  
-  body.mobile-force-print .sm\\:flex-row {
-    flex-direction: row !important;
-  }
-  
-  body.mobile-force-print .sm\\:justify-between {
-    justify-content: space-between !important;
-  }
-  
-  body.mobile-force-print .w-full.sm\\:w-auto {
-    width: auto !important;
-  }
-`}</style>
-
-
+        /* 画面表示用のスタイル */
+        @media screen {
+          .print-container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 1rem;
+            background: white;
+          }
+          
+          /* PC画面 */
+          @media (min-width: 768px) {
+            .print-container {
+              max-width: 210mm;
+              min-height: 297mm;
+              margin: 20px auto;
+              padding: 15mm 15mm;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+            .mobile-card-view {
+              display: none !important;
+            }
+            .desktop-table-view {
+              display: table !important;
+            }
+          }
+          
+          /* スマホ画面 */
+          @media (max-width: 767px) {
+            .print-container {
+              padding: 1rem 0.75rem;
+            }
+            .mobile-card-view {
+              display: block !important;
+            }
+            .desktop-table-view {
+              display: none !important;
+            }
+          }
+        }
+        
+        /* 印刷用CSS（すべてのデバイスで適用） */
+        @media print {
+          .no-print {
+            display: none !important;
+          }
+          body {
+            margin: 0;
+            padding: 0;
+          }
+          .print-container {
+            max-width: 90%;
+            margin: 0 auto;
+            padding: 18mm 18mm;
+            box-shadow: none;
+          }
+          /* スマホでもPCでもテーブル表示 */
+          .mobile-card-view {
+            display: none !important;
+          }
+          .desktop-table-view {
+            display: table !important;
+            width: 100% !important;
+          }
+          @page {
+            margin: 0;
+            size: A4 portrait;
+          }
+        }
+      `}</style>
 
       {/* 画面表示時のボタン */}
       <div className="no-print bg-gray-50 py-3 sm:py-4 sticky top-0 z-50 border-b">
@@ -328,7 +262,7 @@ const loadData = async () => {
         </div>
       </div>
 
-    {/* 印刷用コンテンツ */}
+      {/* 印刷用コンテンツ */}
       <div className="print-container">
         {/* ヘッダー部分 */}
         <div className="mb-4 sm:mb-6">
