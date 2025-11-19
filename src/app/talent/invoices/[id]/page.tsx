@@ -187,21 +187,14 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
           background: white;
           box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
-        
-        /* デフォルト：テーブル表示 */
-        .mobile-card-view {
-          display: none !important;
-        }
-        .desktop-table-view {
-          display: table !important;
-        }
+      
         
         /* スマホ画面表示の時だけカード表示に変更 */
 @media only screen and (max-width: 767px) {
   .print-container {
     max-width: 100%;
     margin: 0 auto;
-    padding: 1rem 0.75rem;
+    padding: 1rem 0.5rem;
     box-shadow: none;
   }
   .mobile-card-view {
