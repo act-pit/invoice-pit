@@ -216,7 +216,7 @@ const loadData = async () => {
     }
   }
   
-  /* 印刷用CSS（元のレイアウトを維持、スマホ対応のみ追加） */
+  /* 印刷用CSS（PC・スマホ完全統一） */
   @media print {
     .no-print {
       display: none !important;
@@ -232,10 +232,12 @@ const loadData = async () => {
       box-shadow: none;
     }
     
-    /* ★スマホから印刷時もPC版レイアウトに統一★ */
+    /* スマホ用カード表示を完全非表示 */
     .mobile-card-view {
       display: none !important;
     }
+    
+    /* PC用テーブル表示を強制表示 */
     .desktop-table-view {
       display: table !important;
     }
@@ -244,8 +246,145 @@ const loadData = async () => {
       margin: 0;
       size: A4 portrait;
     }
+    
+    /* ========================================
+       ★スマホ印刷時の強制PC版レイアウト★
+       ======================================== */
+    
+    /* 1. フレックスボックスの方向を強制 */
+    .print-container .flex-col {
+      flex-direction: row !important;
+    }
+    
+    .print-container .sm\\:flex-row {
+      flex-direction: row !important;
+    }
+    
+    /* 2. 配置を強制 */
+    .print-container .sm\\:justify-between {
+      justify-content: space-between !important;
+    }
+    
+    .print-container .sm\\:items-center {
+      align-items: center !important;
+    }
+    
+    .print-container .sm\\:items-start {
+      align-items: flex-start !important;
+    }
+    
+    /* 3. 幅を強制 */
+    .print-container .w-full.sm\\:w-auto {
+      width: auto !important;
+    }
+    
+    .print-container .sm\\:w-1\\/2 {
+      width: 50% !important;
+    }
+    
+    .print-container .sm\\:min-w-\\[180px\\] {
+      min-width: 180px !important;
+      width: 180px !important;
+    }
+    
+    /* 4. テキストサイズを強制（PC版と同じ） */
+    .print-container h1 {
+      font-size: 1.875rem !important; /* text-3xl */
+    }
+    
+    .print-container .text-2xl.sm\\:text-3xl {
+      font-size: 1.875rem !important;
+    }
+    
+    .print-container .text-lg.sm\\:text-xl {
+      font-size: 1.25rem !important;
+    }
+    
+    .print-container .text-base.sm\\:text-lg {
+      font-size: 1.125rem !important;
+    }
+    
+    .print-container .text-sm.sm\\:text-base {
+      font-size: 1rem !important;
+    }
+    
+    .print-container .text-xs.sm\\:text-sm {
+      font-size: 0.875rem !important;
+    }
+    
+    /* 5. 余白を強制（PC版と同じ） */
+    .print-container .mb-4.sm\\:mb-6 {
+      margin-bottom: 1.5rem !important;
+    }
+    
+    .print-container .gap-2,
+    .print-container .gap-3,
+    .print-container .gap-4 {
+      gap: 1rem !important;
+    }
+    
+    .print-container .px-3.sm\\:px-4 {
+      padding-left: 1rem !important;
+      padding-right: 1rem !important;
+    }
+    
+    .print-container .py-2.sm\\:py-3 {
+      padding-top: 0.75rem !important;
+      padding-bottom: 0.75rem !important;
+    }
+    
+    .print-container .py-3.sm\\:py-4 {
+      padding-top: 1rem !important;
+      padding-bottom: 1rem !important;
+    }
+    
+    .print-container .p-2\\.5 {
+      padding: 0.625rem !important;
+    }
+    
+    /* 6. テーブルスタイル強制 */
+    .print-container table {
+      width: 100% !important;
+      font-size: 11px !important;
+      table-layout: fixed !important;
+    }
+    
+    /* 7. 請求元情報ボックスを右寄せ・固定幅 */
+    .print-container .border-gray-400 {
+      width: 180px !important;
+      min-width: 180px !important;
+      max-width: 180px !important;
+    }
+    
+    /* 8. テキスト配置 */
+    .print-container .text-left.sm\\:text-right {
+      text-align: right !important;
+    }
+    
+    .print-container .sm\\:text-right {
+      text-align: right !important;
+    }
+    
+    .print-container .sm\\:ml-auto {
+      margin-left: auto !important;
+    }
+    
+    /* 9. グリッドレイアウト */
+    .print-container .grid-cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+    
+    /* 10. 改行制御 */
+    .print-container .break-words {
+      word-break: break-word !important;
+    }
+    
+    .print-container .break-all {
+      word-break: break-all !important;
+    }
   }
 `}</style>
+
 
 
       {/* 画面表示時のボタン */}
