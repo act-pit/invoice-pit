@@ -59,8 +59,6 @@ export default function TalentLoginPage() {
                 if (profile) {
           // タレントとして確認できた
           console.log('Profile found, redirecting...');
-          console.log('⏳ セッション待機中...');
-          await new Promise(resolve => setTimeout(resolve, 500));  // 0.5秒待つ
           router.push('/talent/dashboard');
           return;
         }
