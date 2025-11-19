@@ -212,33 +212,64 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
   }
 }
 
-        /* 印刷用CSS */
-        @media print {
-          .no-print {
-            display: none !important;
-          }
-          body {
-            margin: 0;
-            padding: 0;
-          }
-          .print-container {
-            max-width: 90%;
-            margin: 0 auto;
-            padding: 18mm 18mm;
-            box-shadow: none;
-          }
-          .mobile-card-view {
-            display: none !important;
-          }
-          .desktop-table-view {
-            display: table !important;
-            width: 100% !important;
-          }
-          @page {
-            margin: 0;
-            size: A4 portrait;
-          }
-        }
+/* 印刷用CSS */
+
+/* PC印刷用（画面幅768px以上） */
+@media print and (min-width: 768px) {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    margin: 0;
+    padding: 0;
+  }
+  .print-container {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 30mm 30mm;
+    box-shadow: none;
+  }
+  .mobile-card-view {
+    display: none !important;
+  }
+  .desktop-table-view {
+    display: table !important;
+    width: 100% !important;
+  }
+  @page {
+    margin: 0;
+    size: A4 portrait;
+  }
+}
+
+/* スマホ印刷用（画面幅767px以下） */
+@media print and (max-width: 767px) {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    margin: 0;
+    padding: 0;
+  }
+  .print-container {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 8mm 8mm;  // スマホ用：狭い余白
+    box-shadow: none;
+  }
+  .mobile-card-view {
+    display: none !important;
+  }
+  .desktop-table-view {
+    display: table !important;
+    width: 100% !important;
+  }
+  @page {
+    margin: 0;
+    size: A4 portrait;
+  }
+}
+
       `}</style>
 
       {/* 画面表示時のボタン */}
