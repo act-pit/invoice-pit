@@ -1,14 +1,13 @@
 'use client';
 
-// use をインポートし直す
-import { useEffect, useState, use } from 'react'; 
+import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/types/database';
 import { Button } from '@/components/ui/button';
 
-// 型定義 (変更なし)
+// 型定義
 type Invoice = Database['public']['Tables']['invoices']['Row'] & {
   subject?: string;
   recipient_name?: string;
@@ -25,15 +24,8 @@ type Invoice = Database['public']['Tables']['invoices']['Row'] & {
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type Organizer = Database['public']['Tables']['organizers']['Row'];
 
-// ページコンポーネント
-// paramsの型を { id: string } ではなく、ビルドエラーログが示した Promise<...> を含む型として定義します。
-type InvoicePrintPageProps = {
-  params: { id: string } & { [key: string]: string | string[] } & Promise<any>;
-};
-
-export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
-  // 意図は同期的なオブジェクトアクセスなので、Promise型定義を無視し、直接 params から id を取り出すことでTSエラーを回避します。
-  const { id } = params; 
+export default function InvoicePrintPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params);
   const supabase = createClient();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -42,9 +34,8 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [organizer, setOrganizer] = useState<Organizer | null>(null);
 
-  // 源泉徴収を計算する関数 (変更なし)
+  // 源泉徴収を計算する関数
   const calculateWithholding = (items: any[]) => {
-    // ... (中略) ...
     return items.reduce((sum, item) => {
       if (!item.isWithholdingTarget) return sum;
 
@@ -57,6 +48,7 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
 
       let baseAmount = amount;
 
+      // 税込の場合は税抜に戻す
       if (item.isTaxIncluded) {
         baseAmount = Math.floor(amount / 1.1);
       }
@@ -67,10 +59,11 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
 
   useEffect(() => {
     loadData();
-  }, [id]);
+  }, []);
 
   const loadData = async () => {
     try {
+      // Supabaseから直接ユーザーを取得
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
@@ -78,6 +71,7 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
         return;
       }
 
+      // プロフィール取得
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -87,10 +81,11 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
       if (profileError) throw profileError;
       setProfile(profileData);
 
+      // 請求書取得
       const { data: invoiceData, error: invoiceError } = await supabase
         .from('invoices')
         .select('*')
-        .eq('id', id)
+        .eq('id', resolvedParams.id)
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -102,8 +97,10 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
         return;
       }
 
+      // itemsから源泉徴収を計算
       const calculatedWithholding = calculateWithholding(invoiceData.items || []);
 
+      // 型変換
       const extendedInvoice: Invoice = {
         ...invoiceData,
         subject: (invoiceData as any).subject || '',
@@ -119,6 +116,7 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
 
       setInvoice(extendedInvoice);
 
+      // 主催者情報取得（存在する場合）
       if (extendedInvoice.organizer_id) {
         const { data: organizerData } = await supabase
           .from('organizers')
@@ -137,8 +135,14 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
     }
   };
 
-  // 印刷関数 (変更なし)
+  // 印刷関数：スマホでもテーブル表示を強制
   const handlePrint = () => {
+    const cards = document.querySelector('.mobile-card-view') as HTMLElement;
+    const table = document.querySelector('.desktop-table-view') as HTMLElement;
+    
+    if (cards) cards.style.display = 'none';
+    if (table) table.style.display = 'table';
+    
     window.print();
   };
 
@@ -157,6 +161,7 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
     return null;
   }
 
+  // 請求先名を取得
   const recipientName = organizer?.name || organizer?.company_name || invoice.recipient_name || '';
   const recipientSuffix = organizer
     ? '御中'
@@ -164,11 +169,12 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
       ? '様'
       : '御中';
 
+  // 請求先住所を取得
   const recipientAddress = invoice.recipient_address || '';
 
   return (
     <>
-      {/* 印刷用CSS (特異性を高めたバージョン) */}
+      {/* 印刷用CSS */}
       <style jsx global>{`
         /* デフォルト：PC・印刷用レイアウト */
         .print-container {
@@ -180,7 +186,7 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
           box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
-        /* デフォルト：テーブル表示（PC画面） */
+        /* デフォルト：テーブル表示 */
         .mobile-card-view {
           display: none !important;
         }
@@ -188,7 +194,7 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
           display: table !important;
         }
         
-        /* スマホ画面表示の時だけカード表示に変更 (画面表示時のみ適用) */
+        /* スマホ画面表示の時だけカード表示に変更 */
         @media only screen and (max-width: 767px) {
           .print-container {
             max-width: 100%;
@@ -197,14 +203,14 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
             box-shadow: none;
           }
           .mobile-card-view {
-            display: block !important;
+            display: block;
           }
           .desktop-table-view {
-            display: none !important;
+            display: none;
           }
         }
         
-        /* 印刷用CSS (画面サイズに関わらず、印刷時に優先的に適用) */
+        /* 印刷用CSS */
         @media print {
           .no-print {
             display: none !important;
@@ -219,16 +225,13 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
             padding: 18mm 18mm;
             box-shadow: none;
           }
-          
-          /* 特異性を上げて印刷時の表示を強制 */
-          .print-container .mobile-card-view {
-            display: none !important; 
+          .mobile-card-view {
+            display: none !important;
           }
-          .print-container .desktop-table-view {
-            display: table !important; 
+          .desktop-table-view {
+            display: table !important;
             width: 100% !important;
           }
-          
           @page {
             margin: 0;
             size: A4 portrait;
@@ -236,7 +239,7 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
         }
       `}</style>
 
-      {/* 画面表示時のボタン (変更なし) */}
+      {/* 画面表示時のボタン */}
       <div className="no-print bg-gray-50 py-3 sm:py-4 sticky top-0 z-50 border-b">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 flex justify-between items-center gap-2">
           <Button 
@@ -257,7 +260,7 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
         </div>
       </div>
 
-      {/* 印刷用コンテンツ (変更なし) */}
+      {/* 印刷用コンテンツ */}
       <div className="print-container">
         {/* ヘッダー部分 */}
         <div className="mb-4 sm:mb-6">
@@ -326,7 +329,7 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3">
             {/* 請求金額 */}
             <div className="flex-1 border-b-2 border-gray-700 pb-2">
-                <div className="flex flex-row items-center justify-center gap-2 sm:gap-4">
+               <div className="flex flex-row items-center justify-center gap-2 sm:gap-4">
                 <p className="text-sm sm:text-base font-bold">ご請求額（税込）</p>
                 <p className="text-2xl sm:text-4xl font-bold">¥ {invoice.total.toLocaleString()} -</p>
               </div>
@@ -341,7 +344,7 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
           </div>
         </div>
 
-        {/* スマホ用：カード表示 (画面表示時のみ) */}
+        {/* スマホ用：カード表示 */}
         <div className="mobile-card-view mb-6">
           <h3 className="text-sm font-bold mb-3 pb-2 border-b-2 border-gray-700">請求項目</h3>
           <div className="space-y-3">
@@ -392,7 +395,7 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
           </div>
         </div>
 
-        {/* PC用：テーブル表示 (画面表示時/印刷時) */}
+        {/* PC用：テーブル表示 */}
         <div className="desktop-table-view mb-4">
           <table className="w-full border-collapse" style={{ fontSize: '11px', width: '100%', tableLayout: 'fixed' }}>
             <thead>
@@ -430,7 +433,6 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
                   </tr>
                 );
               })}
-              {/* 最低2行表示を維持 */}
               {invoice.items.length < 2 && (
                 <tr>
                   <td className="border border-gray-300 px-2 py-2">&nbsp;</td>
@@ -483,50 +485,50 @@ export default function InvoicePrintPage({ params }: InvoicePrintPageProps) {
                 <span className="text-xs sm:text-sm font-semibold">口座情報</span>
               </div>
               <div className="bg-gray-50 px-3 sm:px-4 py-3">
-                <div className="text-xs sm:text-sm" style={{ lineHeight: '1.7' }}>
-                    {/* 画面表示用：3行レイアウト */}
-                  <div className="block print:hidden">
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-                      {profile.bank_name && (
-                        <span><span className="font-semibold">銀行名：</span>{profile.bank_name}</span>
-                      )}
-                      {(profile.branch_name || profile.bank_branch) && (
-                      <span><span className="font-semibold">支店名：</span>{profile.branch_name || profile.bank_branch}</span>
-                      )}
-                      {profile.account_type && (
-                        <span><span className="font-semibold">口座種別：</span>{profile.account_type === 'normal' ? '普通預金' : '当座預金'}</span>
-                      )}
-                      {profile.account_number && (
-                      <span><span className="font-semibold">口座番号：</span>{profile.account_number}</span>
-                      )}
-                    </div>
-                      {profile.account_holder && (
-                      <p className="mt-1.5"><span className="font-semibold">口座名義：</span>{profile.account_holder}</p>
-                      )}
+               <div className="text-xs sm:text-sm" style={{ lineHeight: '1.7' }}>
+                 {/* 画面表示用：3行レイアウト */}
+                <div className="block print:hidden">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                    {profile.bank_name && (
+                     <span><span className="font-semibold">銀行名：</span>{profile.bank_name}</span>
+                    )}
+                    {(profile.branch_name || profile.bank_branch) && (
+                    <span><span className="font-semibold">支店名：</span>{profile.branch_name || profile.bank_branch}</span>
+                    )}
+                    {profile.account_type && (
+                     <span><span className="font-semibold">口座種別：</span>{profile.account_type === 'normal' ? '普通預金' : '当座預金'}</span>
+                    )}
+                    {profile.account_number && (
+                    <span><span className="font-semibold">口座番号：</span>{profile.account_number}</span>
+                    )}
                   </div>
+                    {profile.account_holder && (
+                    <p className="mt-1.5"><span className="font-semibold">口座名義：</span>{profile.account_holder}</p>
+                    )}
+                </div>
 
-                    {/* 印刷用：2行レイアウト */}
-                    <div className="hidden print:block">
-                      <p>
-                      {profile.bank_name && (
-                      <><span className="font-semibold">銀行名：</span>{profile.bank_name}　</>
-                      )}
-                      {(profile.branch_name || profile.bank_branch) && (
-                      <><span className="font-semibold">支店名：</span>{profile.branch_name || profile.bank_branch}　</>
-                      )}
-                      {profile.account_type && (
-                      <><span className="font-semibold">口座種別：</span>{profile.account_type === 'normal' ? '普通預金' : '当座預金'}</>
-                      )}
-                      </p>
-                      <p>
-                      {profile.account_number && (
-                      <><span className="font-semibold">口座番号：</span>{profile.account_number}　</>
-                      )}
-                      {profile.account_holder && (
-                      <><span className="font-semibold">口座名義：</span>{profile.account_holder}</>
-                      )}
-                      </p>
-                    </div>
+                  {/* 印刷用：2行レイアウト */}
+                  <div className="hidden print:block">
+                    <p>
+                    {profile.bank_name && (
+                    <><span className="font-semibold">銀行名：</span>{profile.bank_name}　</>
+                    )}
+                    {(profile.branch_name || profile.bank_branch) && (
+                    <><span className="font-semibold">支店名：</span>{profile.branch_name || profile.bank_branch}　</>
+                    )}
+                    {profile.account_type && (
+                    <><span className="font-semibold">口座種別：</span>{profile.account_type === 'normal' ? '普通預金' : '当座預金'}</>
+                    )}
+                    </p>
+                    <p>
+                    {profile.account_number && (
+                    <><span className="font-semibold">口座番号：</span>{profile.account_number}　</>
+                    )}
+                    {profile.account_holder && (
+                    <><span className="font-semibold">口座名義：</span>{profile.account_holder}</>
+                    )}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
