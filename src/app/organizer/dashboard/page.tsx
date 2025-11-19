@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createClient, forceSignOut } from '@/lib/supabase/client'; // ← forceSignOut追加
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
+// import { useAuth } from '@/contexts/AuthContext'; // ← この行を削除またはコメントアウト
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -53,11 +54,16 @@ function ReturnStatusBadge({ invoiceId }: { invoiceId: string }) {
   );
 }
 
-
-
 export default function OrganizerDashboardPage() {
-  const { user, loading: authLoading, signOut } = useAuth();
+  // const { user, loading: authLoading, signOut } = useAuth(); // ← この行を削除
+  
   const router = useRouter();
+  const supabaseClient = createClient(); // ← 新しく追加
+  
+  // ユーザー状態を自前で管理
+  const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  
   const [loading, setLoading] = useState(true);
   const [organizer, setOrganizer] = useState<Organizer | null>(null);
   const [invoices, setInvoices] = useState<OrganizerInvoice[]>([]);
@@ -80,6 +86,35 @@ export default function OrganizerDashboardPage() {
     returned: 0,
   });
 
+  // ユーザー情報取得（初回のみ）
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const { data: { user }, error } = await supabaseClient.auth.getUser();
+        
+        if (error) {
+          console.error('ユーザー取得エラー:', error);
+          router.push('/organizer/login');
+          return;
+        }
+        
+        if (!user) {
+          router.push('/organizer/login');
+          return;
+        }
+        
+        setUser(user);
+      } catch (err) {
+        console.error('予期しないエラー:', err);
+        router.push('/organizer/login');
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    getUser();
+  }, [router]);
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/organizer/login');
@@ -87,6 +122,34 @@ export default function OrganizerDashboardPage() {
       loadData();
     }
   }, [user, authLoading, router]);
+
+  // ログアウト処理（強化版） ← 新しく追加
+  const handleSignOut = async () => {
+    try {
+      setLoading(true);
+      
+      // タイムアウト付きでログアウト試行（10秒）
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('ログアウトタイムアウト')), 10000)
+      );
+      
+      const signOutPromise = supabaseClient.auth.signOut();
+      
+      await Promise.race([signOutPromise, timeoutPromise]);
+      
+      console.log('✅ 通常ログアウト成功');
+      
+    } catch (error) {
+      console.error('⚠️ ログアウトエラー、強制クリア実行:', error);
+      
+      // エラー時は強制的にセッションクリア
+      await forceSignOut();
+    } finally {
+      // 必ずログインページへ遷移
+      router.push('/organizer/login');
+      router.refresh();
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -175,53 +238,53 @@ export default function OrganizerDashboardPage() {
   };
 
   const handleReturn = async () => {
-  if (!returnComment.trim()) {
-    alert('差し戻し理由を入力してください');
-    return;
-  }
-
-  if (!returningInvoiceId) return;
-
-  setIsSubmitting(true);
-
-  try {
-    console.log('🔄 差し戻し開始 - returningInvoiceId:', returningInvoiceId);
-    
-    const { data: orgInvoiceData, error: fetchError } = await supabase
-      .from('organizer_invoices')
-      .select('invoice_id, status')
-      .eq('id', returningInvoiceId)
-      .single();
-
-    console.log('📊 organizer_invoices データ:', orgInvoiceData);
-    console.log('❌ エラー:', fetchError);
-
-    if (fetchError) throw fetchError;
-    
-    if (!orgInvoiceData.invoice_id) {
-      alert('関連する請求書が見つかりません');
+    if (!returnComment.trim()) {
+      alert('差し戻し理由を入力してください');
       return;
     }
 
-    console.log('🎯 更新対象の invoice_id:', orgInvoiceData.invoice_id);
-    console.log('👤 user.id:', user?.id);
+    if (!returningInvoiceId) return;
 
-    const { data: updateResult, error: invoiceError } = await supabase
-      .from('invoices')
-      .update({
-        return_status: 'returned',
-        return_comment: returnComment,
-        return_date: new Date().toISOString(),
-        returned_by: user!.id,
-        status: 'draft',
-      })
-      .eq('id', orgInvoiceData.invoice_id)
-      .select();  // ← 追加：更新結果を取得
+    setIsSubmitting(true);
 
-    console.log('✅ 更新結果:', updateResult);
-    console.log('❌ 更新エラー:', invoiceError);
+    try {
+      console.log('🔄 差し戻し開始 - returningInvoiceId:', returningInvoiceId);
+      
+      const { data: orgInvoiceData, error: fetchError } = await supabase
+        .from('organizer_invoices')
+        .select('invoice_id, status')
+        .eq('id', returningInvoiceId)
+        .single();
 
-    if (invoiceError) throw invoiceError;
+      console.log('📊 organizer_invoices データ:', orgInvoiceData);
+      console.log('❌ エラー:', fetchError);
+
+      if (fetchError) throw fetchError;
+      
+      if (!orgInvoiceData.invoice_id) {
+        alert('関連する請求書が見つかりません');
+        return;
+      }
+
+      console.log('🎯 更新対象の invoice_id:', orgInvoiceData.invoice_id);
+      console.log('👤 user.id:', user?.id);
+
+      const { data: updateResult, error: invoiceError } = await supabase
+        .from('invoices')
+        .update({
+          return_status: 'returned',
+          return_comment: returnComment,
+          return_date: new Date().toISOString(),
+          returned_by: user!.id,
+          status: 'draft',
+        })
+        .eq('id', orgInvoiceData.invoice_id)
+        .select();
+
+      console.log('✅ 更新結果:', updateResult);
+      console.log('❌ 更新エラー:', invoiceError);
+
+      if (invoiceError) throw invoiceError;
 
       const { error: orgError } = await supabase
         .from('organizer_invoices')
@@ -322,7 +385,7 @@ export default function OrganizerDashboardPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">読み込み中...</p>
         </div>
       </div>
@@ -335,7 +398,7 @@ export default function OrganizerDashboardPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-blue-100 via-pink-50 to-blue-100 relative">
+      <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 relative">
         <div className="absolute inset-0 bg-white/30 backdrop-blur-3xl"></div>
         <div className="relative z-10">
           {/* ヘッダー */}
@@ -344,7 +407,7 @@ export default function OrganizerDashboardPage() {
               <h1 className="text-lg sm:text-2xl font-bold text-green-600">請求書ぴっと - 主催者</h1>
               <div className="flex items-center gap-2 sm:gap-4">
                 <span className="text-xs sm:text-sm text-gray-900">{organizer.name}</span>
-                <Button onClick={signOut} variant="outline" size="sm" className="text-xs sm:text-sm">
+                <Button onClick={handleSignOut} variant="outline" size="sm" className="text-xs sm:text-sm">
                   ログアウト
                 </Button>
               </div>
@@ -458,7 +521,7 @@ export default function OrganizerDashboardPage() {
                       placeholder="キャスト名・請求書番号で検索..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                     />
                   </div>
                   
@@ -467,7 +530,7 @@ export default function OrganizerDashboardPage() {
                     <select
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value as any)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                     >
                       <option value="all">全て</option>
                       <option value="pending">未承認</option>
@@ -482,7 +545,7 @@ export default function OrganizerDashboardPage() {
                     onClick={exportToCSV} 
                     variant="outline"
                     size="sm"
-                    className="text-xs sm:text-sm border-2 border-blue-400"
+                    className="text-xs sm:text-sm border-2 border-purple-400"
                   >
                     📊 CSV出力
                   </Button>
@@ -513,7 +576,7 @@ export default function OrganizerDashboardPage() {
                         </div>
                         
                         <div className="text-left sm:text-right">
-                          <div className="text-xl sm:text-2xl font-bold text-blue-600">
+                          <div className="text-xl sm:text-2xl font-bold text-purple-600">
                             ¥{(invoice.total || 0).toLocaleString()}
                           </div>
                           <div className="flex flex-col items-start sm:items-end gap-1 mt-1">
@@ -532,87 +595,84 @@ export default function OrganizerDashboardPage() {
                     </CardHeader>
                     
                     <CardContent className="space-y-4">
-  <div className="grid grid-cols-3 gap-3 sm:gap-4">
-    <div className="text-sm sm:text-base">
-      <p className="text-gray-500">消費税</p>
-      <p className="font-medium">¥{(invoice.tax || 0).toLocaleString()}</p>
-    </div>
-    <div className="text-sm sm:text-base">
-      <p className="text-gray-500">源泉徴収</p>
-      <p className="font-medium text-red-600">-¥{(invoice.withholding || 0).toLocaleString()}</p>
-    </div>
-    <div className="text-base sm:text-lg">
-      <p className="text-gray-500 font-semibold">支払期日</p>
-      <p className="font-bold text-blue-600">
-        {invoice.payment_due_date 
-          ? new Date(invoice.payment_due_date).toLocaleDateString('ja-JP')
-          : '-'}
-      </p>
-    </div>
-  </div>
-  
-{invoice.bank_name && (
-  <div className="bg-gray-50 p-3 sm:p-4 rounded-md text-sm sm:text-base -mx-6">
-    <p className="font-semibold mb-2 px-3">振込先情報</p>
-    <p className="px-3">
-      <span className="inline-block mr-3">{invoice.bank_name}</span>
-      <span className="inline-block mr-3">{invoice.branch_name}</span>
-      <span className="inline-block mr-3">{invoice.account_type}</span>
-      <span className="inline-block mr-3">{invoice.account_number}</span>
-      <span className="inline-block">口座名義: {invoice.account_holder}</span>
-    </p>
-  </div>
-)}
-
-
+                      <div className="grid grid-cols-3 gap-3 sm:gap-4">
+                        <div className="text-sm sm:text-base">
+                          <p className="text-gray-500">消費税</p>
+                          <p className="font-medium">¥{(invoice.tax || 0).toLocaleString()}</p>
+                        </div>
+                        <div className="text-sm sm:text-base">
+                          <p className="text-gray-500">源泉徴収</p>
+                          <p className="font-medium text-red-600">-¥{(invoice.withholding || 0).toLocaleString()}</p>
+                        </div>
+                        <div className="text-base sm:text-lg">
+                          <p className="text-gray-500 font-semibold">支払期日</p>
+                          <p className="font-bold text-purple-600">
+                            {invoice.payment_due_date 
+                              ? new Date(invoice.payment_due_date).toLocaleDateString('ja-JP')
+                              : '-'}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {invoice.bank_name && (
+                        <div className="bg-gray-50 p-3 sm:p-4 rounded-md text-sm sm:text-base -mx-6">
+                          <p className="font-semibold mb-2 px-3">振込先情報</p>
+                          <p className="px-3">
+                            <span className="inline-block mr-3">{invoice.bank_name}</span>
+                            <span className="inline-block mr-3">{invoice.branch_name}</span>
+                            <span className="inline-block mr-3">{invoice.account_type}</span>
+                            <span className="inline-block mr-3">{invoice.account_number}</span>
+                            <span className="inline-block">口座名義: {invoice.account_holder}</span>
+                          </p>
+                        </div>
+                      )}
 
                       <div className="flex flex-wrap gap-2">
-  {invoice.status === 'pending' && (
-    <>
-      <Button 
-        size="sm" 
-        onClick={() => updateInvoiceStatus(invoice.id, 'approved')}
-        className="text-xs sm:text-sm border-2 border-blue-400"
-      >
-        ✅ 承認
-      </Button>
-      <Button 
-        size="sm" 
-        variant="outline"
-        className="text-xs sm:text-sm border-2 border-orange-500 text-orange-600 hover:bg-orange-50"
-        onClick={() => {
-          setReturningInvoiceId(invoice.id);
-          setIsReturnModalOpen(true);
-        }}
-      >
-        ↩️ 差し戻し
-      </Button>
-    </>
-  )}
-  {invoice.status === 'approved' && (
-    <Button 
-      size="sm" 
-      className="text-xs sm:text-sm border-2 border-green-600"
-      onClick={() => updateInvoiceStatus(invoice.id, 'paid')}
-    >
-      💰 支払済み
-    </Button>
-  )}
-  {invoice.status === 'returned' && (
-    <div className="text-xs sm:text-sm text-orange-600 font-medium px-3 py-2 bg-orange-50 rounded-md">
-      ⏳ タレントによる修正を待っています
-    </div>
-  )}
-  <Button 
-    size="sm" 
-    variant="outline"
-    className="text-xs sm:text-sm border-2 border-gray-300"
-    onClick={() => setSelectedInvoice(invoice)}
-  >
-    👁️ 詳細
-  </Button>
-</div>
-
+                        {invoice.status === 'pending' && (
+                          <>
+                            <Button 
+                              size="sm" 
+                              onClick={() => updateInvoiceStatus(invoice.id, 'approved')}
+                              className="text-xs sm:text-sm border-2 border-purple-400"
+                            >
+                              ✅ 承認
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="text-xs sm:text-sm border-2 border-orange-500 text-orange-600 hover:bg-orange-50"
+                              onClick={() => {
+                                setReturningInvoiceId(invoice.id);
+                                setIsReturnModalOpen(true);
+                              }}
+                            >
+                              ↩️ 差し戻し
+                            </Button>
+                          </>
+                        )}
+                        {invoice.status === 'approved' && (
+                          <Button 
+                            size="sm" 
+                            className="text-xs sm:text-sm border-2 border-green-600"
+                            onClick={() => updateInvoiceStatus(invoice.id, 'paid')}
+                          >
+                            💰 支払済み
+                          </Button>
+                        )}
+                        {invoice.status === 'returned' && (
+                          <div className="text-xs sm:text-sm text-orange-600 font-medium px-3 py-2 bg-orange-50 rounded-md">
+                            ⏳ タレントによる修正を待っています
+                          </div>
+                        )}
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="text-xs sm:text-sm border-2 border-gray-300"
+                          onClick={() => setSelectedInvoice(invoice)}
+                        >
+                          👁️ 詳細
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))
@@ -693,7 +753,7 @@ export default function OrganizerDashboardPage() {
                     </div>
                     <div className="border-t pt-2 flex justify-between font-bold text-base sm:text-lg">
                       <span>合計:</span>
-                      <span className="text-blue-600">¥{(selectedInvoice.total || 0).toLocaleString()}</span>
+                      <span className="text-purple-600">¥{(selectedInvoice.total || 0).toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
@@ -716,7 +776,7 @@ export default function OrganizerDashboardPage() {
               <div className="mt-4 sm:mt-6 flex justify-end">
                 <Button 
                   onClick={() => setSelectedInvoice(null)}
-                  className="text-xs sm:text-sm border-2 border-blue-400"
+                  className="text-xs sm:text-sm border-2 border-purple-400"
                 >
                   閉じる
                 </Button>

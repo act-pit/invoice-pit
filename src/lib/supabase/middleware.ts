@@ -2,6 +2,16 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// タイムアウト付きでユーザー取得
+async function getUserWithTimeout(supabase: any, timeout = 10000) {
+  return Promise.race([
+    supabase.auth.getUser(),
+    new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Middleware timeout')), timeout)
+    )
+  ]);
+}
+
 export async function updateSession(request: NextRequest) {
   console.log('🔵 [Middleware] 実行開始:', request.nextUrl.pathname)
   
@@ -59,8 +69,18 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
-  console.log('🔵 [Middleware] User:', user ? 'あり' : 'なし')
+  let user = null;
+  
+  try {
+    // タイムアウト付きでユーザー取得
+    const result = await getUserWithTimeout(supabase, 10000);
+    user = result?.data?.user || null;
+    console.log('🔵 [Middleware] User:', user ? 'あり' : 'なし')
+  } catch (error) {
+    console.error('🔴 [Middleware] 認証チェックエラー:', error);
+    // タイムアウトやエラー時はセッションなしとして扱う
+    user = null;
+  }
 
   const path = request.nextUrl.pathname
 
@@ -75,7 +95,7 @@ export async function updateSession(request: NextRequest) {
     !path.startsWith('/organizer/login') && 
     !path.startsWith('/organizer/register')
 
-  // ✅ 未ログインで保護されたページにアクセス → ログインページへ（これだけ有効）
+  // ✅ 未ログインで保護されたページにアクセス → ログインページへ
   if (!user) {
     if (isTalentProtected) {
       console.log('🔴 [Middleware] 未認証 → /talent/login へリダイレクト')
@@ -90,22 +110,6 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url)
     }
   }
-
-  // ❌ ログイン済み時のリダイレクトを一旦コメントアウト
-  // if (user) {
-  //   if (path === '/talent/login' || path === '/talent/signup') {
-  //     console.log('🟢 [Middleware] 認証済み → /talent/dashboard へリダイレクト')
-  //     const url = request.nextUrl.clone()
-  //     url.pathname = '/talent/dashboard'
-  //     return NextResponse.redirect(url)
-  //   }
-  //   if (path === '/organizer/login' || path === '/organizer/signup') {
-  //     console.log('🟢 [Middleware] 認証済み → /organizer/dashboard へリダイレクト')
-  //     const url = request.nextUrl.clone()
-  //     url.pathname = '/organizer/dashboard'
-  //     return NextResponse.redirect(url)
-  //   }
-  // }
 
   console.log('🔵 [Middleware] リダイレクトなし、そのまま通過')
   return response

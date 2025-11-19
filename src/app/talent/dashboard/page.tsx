@@ -3,40 +3,73 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/contexts/AuthContext';
+// import { useAuth } from '@/contexts/AuthContext'; // ← この行を削除またはコメントアウト
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { createClient } from '@/lib/supabase/client';
+import { createClient, forceSignOut } from '@/lib/supabase/client'; // ← forceSignOut追加
 import { isProfileComplete, getMissingProfileFields } from '@/lib/profile-check';
 import { Profile } from '@/types/database'; 
 
 export default function TalentDashboardPage() {
-  const { user, loading, signOut } = useAuth();
+  // const { user, loading, signOut } = useAuth(); // ← この行を削除
+  
   const router = useRouter();
+  const supabaseClient = createClient(); // ← 新しく追加
+  
+  // ユーザー状態を自前で管理
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showProfileAlert, setShowProfileAlert] = useState(false);
 
+  // ユーザー情報取得（初回のみ） ← 新しく追加
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const { data: { user }, error } = await supabaseClient.auth.getUser();
+        
+        if (error) {
+          console.error('ユーザー取得エラー:', error);
+          router.push('/talent/login');
+          return;
+        }
+        
+        if (!user) {
+          router.push('/talent/login');
+          return;
+        }
+        
+        setUser(user);
+      } catch (err) {
+        console.error('予期しないエラー:', err);
+        router.push('/talent/login');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getUser();
+  }, [router]);
 
   useEffect(() => {
-  loadProfile();
-}, []);
-
-const loadProfile = async () => {
-  const supabase = createClient();
-  try {
-    // ✅ Supabaseから直接ユーザーを取得
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      console.error('ユーザーが取得できませんでした');
-      return;
+    if (user) {
+      loadProfile();
     }
+  }, [user]); // ← user依存に変更
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
+  const loadProfile = async () => {
+    try {
+      if (!user) {
+        console.error('ユーザーが取得できませんでした');
+        return;
+      }
+
+      const { data, error } = await supabaseClient
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
 
       if (error) throw error;
 
@@ -54,6 +87,45 @@ const loadProfile = async () => {
     }
   };
 
+  // ログアウト処理（強化版） ← 新しく追加
+  const handleSignOut = async () => {
+    try {
+      setLoading(true);
+      
+      // タイムアウト付きでログアウト試行（10秒）
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('ログアウトタイムアウト')), 10000)
+      );
+      
+      const signOutPromise = supabaseClient.auth.signOut();
+      
+      await Promise.race([signOutPromise, timeoutPromise]);
+      
+      console.log('✅ 通常ログアウト成功');
+      
+    } catch (error) {
+      console.error('⚠️ ログアウトエラー、強制クリア実行:', error);
+      
+      // エラー時は強制的にセッションクリア
+      await forceSignOut();
+    } finally {
+      // 必ずログインページへ遷移
+      router.push('/talent/login');
+      router.refresh();
+    }
+  };
+
+  // ローディング中の表示 ← 追加
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100 via-cyan-50 to-indigo-100 relative">
@@ -67,7 +139,7 @@ const loadProfile = async () => {
               <span className="hidden sm:inline text-sm text-gray-900">
                 {profile?.full_name} 様
               </span>
-              <Button onClick={signOut} variant="outline" size="sm" className="text-xs sm:text-sm">
+              <Button onClick={handleSignOut} variant="outline" size="sm" className="text-xs sm:text-sm">
                 ログアウト
               </Button>
             </div>
