@@ -197,20 +197,21 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
         }
         
         /* スマホ画面表示の時だけカード表示に変更 */
-        @media only screen and (max-width: 767px) {
-          .print-container {
-            max-width: 100%;
-            margin: 0 auto;
-            padding: 1rem 0.75rem;
-            box-shadow: none;
-          }
-          .mobile-card-view {
-            display: block !important;
-          }
-          .desktop-table-view {
-            display: none !important;
-          }
-        }
+@media only screen and (max-width: 767px) {
+  .print-container {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 1rem 0.75rem;
+    box-shadow: none;
+  }
+  .mobile-card-view {
+    display: block;
+  }
+  .desktop-table-view {
+    display: none; 
+  }
+}
+
         
         /* 印刷用CSS */
         @media print {
