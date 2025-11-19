@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient, forceSignOut } from '@/lib/supabase/client'; // ← forceSignOut追加
+import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 // import { useAuth } from '@/contexts/AuthContext'; // ← この行を削除またはコメントアウト
 import { supabase } from '@/lib/supabase';
@@ -125,34 +125,25 @@ useEffect(() => {
 
   // ログアウト処理（強化版）
 const handleSignOut = async () => {
-  const supabase = createClient(); // ← この行を追加
+  const supabase = createClient();
   
   try {
-    setLoading(true);
+    const { error } = await supabase.auth.signOut();
     
-    // タイムアウト付きでログアウト試行（10秒）
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('ログアウトタイムアウト')), 10000)
-    );
-    
-    const signOutPromise = supabase.auth.signOut(); // ← supabaseClientをsupabaseに変更
-
-      
-      await Promise.race([signOutPromise, timeoutPromise]);
-      
-      console.log('✅ 通常ログアウト成功');
-      
-    } catch (error) {
-      console.error('⚠️ ログアウトエラー、強制クリア実行:', error);
-      
-      // エラー時は強制的にセッションクリア
-      await forceSignOut();
-    } finally {
-      // 必ずログインページへ遷移
-      router.push('/organizer/login');
-      router.refresh();
+    if (error) {
+      console.error('ログアウトエラー:', error);
     }
-  };
+    
+    console.log('✅ ログアウト完了');
+    
+  } catch (error) {
+    console.error('⚠️ ログアウトエラー:', error);
+  } finally {
+    router.push('/organizer/login');
+    router.refresh();
+  }
+};
+
 
   const loadData = async () => {
     try {

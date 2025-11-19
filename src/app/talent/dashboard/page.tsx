@@ -3,27 +3,24 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-// import { useAuth } from '@/contexts/AuthContext'; // ← この行を削除またはコメントアウト
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { createClient, forceSignOut } from '@/lib/supabase/client'; // ← forceSignOut追加
+import { createClient } from '@/lib/supabase/client';
 import { isProfileComplete, getMissingProfileFields } from '@/lib/profile-check';
 import { Profile } from '@/types/database'; 
 
 export default function TalentDashboardPage() {
   const router = useRouter();
   
-  // ユーザー状態を自前で管理
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showProfileAlert, setShowProfileAlert] = useState(false);
 
   // ユーザー情報取得（初回のみ）
   useEffect(() => {
     const getUser = async () => {
-      const supabase = createClient(); // ← useEffect内で作成
+      const supabase = createClient();
       
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
@@ -49,76 +46,62 @@ export default function TalentDashboardPage() {
     };
 
     getUser();
-  }, [router]); // ← これでOK
+  }, [router]);
 
+  // プロフィール取得（userが設定されたら実行）
   useEffect(() => {
-    if (user) {
-      loadProfile();
-    }
-  }, [user]);
+    if (!user) return;
 
-  const loadProfile = async () => {
-    const supabase = createClient(); // ← ここでも作成
-    
-    try {
-      if (!user) {
-        console.error('ユーザーが取得できませんでした');
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (error) throw error;
-
-      console.log('プロフィールデータ:', data);
-      console.log('名前:', data.full_name);
-
-      setProfile(data);
+    const loadProfile = async () => {
+      const supabase = createClient();
       
-      // プロフィール未完成ならアラート表示
-      if (!isProfileComplete(data)) {
-        setShowProfileAlert(true);
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (error) throw error;
+
+        console.log('プロフィールデータ:', data);
+        console.log('名前:', data.full_name);
+
+        setProfile(data);
+        
+        if (!isProfileComplete(data)) {
+          setShowProfileAlert(true);
+        }
+      } catch (error) {
+        console.error('プロフィール取得エラー:', error);
       }
-    } catch (error) {
-      console.error('プロフィール取得エラー:', error);
-    }
-  };
+    };
+
+    loadProfile();
+  }, [user]); // ← userのみ依存
 
   // ログアウト処理（強化版）
   const handleSignOut = async () => {
-    const supabase = createClient(); // ← ここでも作成
+  const supabase = createClient();
+  
+  try {
+    const { error } = await supabase.auth.signOut();
     
-    try {
-      setLoading(true);
-      
-      // タイムアウト付きでログアウト試行（10秒）
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('ログアウトタイムアウト')), 10000)
-      );
-      
-      const signOutPromise = supabase.auth.signOut();
-      
-      await Promise.race([signOutPromise, timeoutPromise]);
-      
-      console.log('✅ 通常ログアウト成功');
-      
-    } catch (error) {
-      console.error('⚠️ ログアウトエラー、強制クリア実行:', error);
-      
-      // エラー時は強制的にセッションクリア
-      await forceSignOut();
-    } finally {
-      // 必ずログインページへ遷移
-      router.push('/talent/login');
-      router.refresh();
+    if (error) {
+      console.error('ログアウトエラー:', error);
     }
-  };
+    
+    console.log('✅ ログアウト完了');
+    
+  } catch (error) {
+    console.error('⚠️ ログアウトエラー:', error);
+  } finally {
+    router.push('/talent/login');
+    router.refresh();
+  }
+};
 
-  // ローディング中の表示 ← 追加
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -134,7 +117,6 @@ export default function TalentDashboardPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-100 via-cyan-50 to-indigo-100 relative">
       <div className="absolute inset-0 bg-white/30 backdrop-blur-3xl"></div>
       <div className="relative z-10">
-        {/* ヘッダー */}
         <header className="bg-white shadow-sm border-b sticky top-0 z-20">
           <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-4 flex justify-between items-center">
             <h1 className="text-lg sm:text-2xl font-bold text-blue-600">請求書ぴっと - タレント</h1>
@@ -185,7 +167,6 @@ export default function TalentDashboardPage() {
           </div>
         )}
 
-        {/* メインコンテンツ */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-8 text-center">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
@@ -199,7 +180,6 @@ export default function TalentDashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* 請求書作成カード */}
             <Card className="hover:shadow-lg transition-shadow bg-white card-compact">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -220,7 +200,6 @@ export default function TalentDashboardPage() {
               </CardContent>
             </Card>
 
-            {/* 請求書一覧カード */}
             <Card className="hover:shadow-lg transition-shadow bg-white card-compact">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -241,7 +220,6 @@ export default function TalentDashboardPage() {
               </CardContent>
             </Card>
 
-            {/* 設定カード */}
             <Card className="hover:shadow-lg transition-shadow bg-white card-compact">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -262,7 +240,6 @@ export default function TalentDashboardPage() {
               </CardContent>
             </Card>
 
-            {/* プレミアムプランカード */}
             <Card className="hover:shadow-lg transition-shadow card-compact border-2 border-yellow-400 bg-gradient-to-br from-yellow-50 to-orange-50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -283,7 +260,6 @@ export default function TalentDashboardPage() {
               </CardContent>
             </Card>
 
-            {/* ヘルプカード */}
             <Card className="hover:shadow-lg transition-shadow bg-white card-compact">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -301,7 +277,6 @@ export default function TalentDashboardPage() {
             </Card>
           </div>
 
-          {/* お知らせ・広告エリア */}
           <Card className="mt-6 card-compact border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base sm:text-lg">

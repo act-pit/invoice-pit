@@ -2,16 +2,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-// タイムアウト付きでユーザー取得
-async function getUserWithTimeout(supabase: any, timeout = 10000) {
-  return Promise.race([
-    supabase.auth.getUser(),
-    new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Middleware timeout')), timeout)
-    )
-  ]);
-}
-
 export async function updateSession(request: NextRequest) {
   console.log('🔵 [Middleware] 実行開始:', request.nextUrl.pathname)
   
@@ -30,7 +20,6 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          console.log('🔵 [Middleware] Cookie設定:', name)
           request.cookies.set({
             name,
             value,
@@ -48,7 +37,6 @@ export async function updateSession(request: NextRequest) {
           })
         },
         remove(name: string, options: CookieOptions) {
-          console.log('🔵 [Middleware] Cookie削除:', name)
           request.cookies.set({
             name,
             value: '',
@@ -69,18 +57,8 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  let user = null;
-  
-  try {
-    // タイムアウト付きでユーザー取得
-    const result = await getUserWithTimeout(supabase, 10000);
-    user = result?.data?.user || null;
-    console.log('🔵 [Middleware] User:', user ? 'あり' : 'なし')
-  } catch (error) {
-    console.error('🔴 [Middleware] 認証チェックエラー:', error);
-    // タイムアウトやエラー時はセッションなしとして扱う
-    user = null;
-  }
+  const { data: { user } } = await supabase.auth.getUser()
+  console.log('🔵 [Middleware] User:', user ? 'あり' : 'なし')
 
   const path = request.nextUrl.pathname
 
@@ -95,7 +73,7 @@ export async function updateSession(request: NextRequest) {
     !path.startsWith('/organizer/login') && 
     !path.startsWith('/organizer/register')
 
-  // ✅ 未ログインで保護されたページにアクセス → ログインページへ
+  // 未ログインで保護されたページにアクセス → ログインページへ
   if (!user) {
     if (isTalentProtected) {
       console.log('🔴 [Middleware] 未認証 → /talent/login へリダイレクト')
