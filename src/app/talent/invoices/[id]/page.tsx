@@ -198,7 +198,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
           }
           
           /* スマホ画面 */
-          @media (max-width: 767px) {
+          @media only screen and (max-width: 767px) {
             .print-container {
               padding: 1rem 0.75rem;
             }
