@@ -171,47 +171,41 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
     <>
       {/* 印刷用CSS */}
       <style jsx global>{`
-        /* 画面表示用のスタイル */
-        @media screen {
+        /* デフォルト：PC・印刷用レイアウト */
+        .print-container {
+          max-width: 210mm;
+          min-height: 297mm;
+          margin: 20px auto;
+          padding: 15mm 15mm;
+          background: white;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        /* デフォルト：テーブル表示 */
+        .mobile-card-view {
+          display: none !important;
+        }
+        .desktop-table-view {
+          display: table !important;
+        }
+        
+        /* スマホ画面表示の時だけカード表示に変更 */
+        @media only screen and (max-width: 767px) {
           .print-container {
             max-width: 100%;
             margin: 0 auto;
-            padding: 1rem;
-            background: white;
+            padding: 1rem 0.75rem;
+            box-shadow: none;
           }
-          
-          /* PC画面 */
-          @media (min-width: 768px) {
-            .print-container {
-              max-width: 210mm;
-              min-height: 297mm;
-              margin: 20px auto;
-              padding: 15mm 15mm;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            }
-            .mobile-card-view {
-              display: none !important;
-            }
-            .desktop-table-view {
-              display: table !important;
-            }
+          .mobile-card-view {
+            display: block !important;
           }
-          
-          /* スマホ画面 */
-          @media only screen and (max-width: 767px) {
-            .print-container {
-              padding: 1rem 0.75rem;
-            }
-            .mobile-card-view {
-              display: block !important;
-            }
-            .desktop-table-view {
-              display: none !important;
-            }
+          .desktop-table-view {
+            display: none !important;
           }
         }
         
-        /* 印刷用CSS（すべてのデバイスで適用） */
+        /* 印刷用CSS */
         @media print {
           .no-print {
             display: none !important;
@@ -226,7 +220,6 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
             padding: 18mm 18mm;
             box-shadow: none;
           }
-          /* スマホでもPCでもテーブル表示 */
           .mobile-card-view {
             display: none !important;
           }
