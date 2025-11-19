@@ -256,7 +256,7 @@ useEffect(() => {
             .maybeSingle();
           
           if (organizerData) {
-            extendedInvoice.organizer_name = organizerData.name || organizerData.company_name || organizerData.full_name || undefined;
+            extendedInvoice.organizer_name = organizerData.name || organizerData.company_name || undefined;
           }
 
           // 主催者側のステータスを取得

@@ -175,7 +175,7 @@ const loadData = async () => {
   }
 
   // 請求先名を取得
-  const recipientName = organizer?.name || organizer?.company_name || organizer?.full_name || invoice.recipient_name || '';
+  const recipientName = organizer?.name || organizer?.company_name || invoice.recipient_name || '';
   const recipientSuffix = organizer 
     ? '御中' 
     : invoice.recipient_type === 'individual' 

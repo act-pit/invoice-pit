@@ -495,7 +495,7 @@ useEffect(() => {
               {verifiedOrganizer && (
                 <div className="bg-green-50 border border-green-200 rounded-md p-3">
                   <p className="text-green-800 font-medium">
-                    ✅ {verifiedOrganizer.name || verifiedOrganizer.company_name || verifiedOrganizer.full_name} に送信されます
+                    ✅ {verifiedOrganizer.name || verifiedOrganizer.company_name} に送信されます
                   </p>
                 </div>
               )}
@@ -846,7 +846,7 @@ useEffect(() => {
                 {verifiedOrganizer ? (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <p className="text-sm font-medium text-blue-900 mb-1">送信先</p>
-                    <p className="text-lg font-bold text-blue-700">{verifiedOrganizer.name || verifiedOrganizer.company_name || verifiedOrganizer.full_name} 御中</p>
+                    <p className="text-lg font-bold text-blue-700">{verifiedOrganizer.name || verifiedOrganizer.company_name} 御中</p>
                   </div>
                 ) : recipientName ? (
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
