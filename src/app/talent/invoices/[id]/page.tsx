@@ -48,6 +48,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
       
       let baseAmount = amount;
       
+      // 税込の場合は税抜に戻す
       if (item.isTaxIncluded) {
         baseAmount = Math.floor(amount / 1.1);
       }
@@ -56,12 +57,14 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
     }, 0);
   };
 
+
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
     try {
+      // Supabaseから直接ユーザーを取得
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
@@ -69,6 +72,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
         return;
       }
 
+      // プロフィール取得
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -78,6 +82,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
       if (profileError) throw profileError;
       setProfile(profileData);
 
+      // 請求書取得
       const { data: invoiceData, error: invoiceError } = await supabase
         .from('invoices')
         .select('*')
@@ -93,8 +98,10 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
         return;
       }
 
+      // itemsから源泉徴収を計算
       const calculatedWithholding = calculateWithholding(invoiceData.items || []);
 
+      // 型変換
       const extendedInvoice: Invoice = {
         ...invoiceData,
         subject: (invoiceData as any).subject || '',
@@ -110,6 +117,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
 
       setInvoice(extendedInvoice);
 
+      // 主催者情報取得（存在する場合）
       if (extendedInvoice.organizer_id) {
         const { data: organizerData } = await supabase
           .from('organizers')
@@ -128,25 +136,24 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
     }
   };
 
+  // 印刷関数：スマホでもテーブル表示を強制
   const handlePrint = () => {
+    const cards = document.querySelector('.mobile-card-view') as HTMLElement;
+    const table = document.querySelector('.desktop-table-view') as HTMLElement;
+    
+    if (cards) cards.style.display = 'none';
+    if (table) table.style.display = 'table';
+    
     window.print();
   };
 
+
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ 
-            animation: 'spin 1s linear infinite', 
-            borderRadius: '9999px', 
-            height: '48px', 
-            width: '48px', 
-            borderWidth: '2px', 
-            borderStyle: 'solid',
-            borderColor: '#2563eb transparent transparent transparent',
-            margin: '0 auto'
-          }}></div>
-          <p style={{ marginTop: '16px', color: '#4b5563' }}>読み込み中...</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">読み込み中...</p>
         </div>
       </div>
     );
@@ -156,6 +163,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
     return null;
   }
 
+  // 請求先名を取得
   const recipientName = organizer?.name || organizer?.company_name || invoice.recipient_name || '';
   const recipientSuffix = organizer 
     ? '御中' 
@@ -163,14 +171,68 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
       ? '様' 
       : '御中';
 
+  // 請求先住所を取得
   const recipientAddress = invoice.recipient_address || '';
 
   return (
     <>
+      {/* 印刷用CSS */}
       <style jsx global>{`
+        /* デフォルト：PC・印刷用レイアウト */
+        .print-container {
+          max-width: 210mm;
+          min-height: 297mm;
+          margin: 20px auto;
+          padding: 15mm 15mm;
+          background: white;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        /* デフォルト：テーブル表示 */
+        .mobile-card-view {
+          display: none !important;
+        }
+        .desktop-table-view {
+          display: table !important;
+        }
+        
+        /* スマホ画面表示の時だけカード表示に変更 */
+@media only screen and (max-width: 767px) {
+  .print-container {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 1rem 0.75rem;
+    box-shadow: none;
+  }
+  .mobile-card-view {
+    display: block;
+  }
+  .desktop-table-view {
+    display: none; 
+  }
+}
+
+        /* 印刷用CSS */
         @media print {
           .no-print {
             display: none !important;
+          }
+          body {
+            margin: 0;
+            padding: 0;
+          }
+          .print-container {
+            max-width: 90%;
+            margin: 0 auto;
+            padding: 18mm 18mm;
+            box-shadow: none;
+          }
+          .mobile-card-view {
+            display: none !important;
+          }
+          .desktop-table-view {
+            display: table !important;
+            width: 100% !important;
           }
           @page {
             margin: 0;
@@ -179,34 +241,20 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
         }
       `}</style>
 
-      {/* 印刷ボタン */}
-      <div className="no-print" style={{ 
-        backgroundColor: '#f9fafb', 
-        padding: '12px 0', 
-        position: 'sticky', 
-        top: 0, 
-        zIndex: 50, 
-        borderBottom: '1px solid #e5e7eb' 
-      }}>
-        <div style={{ 
-          maxWidth: '1280px', 
-          margin: '0 auto', 
-          padding: '0 16px', 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          gap: '8px' 
-        }}>
+      {/* 画面表示時のボタン */}
+      <div className="no-print bg-gray-50 py-3 sm:py-4 sticky top-0 z-50 border-b">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 flex justify-between items-center gap-2">
           <Button 
             onClick={() => router.push('/talent/invoices')} 
             variant="outline"
             size="sm"
+            className="text-xs sm:text-sm"
           >
             ← 一覧に戻る
           </Button>
           <Button 
             onClick={handlePrint} 
-            className="bg-blue-600 hover:bg-blue-700"
+            className="bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm"
             size="sm"
           >
             🖨️ 印刷・PDF保存
@@ -214,105 +262,153 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
         </div>
       </div>
 
-      {/* 請求書コンテンツ */}
-      <div style={{ 
-        maxWidth: '210mm', 
-        minHeight: '297mm', 
-        margin: '20px auto', 
-        padding: '15mm', 
-        backgroundColor: 'white', 
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)' 
-      }}>
-        
-        {/* ヘッダー */}
-        <div style={{ marginBottom: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h1 style={{ fontSize: '30px', fontWeight: 'bold', letterSpacing: '0.05em' }}>請求書</h1>
-            <div style={{ fontSize: '13px', lineHeight: '1.6', textAlign: 'right' }}>
-              <p>請求書No. : <span style={{ fontWeight: 600 }}>{invoice.invoice_number}</span></p>
+      {/* 印刷用コンテンツ */}
+      <div className="print-container">
+        {/* ヘッダー部分 */}
+        <div className="mb-4 sm:mb-6">
+          {/* 請求書情報 */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+            {/* 左側：請求書タイトル */}
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-wide">請求書</h1>
+            
+            {/* 右側：請求書番号と日付 */}
+            <div className="text-xs sm:text-sm text-left sm:text-right" style={{ lineHeight: '1.6' }}>
+              <p>請求書No. : <span className="font-semibold">{invoice.invoice_number}</span></p>
               <p>請求日 : {new Date(invoice.invoice_date).toLocaleDateString('ja-JP')}</p>
             </div>
           </div>
 
+          {/* 請求先住所 */}
           {recipientAddress && (
-            <div style={{ marginBottom: '8px', fontSize: '13px', lineHeight: '1.5' }}>
-              <p>{recipientAddress}</p>
+            <div className="mb-2">
+              <div className="text-xs sm:text-sm" style={{ lineHeight: '1.5' }}>
+                <p className="break-words">{recipientAddress}</p>
+              </div>
             </div>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px', gap: '16px' }}>
-            <div style={{ flex: 1 }}>
+          {/* 請求先と請求元 */}
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-4 gap-4">
+            {/* 請求先 */}
+            <div className="flex-1">
               {recipientName && (
-                <p style={{ fontSize: '18px', fontWeight: 'bold' }}>
-                  {recipientName} <span>{recipientSuffix}</span>
-                </p>
+                <div>
+                  <p className="text-base sm:text-lg font-bold break-words">
+                    {recipientName} <span className="ml-1">{recipientSuffix}</span>
+                  </p>
+                </div>
               )}
             </div>
 
-            <div style={{ 
-              border: '1px solid #9ca3af', 
-              padding: '10px', 
-              backgroundColor: '#f9fafb', 
-              minWidth: '180px',
-              fontSize: '11px', 
-              lineHeight: '1.5' 
-            }}>
-              <p style={{ fontWeight: 'bold', marginBottom: '6px' }}>{profile.full_name || 'キャスト名未設定'}</p>
+            {/* 請求元情報 */}
+            <div className="border border-gray-400 p-2.5 bg-gray-50 w-full sm:w-auto sm:min-w-[180px]" style={{ fontSize: '11px', lineHeight: '1.5' }}>
+              <p className="font-bold mb-1.5 break-words">{profile.full_name || 'キャスト名未設定'}</p>
               {profile.postal_code && <p>〒{profile.postal_code}</p>}
-              {profile.address && <p style={{ marginBottom: '4px' }}>{profile.address}</p>}
-              {profile.email && <p>MAIL : {profile.email}</p>}
-              <p>事業者番号：{profile.invoice_reg_number || '取得なし'}</p>
+              {profile.address && <p className="mb-1 break-words">{profile.address}</p>}
+              {profile.email && <p className="break-all">MAIL : {profile.email}</p>}
+              <p className="break-all">
+                事業者番号：{profile.invoice_reg_number || '取得なし'}
+              </p>
             </div>
           </div>
 
-          <div style={{ fontSize: '13px', marginBottom: '16px', color: '#374151', lineHeight: '1.6' }}>
+          {/* 固定の挨拶文 */}
+          <div className="text-xs sm:text-sm mb-4 text-gray-700" style={{ lineHeight: '1.6' }}>
             <p>平素は格別のご高配を賜り、厚く御礼申し上げます。</p>
             <p>下記の件につきまして、ご請求申し上げます。</p>
             <p>ご査収のほど、よろしくお願いいたします。</p>
           </div>
 
-          <div style={{ marginBottom: '16px' }}>
-            <p style={{ fontSize: '14px' }}>
-              <span style={{ fontWeight: 600 }}>件名：</span>
+          {/* 件名 */}
+          <div className="mb-4">
+            <p className="text-sm sm:text-base break-words">
+              <span className="font-semibold">件名：</span>
               {invoice.subject || '（件名未設定）'}
             </p>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '12px' }}>
-            <div style={{ flex: 1, borderBottom: '2px solid #374151', paddingBottom: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
-                <p style={{ fontSize: '14px', fontWeight: 'bold' }}>ご請求額（税込）</p>
-                <p style={{ fontSize: '36px', fontWeight: 'bold' }}>¥ {invoice.total.toLocaleString()} -</p>
+          {/* 請求金額と支払期限 */}
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3">
+            {/* 請求金額 */}
+            <div className="flex-1 border-b-2 border-gray-700 pb-2">
+               <div className="flex flex-row items-center justify-center gap-2 sm:gap-4">
+                <p className="text-sm sm:text-base font-bold">ご請求額（税込）</p>
+                <p className="text-2xl sm:text-4xl font-bold">¥ {invoice.total.toLocaleString()} -</p>
               </div>
             </div>
             
-            {invoice.payment_due_date && (
-              <div style={{ textAlign: 'right' }}>
-                <p style={{ fontSize: '14px', fontWeight: 600 }}>
-                  振込期限 ： {new Date(invoice.payment_due_date).toLocaleDateString('ja-JP')}
-                </p>
-              </div>
-            )}
+            {/* 支払期限 */}
+            <div className="sm:text-right">
+              {invoice.payment_due_date && (
+                <p className="text-sm sm:text-base font-semibold">振込期限 ： {new Date(invoice.payment_due_date).toLocaleDateString('ja-JP')}</p>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* テーブル */}
-        <div style={{ marginBottom: '16px' }}>
-          <table style={{ 
-            width: '100%', 
-            borderCollapse: 'collapse', 
-            fontSize: '11px',
-            tableLayout: 'fixed'
-          }}>
+        {/* スマホ用：カード表示 */}
+        <div className="mobile-card-view mb-6">
+          <h3 className="text-sm font-bold mb-3 pb-2 border-b-2 border-gray-700">請求項目</h3>
+          <div className="space-y-3">
+            {invoice.items.map((item: any, index: number) => {
+              const quantity = item.quantity || 1;
+              const unitPrice = item.amount;
+              const isDiscount = item.category === 'discount';
+              const subtotal = quantity * unitPrice;
+              const displaySubtotal = isDiscount ? -Math.abs(subtotal) : subtotal;
+              const taxLabel = item.isTaxExempt ? '非課税' : item.isTaxIncluded ? '税込' : '税抜';
+              const withholdingLabel = item.isWithholdingTarget ? '対象' : '対象外';
+
+              return (
+                <div key={index} className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+                  <div className="flex justify-between items-start mb-2">
+                    <p className="font-bold text-sm">{item.name}</p>
+                    <span className="text-xs bg-gray-200 px-2 py-1 rounded">No.{index + 1}</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2 text-xs mb-2">
+                    <div>
+                      <span className="text-gray-600">個数:</span>
+                      <span className="ml-1 font-semibold">{quantity}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">単価:</span>
+                      <span className="ml-1 font-semibold">¥{unitPrice.toLocaleString()}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">税区分:</span>
+                      <span className="ml-1">{taxLabel}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">源泉徴収:</span>
+                      <span className="ml-1">{withholdingLabel}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="border-t pt-2 flex justify-between items-center">
+                    <span className="text-xs text-gray-600">金額</span>
+                    <span className={`text-base font-bold ${isDiscount ? 'text-red-600' : 'text-gray-900'}`}>
+                      ¥{displaySubtotal.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* PC用：テーブル表示 */}
+        <div className="desktop-table-view mb-4">
+          <table className="w-full border-collapse" style={{ fontSize: '11px', width: '100%', tableLayout: 'fixed' }}>
             <thead>
-              <tr style={{ backgroundColor: '#374151', color: 'white' }}>
-                <th style={{ border: '1px solid #9ca3af', padding: '8px', textAlign: 'center', width: '35px' }}>No</th>
-                <th style={{ border: '1px solid #9ca3af', padding: '8px', textAlign: 'left' }}>概要</th>
-                <th style={{ border: '1px solid #9ca3af', padding: '8px', textAlign: 'center', width: '50px' }}>個数</th>
-                <th style={{ border: '1px solid #9ca3af', padding: '8px', textAlign: 'right', width: '85px' }}>単価</th>
-                <th style={{ border: '1px solid #9ca3af', padding: '8px', textAlign: 'center', width: '60px' }}>税区分</th>
-                <th style={{ border: '1px solid #9ca3af', padding: '8px', textAlign: 'center', width: '70px' }}>源泉徴収</th>
-                <th style={{ border: '1px solid #9ca3af', padding: '8px', textAlign: 'right', width: '100px' }}>金額</th>
+              <tr className="bg-gray-700 text-white">
+                <th className="border border-gray-400 px-2 py-2 text-center" style={{ width: '35px' }}>No</th>
+                <th className="border border-gray-400 px-2 py-2 text-left">概要</th>
+                <th className="border border-gray-400 px-2 py-2 text-center" style={{ width: '50px' }}>個数</th>
+                <th className="border border-gray-400 px-2 py-2 text-right" style={{ width: '85px' }}>単価</th>
+                <th className="border border-gray-400 px-2 py-2 text-center" style={{ width: '60px' }}>税区分</th>
+                <th className="border border-gray-400 px-2 py-2 text-center" style={{ width: '70px' }}>源泉徴収</th>
+                <th className="border border-gray-400 px-2 py-2 text-right" style={{ width: '100px' }}>金額</th>
               </tr>
             </thead>
             <tbody>
@@ -327,19 +423,13 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
 
                 return (
                   <tr key={index}>
-                    <td style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'center' }}>{index + 1}</td>
-                    <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>{item.name}</td>
-                    <td style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'center' }}>{quantity}</td>
-                    <td style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'right' }}>¥{unitPrice.toLocaleString()}</td>
-                    <td style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'center', fontSize: '10px' }}>{taxLabel}</td>
-                    <td style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'center', fontSize: '10px' }}>{withholdingLabel}</td>
-                    <td style={{ 
-                      border: '1px solid #d1d5db', 
-                      padding: '8px', 
-                      textAlign: 'right', 
-                      fontWeight: 600,
-                      color: isDiscount ? '#dc2626' : '#000' 
-                    }}>
+                    <td className="border border-gray-300 px-2 py-2 text-center">{index + 1}</td>
+                    <td className="border border-gray-300 px-2 py-2">{item.name}</td>
+                    <td className="border border-gray-300 px-2 py-2 text-center">{quantity}</td>
+                    <td className="border border-gray-300 px-2 py-2 text-right">¥{unitPrice.toLocaleString()}</td>
+                    <td className="border border-gray-300 px-2 py-2 text-center text-xs">{taxLabel}</td>
+                    <td className="border border-gray-300 px-2 py-2 text-center text-xs">{withholdingLabel}</td>
+                    <td className={`border border-gray-300 px-2 py-2 text-right font-semibold ${isDiscount ? 'text-red-600' : ''}`}>
                       ¥{displaySubtotal.toLocaleString()}
                     </td>
                   </tr>
@@ -347,13 +437,13 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
               })}
               {invoice.items.length < 2 && (
                 <tr>
-                  <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>&nbsp;</td>
-                  <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>&nbsp;</td>
-                  <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>&nbsp;</td>
-                  <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>&nbsp;</td>
-                  <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>&nbsp;</td>
-                  <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>&nbsp;</td>
-                  <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>&nbsp;</td>
+                  <td className="border border-gray-300 px-2 py-2">&nbsp;</td>
+                  <td className="border border-gray-300 px-2 py-2">&nbsp;</td>
+                  <td className="border border-gray-300 px-2 py-2">&nbsp;</td>
+                  <td className="border border-gray-300 px-2 py-2">&nbsp;</td>
+                  <td className="border border-gray-300 px-2 py-2">&nbsp;</td>
+                  <td className="border border-gray-300 px-2 py-2">&nbsp;</td>
+                  <td className="border border-gray-300 px-2 py-2">&nbsp;</td>
                 </tr>
               )}
             </tbody>
@@ -361,29 +451,29 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
         </div>
 
         {/* 金額サマリー */}
-        <div style={{ marginBottom: '24px' }}>
-          <div style={{ width: '50%', marginLeft: 'auto' }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden', border: '1px solid #d1d5db' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #e5e7eb' }}>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>合計</span>
-                <span style={{ fontSize: '14px', fontWeight: 'bold' }}>¥{invoice.subtotal.toLocaleString()}</span>
+        <div className="mb-6">
+          <div className="w-full sm:w-1/2 sm:ml-auto">
+            <div className="bg-white rounded-lg overflow-hidden border border-gray-300">
+              <div className="flex justify-between items-center px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-200">
+                <span className="text-xs sm:text-sm font-semibold text-gray-700">合計</span>
+                <span className="text-sm sm:text-base font-bold">¥{invoice.subtotal.toLocaleString()}</span>
               </div>
               
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #e5e7eb' }}>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>消費税 (10%)</span>
-                <span style={{ fontSize: '14px', fontWeight: 'bold' }}>¥{invoice.tax.toLocaleString()}</span>
+              <div className="flex justify-between items-center px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-200">
+                <span className="text-xs sm:text-sm font-semibold text-gray-700">消費税 (10%)</span>
+                <span className="text-sm sm:text-base font-bold">¥{invoice.tax.toLocaleString()}</span>
               </div>
               
               {invoice.withholding && invoice.withholding > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#fef2f2' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#991b1b' }}>源泉徴収税 (10.21%)</span>
-                  <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#dc2626' }}>-¥{invoice.withholding.toLocaleString()}</span>
+                <div className="flex justify-between items-center px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-200 bg-red-50">
+                  <span className="text-xs sm:text-sm font-semibold text-red-700">源泉徴収税 (10.21%)</span>
+                  <span className="text-sm sm:text-base font-bold text-red-600">-¥{invoice.withholding.toLocaleString()}</span>
                 </div>
               )}
               
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', backgroundColor: '#374151', color: 'white' }}>
-                <span style={{ fontSize: '14px', fontWeight: 'bold' }}>総計</span>
-                <span style={{ fontSize: '20px', fontWeight: 'bold' }}>¥{invoice.total.toLocaleString()}</span>
+              <div className="flex justify-between items-center px-3 sm:px-4 py-3 sm:py-4 bg-gray-700 text-white">
+                <span className="text-sm sm:text-base font-bold">総計</span>
+                <span className="text-lg sm:text-xl font-bold">¥{invoice.total.toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -391,22 +481,56 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
 
         {/* 振込先情報 */}
         {(profile.bank_name || profile.account_number) && (
-          <div style={{ marginBottom: '24px' }}>
-            <div style={{ border: '1px solid #9ca3af', borderRadius: '8px', overflow: 'hidden' }}>
-              <div style={{ backgroundColor: '#374151', color: 'white', padding: '8px', textAlign: 'center' }}>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>口座情報</span>
+          <div className="mb-4 sm:mb-6">
+            <div className="border border-gray-400 rounded-lg overflow-hidden">
+              <div className="bg-gray-700 text-white px-3 py-2 text-center">
+                <span className="text-xs sm:text-sm font-semibold">口座情報</span>
               </div>
-              <div style={{ backgroundColor: '#f9fafb', padding: '12px 16px' }}>
-                <div style={{ fontSize: '13px', lineHeight: '1.7' }}>
-                  <p>
-                    {profile.bank_name && <><span style={{ fontWeight: 600 }}>銀行名：</span>{profile.bank_name}　</>}
-                    {(profile.branch_name || profile.bank_branch) && <><span style={{ fontWeight: 600 }}>支店名：</span>{profile.branch_name || profile.bank_branch}　</>}
-                    {profile.account_type && <><span style={{ fontWeight: 600 }}>口座種別：</span>{profile.account_type === 'normal' ? '普通預金' : '当座預金'}</>}
-                  </p>
-                  <p>
-                    {profile.account_number && <><span style={{ fontWeight: 600 }}>口座番号：</span>{profile.account_number}　</>}
-                    {profile.account_holder && <><span style={{ fontWeight: 600 }}>口座名義：</span>{profile.account_holder}</>}
-                  </p>
+              <div className="bg-gray-50 px-3 sm:px-4 py-3">
+               <div className="text-xs sm:text-sm" style={{ lineHeight: '1.7' }}>
+                 {/* 画面表示用：3行レイアウト */}
+                <div className="block print:hidden">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                    {profile.bank_name && (
+                     <span><span className="font-semibold">銀行名：</span>{profile.bank_name}</span>
+                    )}
+                    {(profile.branch_name || profile.bank_branch) && (
+                    <span><span className="font-semibold">支店名：</span>{profile.branch_name || profile.bank_branch}</span>
+                    )}
+                    {profile.account_type && (
+                     <span><span className="font-semibold">口座種別：</span>{profile.account_type === 'normal' ? '普通預金' : '当座預金'}</span>
+                    )}
+                    {profile.account_number && (
+                    <span><span className="font-semibold">口座番号：</span>{profile.account_number}</span>
+                    )}
+                  </div>
+                    {profile.account_holder && (
+                    <p className="mt-1.5"><span className="font-semibold">口座名義：</span>{profile.account_holder}</p>
+                    )}
+                </div>
+
+                  {/* 印刷用：2行レイアウト */}
+                  <div className="hidden print:block">
+                    <p>
+                    {profile.bank_name && (
+                    <><span className="font-semibold">銀行名：</span>{profile.bank_name}　</>
+                    )}
+                    {(profile.branch_name || profile.bank_branch) && (
+                    <><span className="font-semibold">支店名：</span>{profile.branch_name || profile.bank_branch}　</>
+                    )}
+                    {profile.account_type && (
+                    <><span className="font-semibold">口座種別：</span>{profile.account_type === 'normal' ? '普通預金' : '当座預金'}</>
+                    )}
+                    </p>
+                    <p>
+                    {profile.account_number && (
+                    <><span className="font-semibold">口座番号：</span>{profile.account_number}　</>
+                    )}
+                    {profile.account_holder && (
+                    <><span className="font-semibold">口座名義：</span>{profile.account_holder}</>
+                    )}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -414,11 +538,11 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
         )}
 
         {/* 備考欄 */}
-        <div style={{ marginTop: '24px', borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
-          <div style={{ fontSize: '13px', color: '#4b5563', lineHeight: '1.6' }}>
-            <p style={{ fontWeight: 600, marginBottom: '8px' }}>備考</p>
+        <div className="mt-4 sm:mt-6 border-t pt-3">
+          <div className="text-xs sm:text-sm text-gray-600" style={{ lineHeight: '1.6' }}>
+            <p className="font-semibold mb-2">備考</p>
             {invoice.notes ? (
-              <div style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>{invoice.notes}</div>
+              <div className="whitespace-pre-wrap break-words">{invoice.notes}</div>
             ) : (
               <>
                 <p>恐れ入りますが、振込手数料のご負担をお願いいたします。</p>
