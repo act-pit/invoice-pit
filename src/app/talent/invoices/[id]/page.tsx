@@ -139,24 +139,11 @@ const loadData = async () => {
 
 
   const handlePrint = () => {
-  // スマホ判定
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  
-  if (isMobile) {
-    // スマホ：PC版レイアウトを強制適用
-    document.body.classList.add('mobile-force-print');
-    setTimeout(() => {
-      window.print();
-      setTimeout(() => {
-        document.body.classList.remove('mobile-force-print');
-      }, 100);
-    }, 100);
-  } else {
-    // PC：通常通り
+  // 印刷プレビューを開く前に少し待機（レイアウトの安定化）
+  setTimeout(() => {
     window.print();
-  }
+  }, 100);
 };
-
 
 
   if (loading) {  // authLoading を削除
@@ -229,81 +216,189 @@ const loadData = async () => {
     }
   }
   
-  /* 印刷用CSS */
+  /* ========================================
+     印刷用CSS（PC・スマホ共通で同じレイアウト）
+     ======================================== */
   @media print {
+    /* 印刷しない要素を非表示 */
     .no-print {
       display: none !important;
     }
+    
+    /* ページ設定 */
+    @page {
+      size: A4 portrait;
+      margin: 15mm;
+    }
+    
     body {
       margin: 0;
       padding: 0;
+      background: white;
     }
+    
+    /* 印刷コンテナ：PC版レイアウトを強制 */
     .print-container {
-      max-width: 90%;
-      margin: 0 auto;
-      padding: 18mm 18mm;
-      box-shadow: none;
+      max-width: none !important;
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      box-shadow: none !important;
     }
+    
+    /* スマホ用カード表示を完全非表示 */
     .mobile-card-view {
       display: none !important;
     }
+    
+    /* PC用テーブル表示を強制表示 */
     .desktop-table-view {
       display: table !important;
     }
-    @page {
-      margin: 0;
-      size: A4 portrait;
+    
+    /* すべてのレスポンシブクラスを無効化 */
+    .sm\\:text-sm,
+    .sm\\:text-base,
+    .sm\\:text-lg,
+    .sm\\:text-xl,
+    .sm\\:text-2xl,
+    .sm\\:text-3xl,
+    .sm\\:text-4xl {
+      /* フォントサイズをリセット */
+    }
+    
+    /* 見出しフォントサイズを固定 */
+    .print-container h1 {
+      font-size: 1.875rem !important; /* 30px */
+    }
+    
+    /* テキストサイズを固定 */
+    .print-container .text-xs {
+      font-size: 11px !important;
+    }
+    
+    .print-container .text-sm {
+      font-size: 13px !important;
+    }
+    
+    .print-container .text-base {
+      font-size: 14px !important;
+    }
+    
+    .print-container .text-lg {
+      font-size: 16px !important;
+    }
+    
+    .print-container .text-xl {
+      font-size: 18px !important;
+    }
+    
+    .print-container .text-2xl {
+      font-size: 24px !important;
+    }
+    
+    .print-container .text-3xl {
+      font-size: 30px !important;
+    }
+    
+    .print-container .text-4xl {
+      font-size: 36px !important;
+    }
+    
+    /* レイアウトを強制的にPC版に */
+    .print-container .flex-col {
+      flex-direction: row !important;
+    }
+    
+    .print-container .sm\\:flex-row {
+      flex-direction: row !important;
+    }
+    
+    .print-container .sm\\:justify-between {
+      justify-content: space-between !important;
+    }
+    
+    .print-container .sm\\:items-center {
+      align-items: center !important;
+    }
+    
+    .print-container .sm\\:items-start {
+      align-items: flex-start !important;
+    }
+    
+    /* 幅を固定 */
+    .print-container .w-full.sm\\:w-auto {
+      width: auto !important;
+    }
+    
+    .print-container .sm\\:w-1\\/2 {
+      width: 50% !important;
+    }
+    
+    .print-container .sm\\:min-w-\\[180px\\] {
+      min-width: 180px !important;
+    }
+    
+    /* 余白を固定 */
+    .print-container .mb-2 {
+      margin-bottom: 0.5rem !important;
+    }
+    
+    .print-container .mb-4,
+    .print-container .sm\\:mb-6 {
+      margin-bottom: 1rem !important;
+    }
+    
+    .print-container .sm\\:mb-4 {
+      margin-bottom: 1rem !important;
+    }
+    
+    .print-container .gap-2,
+    .print-container .gap-3,
+    .print-container .gap-4 {
+      gap: 1rem !important;
+    }
+    
+    .print-container .px-3,
+    .print-container .sm\\:px-4 {
+      padding-left: 1rem !important;
+      padding-right: 1rem !important;
+    }
+    
+    .print-container .py-2,
+    .print-container .sm\\:py-3 {
+      padding-top: 0.75rem !important;
+      padding-bottom: 0.75rem !important;
+    }
+    
+    /* テーブルの幅を固定 */
+    .print-container table {
+      width: 100% !important;
+      font-size: 11px !important;
+    }
+    
+    /* 請求元情報ボックスの幅を固定 */
+    .print-container .border-gray-400 {
+      width: 180px !important;
+      min-width: 180px !important;
+    }
+    
+    /* 改ページ制御 */
+    .print-container {
+      page-break-inside: avoid;
+    }
+    
+    .print-container table {
+      page-break-inside: auto;
+    }
+    
+    .print-container tr {
+      page-break-inside: avoid;
+      page-break-after: auto;
     }
   }
-  
-  /* スマホから印刷時の強制PC版レイアウト */
-  body.mobile-force-print .print-container {
-    max-width: 210mm !important;
-    padding: 15mm !important;
-  }
-  
-  body.mobile-force-print .mobile-card-view {
-    display: none !important;
-  }
-  
-  body.mobile-force-print .desktop-table-view {
-    display: table !important;
-  }
-  
-  /* PC版の詳細スタイルを強制適用 */
-  body.mobile-force-print .print-container h1 {
-    font-size: 1.875rem !important;
-  }
-  
-  body.mobile-force-print .print-container .text-xs {
-    font-size: 11px !important;
-  }
-  
-  body.mobile-force-print .print-container .text-sm {
-    font-size: 13px !important;
-  }
-  
-  body.mobile-force-print .print-container .border-gray-400 {
-    width: 180px !important;
-    min-width: 180px !important;
-  }
-  
-  body.mobile-force-print .flex-col {
-    flex-direction: row !important;
-  }
-  
-  body.mobile-force-print .sm\\:flex-row {
-    flex-direction: row !important;
-  }
-  
-  body.mobile-force-print .sm\\:justify-between {
-    justify-content: space-between !important;
-  }
-  
-  body.mobile-force-print .w-full.sm\\:w-auto {
-    width: auto !important;
-  }
 `}</style>
+
 
 
 
