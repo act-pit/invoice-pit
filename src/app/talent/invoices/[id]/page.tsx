@@ -216,190 +216,36 @@ const loadData = async () => {
     }
   }
   
-  /* ========================================
-     印刷用CSS（PC・スマホ共通で同じレイアウト）
-     ======================================== */
+  /* 印刷用CSS（元のレイアウトを維持、スマホ対応のみ追加） */
   @media print {
-    /* 印刷しない要素を非表示 */
     .no-print {
       display: none !important;
     }
-    
-    /* ページ設定 */
-    @page {
-      size: A4 portrait;
-      margin: 15mm;
-    }
-    
     body {
       margin: 0;
       padding: 0;
-      background: white;
     }
-    
-    /* 印刷コンテナ：PC版レイアウトを強制 */
     .print-container {
-      max-width: none !important;
-      width: 100% !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      box-shadow: none !important;
+      max-width: 90%;
+      margin: 0 auto;
+      padding: 18mm 18mm;
+      box-shadow: none;
     }
     
-    /* スマホ用カード表示を完全非表示 */
+    /* ★スマホから印刷時もPC版レイアウトに統一★ */
     .mobile-card-view {
       display: none !important;
     }
-    
-    /* PC用テーブル表示を強制表示 */
     .desktop-table-view {
       display: table !important;
     }
     
-    /* すべてのレスポンシブクラスを無効化 */
-    .sm\\:text-sm,
-    .sm\\:text-base,
-    .sm\\:text-lg,
-    .sm\\:text-xl,
-    .sm\\:text-2xl,
-    .sm\\:text-3xl,
-    .sm\\:text-4xl {
-      /* フォントサイズをリセット */
-    }
-    
-    /* 見出しフォントサイズを固定 */
-    .print-container h1 {
-      font-size: 1.875rem !important; /* 30px */
-    }
-    
-    /* テキストサイズを固定 */
-    .print-container .text-xs {
-      font-size: 11px !important;
-    }
-    
-    .print-container .text-sm {
-      font-size: 13px !important;
-    }
-    
-    .print-container .text-base {
-      font-size: 14px !important;
-    }
-    
-    .print-container .text-lg {
-      font-size: 16px !important;
-    }
-    
-    .print-container .text-xl {
-      font-size: 18px !important;
-    }
-    
-    .print-container .text-2xl {
-      font-size: 24px !important;
-    }
-    
-    .print-container .text-3xl {
-      font-size: 30px !important;
-    }
-    
-    .print-container .text-4xl {
-      font-size: 36px !important;
-    }
-    
-    /* レイアウトを強制的にPC版に */
-    .print-container .flex-col {
-      flex-direction: row !important;
-    }
-    
-    .print-container .sm\\:flex-row {
-      flex-direction: row !important;
-    }
-    
-    .print-container .sm\\:justify-between {
-      justify-content: space-between !important;
-    }
-    
-    .print-container .sm\\:items-center {
-      align-items: center !important;
-    }
-    
-    .print-container .sm\\:items-start {
-      align-items: flex-start !important;
-    }
-    
-    /* 幅を固定 */
-    .print-container .w-full.sm\\:w-auto {
-      width: auto !important;
-    }
-    
-    .print-container .sm\\:w-1\\/2 {
-      width: 50% !important;
-    }
-    
-    .print-container .sm\\:min-w-\\[180px\\] {
-      min-width: 180px !important;
-    }
-    
-    /* 余白を固定 */
-    .print-container .mb-2 {
-      margin-bottom: 0.5rem !important;
-    }
-    
-    .print-container .mb-4,
-    .print-container .sm\\:mb-6 {
-      margin-bottom: 1rem !important;
-    }
-    
-    .print-container .sm\\:mb-4 {
-      margin-bottom: 1rem !important;
-    }
-    
-    .print-container .gap-2,
-    .print-container .gap-3,
-    .print-container .gap-4 {
-      gap: 1rem !important;
-    }
-    
-    .print-container .px-3,
-    .print-container .sm\\:px-4 {
-      padding-left: 1rem !important;
-      padding-right: 1rem !important;
-    }
-    
-    .print-container .py-2,
-    .print-container .sm\\:py-3 {
-      padding-top: 0.75rem !important;
-      padding-bottom: 0.75rem !important;
-    }
-    
-    /* テーブルの幅を固定 */
-    .print-container table {
-      width: 100% !important;
-      font-size: 11px !important;
-    }
-    
-    /* 請求元情報ボックスの幅を固定 */
-    .print-container .border-gray-400 {
-      width: 180px !important;
-      min-width: 180px !important;
-    }
-    
-    /* 改ページ制御 */
-    .print-container {
-      page-break-inside: avoid;
-    }
-    
-    .print-container table {
-      page-break-inside: auto;
-    }
-    
-    .print-container tr {
-      page-break-inside: avoid;
-      page-break-after: auto;
+    @page {
+      margin: 0;
+      size: A4 portrait;
     }
   }
 `}</style>
-
-
 
 
       {/* 画面表示時のボタン */}
