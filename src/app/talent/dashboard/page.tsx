@@ -11,96 +11,54 @@ import { Profile } from '@/types/database';
 
 export default function TalentDashboardPage() {
   const router = useRouter();
-  
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showProfileAlert, setShowProfileAlert] = useState(false);
 
-  // ユーザー情報取得（初回のみ）
   useEffect(() => {
-    const getUser = async () => {
-      const supabase = createClient();
-      
+    const supabase = createClient();
+    
+    const checkUser = async () => {
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
         
-        if (error) {
-          console.error('ユーザー取得エラー:', error);
-          router.push('/talent/login');
-          return;
-        }
-        
-        if (!user) {
+        if (error || !user) {
           router.push('/talent/login');
           return;
         }
         
         setUser(user);
-      } catch (err) {
-        console.error('予期しないエラー:', err);
-        router.push('/talent/login');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    getUser();
-  }, [router]);
-
-  // プロフィール取得（userが設定されたら実行）
-  useEffect(() => {
-    if (!user) return;
-
-    const loadProfile = async () => {
-      const supabase = createClient();
-      
-      try {
-        const { data, error } = await supabase
+        
+        // プロフィール取得
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
           .single();
 
-        if (error) throw error;
+        if (profileError) throw profileError;
 
-        console.log('プロフィールデータ:', data);
-        console.log('名前:', data.full_name);
-
-        setProfile(data);
+        setProfile(profileData);
         
-        if (!isProfileComplete(data)) {
+        if (!isProfileComplete(profileData)) {
           setShowProfileAlert(true);
         }
       } catch (error) {
-        console.error('プロフィール取得エラー:', error);
+        console.error('エラー:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
-    loadProfile();
-  }, [user]); // ← userのみ依存
+    checkUser();
+  }, [router]);
 
-  // ログアウト処理（強化版）
   const handleSignOut = async () => {
-  const supabase = createClient();
-  
-  try {
-    const { error } = await supabase.auth.signOut();
-    
-    if (error) {
-      console.error('ログアウトエラー:', error);
-    }
-    
-    console.log('✅ ログアウト完了');
-    
-  } catch (error) {
-    console.error('⚠️ ログアウトエラー:', error);
-  } finally {
+    const supabase = createClient();
+    await supabase.auth.signOut();
     router.push('/talent/login');
-    router.refresh();
-  }
-};
-
+  };
 
   if (loading) {
     return (

@@ -85,6 +85,7 @@ export interface Database {
           id: string
           email: string
           company_name: string | null
+          full_name: string | null
           postal_code: string | null
           address: string | null
           phone: string | null
@@ -97,6 +98,7 @@ export interface Database {
           id: string
           email: string
           company_name?: string | null
+          full_name?: string | null
           postal_code?: string | null
           address?: string | null
           phone?: string | null
@@ -109,6 +111,7 @@ export interface Database {
           id?: string
           email?: string
           company_name?: string | null
+          full_name?: string | null
           postal_code?: string | null
           address?: string | null
           phone?: string | null

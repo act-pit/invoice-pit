@@ -3,8 +3,6 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
-  console.log('🔵 [Middleware] 実行開始:', request.nextUrl.pathname)
-  
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -58,7 +56,6 @@ export async function updateSession(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-  console.log('🔵 [Middleware] User:', user ? 'あり' : 'なし')
 
   const path = request.nextUrl.pathname
 
@@ -76,19 +73,16 @@ export async function updateSession(request: NextRequest) {
   // 未ログインで保護されたページにアクセス → ログインページへ
   if (!user) {
     if (isTalentProtected) {
-      console.log('🔴 [Middleware] 未認証 → /talent/login へリダイレクト')
       const url = request.nextUrl.clone()
       url.pathname = '/talent/login'
       return NextResponse.redirect(url)
     }
     if (isOrganizerProtected) {
-      console.log('🔴 [Middleware] 未認証 → /organizer/login へリダイレクト')
       const url = request.nextUrl.clone()
       url.pathname = '/organizer/login'
       return NextResponse.redirect(url)
     }
   }
 
-  console.log('🔵 [Middleware] リダイレクトなし、そのまま通過')
   return response
 }

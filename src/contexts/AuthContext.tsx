@@ -7,14 +7,54 @@ import { createClient } from '@/lib/supabase/client';
 
 type UserType = 'talent' | 'organizer' | null;
 
+interface TalentData {
+  id: string;
+  email: string;
+  full_name: string;
+  bank_name?: string | null;
+  branch_name?: string | null;
+  account_type?: string | null;
+  account_number?: string | null;
+  account_holder?: string | null;
+  invoice_reg_number?: string | null;
+  postal_code?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  occupation_types?: string[] | null;
+  activity_areas?: string[] | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface OrganizerData {
+  id: string;
+  email: string;
+  name: string | null;
+  company_name: string | null;
+  organizer_code: string | null;
+  postal_code: string | null;
+  address: string | null;
+  phone: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+type UserProfile = 
+  | { type: 'talent'; data: TalentData }
+  | { type: 'organizer'; data: OrganizerData }
+  | null;
+
+
 type AuthContextType = {
   user: User | null;
   session: Session | null;
   userType: UserType;
+  profile: UserProfile;  // ← 追加
   loading: boolean;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
 };
+
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -22,92 +62,154 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userType, setUserType] = useState<UserType>(null);
+  const [profile, setProfile] = useState<UserProfile>(null);
   const [loading, setLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
   const router = useRouter();
-  
-  // SSR対応のSupabaseクライアントを作成
-  const supabase = createClient();
-
-  const determineUserType = async (userId: string): Promise<UserType> => {
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (profile) return 'talent';
-
-      const { data: organizer } = await supabase
-        .from('organizers')
-        .select('id')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (organizer) return 'organizer';
-
-      return null;
-    } catch (error) {
-      console.error('ユーザータイプ判定エラー:', error);
-      return null;
-    }
-  };
 
   useEffect(() => {
-    const init = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
-        setUser(session?.user ?? null);
+    const supabase = createClient();
 
-        if (session?.user) {
-          const type = await determineUserType(session.user.id);
-          setUserType(type);
-        }
-      } catch (error) {
-        console.error('初期化エラー:', error);
-      } finally {
-        setLoading(false);
+    const determineUserType = async (userId: string): Promise<UserProfile> => {
+  try {
+    console.log('🔵 determineUserType: 開始', userId);
+    
+    // タイムアウト設定（10秒）
+    const timeoutPromise = new Promise<UserProfile>((_, reject) => 
+      setTimeout(() => reject(new Error('UserType判定タイムアウト')), 10000)
+    );
+
+    const checkUserType = async (): Promise<UserProfile> => {
+      const { data: talentData, error: talentError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      console.log('🔵 profiles結果:', talentData, talentError);
+
+      if (talentData) {
+        console.log('✅ タレント確認成功:', talentData.full_name);
+        return { type: 'talent', data: talentData };
       }
+
+      const { data: organizerData, error: organizerError } = await supabase
+        .from('organizers')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      console.log('🔵 organizers結果:', organizerData, organizerError);
+
+      if (organizerData) {
+        console.log('✅ 主催者確認成功:', organizerData.company_name || organizerData.name);
+        return { type: 'organizer', data: organizerData };
+      }
+
+      return null;
     };
+
+    const result = await Promise.race([checkUserType(), timeoutPromise]);
+    console.log('🟢 determineUserType: 完了', result);
+    return result;
+
+  } catch (error) {
+    console.error('🔴 determineUserType: エラー', error);
+    return null;
+  }
+};
+
+
+    const init = async () => {
+  try {
+    console.log('🔵 AuthContext: 初期化開始');
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error('🔴 AuthContext: セッション取得エラー:', error);
+      setLoading(false);
+      setIsInitialized(true);  // ← 追加
+      return;
+    }
+
+    console.log('🔵 AuthContext: セッション取得完了', session ? 'あり' : 'なし');
+    setSession(session);
+    setUser(session?.user ?? null);
+
+    if (session?.user) {
+      const userProfile = await determineUserType(session.user.id);
+      console.log('🔵 AuthContext: ユーザープロフィール:', userProfile);
+      setProfile(userProfile);
+      setUserType(userProfile?.type || null);
+    }
+  } catch (error) {
+    console.error('🔴 AuthContext: 初期化エラー:', error);
+  } finally {
+    console.log('🟢 AuthContext: 初期化完了、loading=false');
+    setLoading(false);
+    setIsInitialized(true);  // ← 追加
+  }
+};
+
+
 
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+  async (event, session) => {
+    console.log('🔵 AuthContext: 認証状態変更:', event);
+    
+    // 初期化中のSIGNED_INイベントはスキップ
+    if (event === 'SIGNED_IN' && !isInitialized) {
+      console.log('🔵 AuthContext: 初期化中のSIGNED_INイベントはスキップ');
+      return;
+    }
+    
+    setSession(session);
+    setUser(session?.user ?? null);
 
-        if (session?.user) {
-          const type = await determineUserType(session.user.id);
-          setUserType(type);
-        } else {
-          setUserType(null);
-        }
+    if (session?.user) {
 
-        setLoading(false);
-      }
-    );
+      console.log('🔵 AuthContext: プロフィール取得開始');
+      const userProfile = await determineUserType(session.user.id);
+      setProfile(userProfile);
+      setUserType(userProfile?.type || null);
+      console.log('✅ AuthContext: プロフィール取得完了');
+    } else {
+      setProfile(null);
+      setUserType(null);
+    }
 
-    return () => subscription.unsubscribe();
+    setLoading(false);
+  }
+);
+
+
+
+    return () => {
+      console.log('🔵 AuthContext: クリーンアップ');
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
+    const supabase = createClient();
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
     setUserType(null);
+    setProfile(null); 
     router.push('/');
   };
 
   const refreshSession = async () => {
+    const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
     setSession(session);
     setUser(session?.user ?? null);
     
     if (session?.user) {
-      const type = await determineUserType(session.user.id);
-      setUserType(type);
+      setUserType('talent'); // 簡略化
     }
   };
 
@@ -117,6 +219,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         session,
         userType,
+        profile, 
         loading,
         signOut,
         refreshSession,

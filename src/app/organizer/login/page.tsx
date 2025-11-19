@@ -80,9 +80,13 @@ export default function OrganizerLoginPage() {
 
       console.log('✅ 主催者確認成功:', organizerData.name);
 
-      // 4. 主催者ダッシュボードへ
-      router.push('/organizer/dashboard');
-      router.refresh();
+// 4. AuthContextの初期化を待ってからリダイレクト
+console.log('⏳ AuthContext初期化待機中...');
+await new Promise(resolve => setTimeout(resolve, 500));  // 0.5秒待つ
+
+// 5. 主催者ダッシュボードへ
+router.push('/organizer/dashboard');
+
     } catch (err) {
       console.error('❌ ログインエラー:', err);
       setError('ログインに失敗しました');
