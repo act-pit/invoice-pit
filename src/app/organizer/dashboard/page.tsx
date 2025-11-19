@@ -55,10 +55,7 @@ function ReturnStatusBadge({ invoiceId }: { invoiceId: string }) {
 }
 
 export default function OrganizerDashboardPage() {
-  // const { user, loading: authLoading, signOut } = useAuth(); // ← この行を削除
-  
   const router = useRouter();
-  const supabaseClient = createClient(); // ← 新しく追加
   
   // ユーザー状態を自前で管理
   const [user, setUser] = useState<any>(null);
@@ -87,16 +84,19 @@ export default function OrganizerDashboardPage() {
   });
 
   // ユーザー情報取得（初回のみ）
-  useEffect(() => {
-    const getUser = async () => {
-      try {
-        const { data: { user }, error } = await supabaseClient.auth.getUser();
-        
-        if (error) {
-          console.error('ユーザー取得エラー:', error);
-          router.push('/organizer/login');
-          return;
-        }
+useEffect(() => {
+  const getUser = async () => {
+    const supabase = createClient(); // ← この行を追加
+    
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser(); // ← supabaseClientをsupabaseに変更
+      
+      if (error) {
+        console.error('ユーザー取得エラー:', error);
+        router.push('/organizer/login');
+        return;
+      }
+
         
         if (!user) {
           router.push('/organizer/login');
@@ -123,17 +123,20 @@ export default function OrganizerDashboardPage() {
     }
   }, [user, authLoading, router]);
 
-  // ログアウト処理（強化版） ← 新しく追加
-  const handleSignOut = async () => {
-    try {
-      setLoading(true);
-      
-      // タイムアウト付きでログアウト試行（10秒）
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('ログアウトタイムアウト')), 10000)
-      );
-      
-      const signOutPromise = supabaseClient.auth.signOut();
+  // ログアウト処理（強化版）
+const handleSignOut = async () => {
+  const supabase = createClient(); // ← この行を追加
+  
+  try {
+    setLoading(true);
+    
+    // タイムアウト付きでログアウト試行（10秒）
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('ログアウトタイムアウト')), 10000)
+    );
+    
+    const signOutPromise = supabase.auth.signOut(); // ← supabaseClientをsupabaseに変更
+
       
       await Promise.race([signOutPromise, timeoutPromise]);
       

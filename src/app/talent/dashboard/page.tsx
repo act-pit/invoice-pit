@@ -11,10 +11,7 @@ import { isProfileComplete, getMissingProfileFields } from '@/lib/profile-check'
 import { Profile } from '@/types/database'; 
 
 export default function TalentDashboardPage() {
-  // const { user, loading, signOut } = useAuth(); // ← この行を削除
-  
   const router = useRouter();
-  const supabaseClient = createClient(); // ← 新しく追加
   
   // ユーザー状態を自前で管理
   const [user, setUser] = useState<any>(null);
@@ -23,11 +20,13 @@ export default function TalentDashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showProfileAlert, setShowProfileAlert] = useState(false);
 
-  // ユーザー情報取得（初回のみ） ← 新しく追加
+  // ユーザー情報取得（初回のみ）
   useEffect(() => {
     const getUser = async () => {
+      const supabase = createClient(); // ← useEffect内で作成
+      
       try {
-        const { data: { user }, error } = await supabaseClient.auth.getUser();
+        const { data: { user }, error } = await supabase.auth.getUser();
         
         if (error) {
           console.error('ユーザー取得エラー:', error);
@@ -50,22 +49,24 @@ export default function TalentDashboardPage() {
     };
 
     getUser();
-  }, [router]);
+  }, [router]); // ← これでOK
 
   useEffect(() => {
     if (user) {
       loadProfile();
     }
-  }, [user]); // ← user依存に変更
+  }, [user]);
 
   const loadProfile = async () => {
+    const supabase = createClient(); // ← ここでも作成
+    
     try {
       if (!user) {
         console.error('ユーザーが取得できませんでした');
         return;
       }
 
-      const { data, error } = await supabaseClient
+      const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
@@ -87,8 +88,10 @@ export default function TalentDashboardPage() {
     }
   };
 
-  // ログアウト処理（強化版） ← 新しく追加
+  // ログアウト処理（強化版）
   const handleSignOut = async () => {
+    const supabase = createClient(); // ← ここでも作成
+    
     try {
       setLoading(true);
       
@@ -97,7 +100,7 @@ export default function TalentDashboardPage() {
         setTimeout(() => reject(new Error('ログアウトタイムアウト')), 10000)
       );
       
-      const signOutPromise = supabaseClient.auth.signOut();
+      const signOutPromise = supabase.auth.signOut();
       
       await Promise.race([signOutPromise, timeoutPromise]);
       
