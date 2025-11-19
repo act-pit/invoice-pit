@@ -97,7 +97,7 @@ export default function HomePage() {
 
         {/* フッター */}
         <div className="text-center mt-12 sm:mt-16 text-sm text-gray-500">
-          <p>© 2024 請求書ぴっと - すべての権利を保有</p>
+          <p>© 2025 請求書ぴっと - All Rights Reserved </p>
         </div>
       </div>
     </div>
