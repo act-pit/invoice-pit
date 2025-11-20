@@ -282,23 +282,31 @@ useEffect(() => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
+  
+  // ✅ フォームの検証状態をチェック
+  const form = e.currentTarget as HTMLFormElement;
+  if (!form.checkValidity()) {
+    // 検証エラーがある場合、ブラウザのデフォルトエラー表示を実行
+    form.reportValidity();
+    return;
+  }
 
-    // プロフィール未登録チェック
-    if (!profile || !isProfileComplete(profile)) {
-      setShowProfileWarning(true);
-      return;
-    }
+  // プロフィール未登録チェック
+  if (!profile || !isProfileComplete(profile)) {
+    setShowProfileWarning(true);
+    return;
+  }
 
-    // 制限チェック
-    if (!canCreate) {
-      alert('請求書の作成制限に達しています。有料プランにアップグレードしてください。');
-      router.push('/talent/subscription');
-      return;
-    }
+  // 制限チェック
+  if (!canCreate) {
+    alert('請求書の作成制限に達しています。有料プランにアップグレードしてください。');
+    router.push('/talent/subscription');
+    return;
+  }
 
-    setShowPreviewModal(true);
-  };
+  setShowPreviewModal(true);
+};
 
   const handleConfirmCreate = async () => {
     setLoading(true);
@@ -681,11 +689,10 @@ useEffect(() => {
                       <label className="text-sm font-medium">個数</label>
                       <input
                         type="number"
-                        value={item.quantity}
+                        value={item.quantity || ''}
                         onChange={(e) => updateItem(index, 'quantity', Number(e.target.value) || 1)}
-                        onFocus={(e) => e.target.select()}
+                        placeholder="1"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        min="1"
                         step="1"
                         required
                       />

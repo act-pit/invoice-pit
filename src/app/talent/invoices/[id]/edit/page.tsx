@@ -583,11 +583,10 @@ const loadInvoiceData = async () => {
                       <label className="text-sm font-medium">個数</label>
                       <input
                         type="number"
-                        value={item.quantity}
+                        value={item.quantity || ''}
                         onChange={(e) => updateItem(index, 'quantity', Number(e.target.value) || 1)}
-                        onFocus={(e) => e.target.select()}
+                        placeholder="1"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        min="1"
                         step="1"
                         required
                       />
