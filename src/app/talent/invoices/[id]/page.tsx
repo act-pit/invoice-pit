@@ -178,18 +178,23 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
     <>
       {/* 印刷用CSS */}
       <style jsx global>{`
-        /* デフォルト：PC・印刷用レイアウト */
-        .print-container {
-          max-width: 210mm;
-          min-height: 297mm;
-          margin: 20px auto;
-          padding: 15mm 15mm;
-          background: white;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-      
-        
-        /* スマホ画面表示の時だけカード表示に変更 */
+/* デフォルト：基本設定 */
+.print-container {
+  background: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* PC画面表示専用（印刷ではない） */
+@media only screen and (min-width: 768px) {
+  .print-container {
+    max-width: 210mm;
+    min-height: 297mm;
+    margin: 20px auto;
+    padding: 15mm 15mm;  // PC画面プレビュー用
+  }
+}
+
+/* スマホ画面表示専用 */
 @media only screen and (max-width: 767px) {
   .print-container {
     max-width: 100%;
@@ -205,9 +210,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
   }
 }
 
-/* 印刷用CSS */
-
-/* PC印刷用（画面幅768px以上） */
+/* PC印刷用 */
 @media print and (min-width: 768px) {
   .no-print {
     display: none !important;
@@ -219,7 +222,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
   .print-container {
     max-width: 100%;
     margin: 0 auto;
-    padding: 30mm 30mm;
+    padding: 30mm 30mm;  // PC印刷用
     box-shadow: none;
   }
   .mobile-card-view {
@@ -235,7 +238,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
   }
 }
 
-/* スマホ印刷用（画面幅767px以下） */
+/* スマホ印刷用 */
 @media print and (max-width: 767px) {
   .no-print {
     display: none !important;
@@ -247,7 +250,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
   .print-container {
     max-width: 100%;
     margin: 0 auto;
-    padding: 8mm 8mm;  // スマホ用：狭い余白
+    padding: 8mm 8mm;  // スマホ印刷用
     box-shadow: none;
   }
   .mobile-card-view {
@@ -262,7 +265,6 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
     size: A4 portrait;
   }
 }
-
       `}</style>
 
       {/* 画面表示時のボタン */}
@@ -522,7 +524,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
                     <span><span className="font-semibold">支店名：</span>{profile.branch_name || profile.bank_branch}</span>
                     )}
                     {profile.account_type && (
-                     <span><span className="font-semibold">口座種別：</span>{profile.account_type === 'normal' ? '普通預金' : '当座預金'}</span>
+                     <span><span className="font-semibold">口座種別：</span>{profile.account_type === '普通預金' ? '普通預金' : '当座預金'}</span>
                     )}
                     {profile.account_number && (
                     <span><span className="font-semibold">口座番号：</span>{profile.account_number}</span>
@@ -543,7 +545,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
                     <><span className="font-semibold">支店名：</span>{profile.branch_name || profile.bank_branch}　</>
                     )}
                     {profile.account_type && (
-                    <><span className="font-semibold">口座種別：</span>{profile.account_type === 'normal' ? '普通預金' : '当座預金'}</>
+                    <><span className="font-semibold">口座種別：</span>{profile.account_type === '普通預金' ? '普通預金' : '当座預金'}</>
                     )}
                     </p>
                     <p>
