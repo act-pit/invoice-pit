@@ -57,7 +57,7 @@ export default function CreateInvoicePage() {
 
   const taxRate = 10;
 
-  const [notes, setNotes] = useState('平素は格別のご高配を賜り、厚く御礼申し上げます。\n下記の件につきまして、ご請求申し上げます。\nご査収のほど、よろしくお願いいたします。');
+  const [notes, setNotes] = useState('恐れ入りますが、振込手数料のご負担をお願いいたします。\n今後とも、どうぞよろしくお願いいたします。');
   const [recipientName, setRecipientName] = useState('');
   const [recipientType, setRecipientType] = useState<'company' | 'individual'>('company');
   const [recipientAddress, setRecipientAddress] = useState('');
@@ -318,7 +318,13 @@ useEffect(() => {
           user_id: user!.id,
           invoice_number: invoiceNumber,
           work_date: workDate || new Date().toISOString().split('T')[0],
-          payment_due_date: paymentDueDate || new Date().toISOString().split('T')[0],
+          payment_due_date: paymentDueDate || (() => {
+            const invoiceDate = new Date(workDate || new Date());
+            const year = invoiceDate.getFullYear();
+            const month = invoiceDate.getMonth() + 1;
+            const lastDay = new Date(year, month + 1, 0);
+            return lastDay.toISOString().split('T')[0];
+          })(),
           recipient_name: recipientName || null,
           recipient_address: recipientAddress || null,
           notes: notes || null,
@@ -585,6 +591,8 @@ useEffect(() => {
                     type="date"
                     value={workDate}
                     onChange={(e) => setWorkDate(e.target.value)}
+                    min="2000-01-01"
+                    max="2099-12-31"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
@@ -596,6 +604,8 @@ useEffect(() => {
                     type="date"
                     value={paymentDueDate}
                     onChange={(e) => setPaymentDueDate(e.target.value)}
+                    min="2000-01-01"
+                    max="2099-12-31"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -616,7 +626,7 @@ useEffect(() => {
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
-                  placeholder="平素は格別のご高配を賜り、厚く御礼申し上げます。"
+                  placeholder="恐れ入りますが、振込手数料のご負担をお願いいたします。"
                   rows={4}
                 />
                 <p className="text-xs text-gray-500">
@@ -673,6 +683,7 @@ useEffect(() => {
                         type="number"
                         value={item.quantity}
                         onChange={(e) => updateItem(index, 'quantity', Number(e.target.value) || 1)}
+                        onFocus={(e) => e.target.select()}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         min="1"
                         step="1"

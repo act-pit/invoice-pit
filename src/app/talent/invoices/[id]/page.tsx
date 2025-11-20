@@ -103,17 +103,33 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
 
       // 型変換
       const extendedInvoice: Invoice = {
-        ...invoiceData,
-        subject: (invoiceData as any).subject || '',
-        recipient_name: invoiceData.recipient_name || '',
-        recipient_type: (invoiceData as any).recipient_type || 'company',
-        recipient_address: (invoiceData as any).recipient_address || '',
-        organizer_id: (invoiceData as any).organizer_id || null,
-        subtotal: invoiceData.subtotal,
-        tax: invoiceData.tax_amount,
-        withholding: calculatedWithholding,
-        total: invoiceData.total_amount,
-      };
+  ...invoiceData,
+  subject: (invoiceData as any).subject || '',
+  recipient_name: invoiceData.recipient_name || '',
+  recipient_type: (invoiceData as any).recipient_type || 'company',
+  recipient_address: (invoiceData as any).recipient_address || '',
+  organizer_id: (invoiceData as any).organizer_id || null,
+  invoice_date: (invoiceData as any).work_date,
+  payment_due_date: (() => {
+  const invoiceDate = new Date((invoiceData as any).work_date);
+  const dueDate = invoiceData.payment_due_date;
+  
+  if (!dueDate || dueDate === (invoiceData as any).work_date) {
+    const year = invoiceDate.getFullYear();
+    const month = invoiceDate.getMonth() + 1;
+    const lastDay = new Date(year, month + 1, 0);
+    return lastDay.toISOString().split('T')[0];
+  }
+  
+  return dueDate;
+})(),
+
+
+  subtotal: invoiceData.subtotal,
+  tax: invoiceData.tax_amount,
+  withholding: calculatedWithholding,
+  total: invoiceData.total_amount,
+};
 
       setInvoice(extendedInvoice);
 
@@ -135,18 +151,6 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
       setLoading(false);
     }
   };
-
-  // 印刷関数：スマホでもテーブル表示を強制
-  const handlePrint = () => {
-    const cards = document.querySelector('.mobile-card-view') as HTMLElement;
-    const table = document.querySelector('.desktop-table-view') as HTMLElement;
-    
-    if (cards) cards.style.display = 'none';
-    if (table) table.style.display = 'table';
-    
-    window.print();
-  };
-
 
   if (loading) {
     return (
@@ -279,12 +283,12 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
             ← 一覧に戻る
           </Button>
           <Button 
-            onClick={handlePrint} 
-            className="bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm"
-            size="sm"
-          >
-            🖨️ 印刷・PDF保存
-          </Button>
+    onClick={() => window.print()}  // ← シンプルに変更
+    className="bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm"
+    size="sm"
+  >
+    🖨️ 印刷・PDF保存
+  </Button>
         </div>
       </div>
 
@@ -564,19 +568,14 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
         )}
 
         {/* 備考欄 */}
-        <div className="mt-4 sm:mt-6 border-t pt-3">
-          <div className="text-xs sm:text-sm text-gray-600" style={{ lineHeight: '1.6' }}>
-            <p className="font-semibold mb-2">備考</p>
-            {invoice.notes ? (
-              <div className="whitespace-pre-wrap break-words">{invoice.notes}</div>
-            ) : (
-              <>
-                <p>恐れ入りますが、振込手数料のご負担をお願いいたします。</p>
-                <p>今後とも、どうぞよろしくお願いいたします。</p>
-              </>
-            )}
-          </div>
-        </div>
+{invoice.notes && (
+  <div className="mt-4 sm:mt-6 border-t pt-3">
+    <div className="text-xs sm:text-sm text-gray-600" style={{ lineHeight: '1.6' }}>
+      <p className="font-semibold mb-2">備考</p>
+      <div className="whitespace-pre-wrap break-words">{invoice.notes}</div>
+    </div>
+  </div>
+)}
       </div>
     </>
   );

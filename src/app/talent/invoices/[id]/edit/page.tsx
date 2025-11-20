@@ -512,21 +512,25 @@ const loadInvoiceData = async () => {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">作業日</label>
+                  <label className="text-sm font-medium">請求日</label>
                   <input
                     type="date"
                     value={workDate}
                     onChange={(e) => setWorkDate(e.target.value)}
+                    min="2000-01-01"
+                    max="2099-12-31"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">支払期日</label>
+                                <label className="text-sm font-medium">支払期日</label>
                   <input
                     type="date"
                     value={paymentDueDate}
                     onChange={(e) => setPaymentDueDate(e.target.value)}
+                    min="2000-01-01"
+                    max="2099-12-31"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -581,6 +585,7 @@ const loadInvoiceData = async () => {
                         type="number"
                         value={item.quantity}
                         onChange={(e) => updateItem(index, 'quantity', Number(e.target.value) || 1)}
+                        onFocus={(e) => e.target.select()}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         min="1"
                         step="1"
@@ -731,7 +736,7 @@ const loadInvoiceData = async () => {
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
-                  placeholder="平素は格別のご高配を賜り、厚く御礼申し上げます。"
+                  placeholder="恐れ入りますが、振込手数料のご負担をお願いいたします。"
                   rows={4}
                 />
               </div>
