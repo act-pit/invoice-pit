@@ -40,7 +40,10 @@ export default function CreateInvoicePage() {
   const [showProfileWarning, setShowProfileWarning] = useState(false);
 
   // フォームの状態
-  const [workDate, setWorkDate] = useState('');
+  const [workDate, setWorkDate] = useState(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
   const [paymentDueDate, setPaymentDueDate] = useState('');
   const [subject, setSubject] = useState('');
   const [items, setItems] = useState<InvoiceItem[]>([
