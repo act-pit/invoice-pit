@@ -282,15 +282,14 @@ useEffect(() => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  // ✅ フォームの検証状態をチェック
   const form = e.currentTarget as HTMLFormElement;
+  
+  // ✅ フォームが無効なら、preventDefault しない
   if (!form.checkValidity()) {
-    // 検証エラーがある場合、ブラウザのデフォルトエラー表示を実行
-    form.reportValidity();
-    return;
+    return;  // ブラウザのデフォルト検証に任せる
   }
+  
+  e.preventDefault();  // ← 検証OKの時だけ preventDefault
 
   // プロフィール未登録チェック
   if (!profile || !isProfileComplete(profile)) {
