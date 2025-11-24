@@ -235,7 +235,7 @@ export default function HomePage() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative py-16 lg:py-24 overflow-hidden">
+      <section className="relative py-12 md:py-16 lg:py-20 overflow-hidden">
         {/* Animated Background decoration */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-20 left-10 w-96 h-96 bg-blue-400/20 rounded-full blur-3xl animate-float"></div>
@@ -288,7 +288,7 @@ export default function HomePage() {
                     className="bg-white border-2 border-blue-200 hover:border-blue-400 rounded-2xl p-5 transition-all duration-300 hover:scale-105 hover:shadow-xl text-center group"
                   >
                     <div className="text-4xl mb-2 group-hover:scale-110 transition-transform">🎭</div>
-                    <h3 className="text-xl font-black text-gray-900 mb-1">キャスト登録</h3>
+                    <h3 className="text-xl font-black text-gray-900 mb-1">キャスト-無料新規登録</h3>
                     <p className="text-sm text-gray-600">請求書の自動作成・送信</p>
                   </button>
 
@@ -297,7 +297,7 @@ export default function HomePage() {
                     className="bg-white border-2 border-purple-200 hover:border-purple-400 rounded-2xl p-5 transition-all duration-300 hover:scale-105 hover:shadow-xl text-center group"
                   >
                     <div className="text-4xl mb-2 group-hover:scale-110 transition-transform">🎪</div>
-                    <h3 className="text-xl font-black text-gray-900 mb-1">主催者登録</h3>
+                    <h3 className="text-xl font-black text-gray-900 mb-1">主催者-無料新規登録</h3>
                     <p className="text-sm text-gray-600">月0円スタート/請求書無制限管理</p>
                   </button>
                 </div>
@@ -499,7 +499,7 @@ export default function HomePage() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-12 bg-white border-y border-gray-200" id="stats" data-animate>
+      <section className="py-8 md:py-10 bg-white border-y border-gray-200" id="stats" data-animate>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className={`text-center mb-8 transition-all duration-700 ${isVisible['stats'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             <p className="text-gray-600 font-medium">
@@ -509,7 +509,7 @@ export default function HomePage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {[
               { number: "3万人+", label: "ACTぴっとユーザー", icon: Users, delay: 100 },
-              { number: "100社+", label: "登録劇団・事務所", icon: Globe, delay: 200 },
+              { number: "100社+", label: "登録団体・事務所", icon: Globe, delay: 200 },
               { number: "15年", label: "制作活動実績", icon: Calculator, delay: 300 },
               { number: "1分", label: "請求書作成時間", icon: Zap, delay: 400 }
             ].map((stat, index) => (
@@ -540,20 +540,20 @@ export default function HomePage() {
       </section>
 
       {/* Problem Section */}
-      <section className="py-20 bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50" id="problems" data-animate>
+      <section className="py-12 md:py-16 lg:py-20 bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50" id="problems" data-animate>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className={`text-center mb-16 transition-all duration-700 ${isVisible['problems'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            <h2 className="text-4xl lg:text-6xl font-black text-gray-900 mb-4">
+          <div className={`text-center mb-10 md:mb-14 transition-all duration-700 ${isVisible['problems'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 mb-3">
               こんなお悩み、
               <span className="relative inline-block">
                 <span className="text-red-500">ありませんか？</span>
                 <div className="absolute -bottom-2 left-0 right-0 h-3 bg-red-200 opacity-30 animate-pulse"></div>
               </span>
             </h2>
-            <p className="text-xl text-gray-600 mt-4">芸能フリーランス特有の課題を解決します</p>
+              <p className="text-base md:text-lg lg:text-xl text-gray-600">芸能フリーランス特有の課題を解決</p>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {[
               { emoji: "😵‍💫", title: "源泉徴収の計算が複雑", desc: "10.21%と20.42%の使い分けや税込・税抜の計算が分からない", color: "from-red-500 to-orange-500", delay: 100 },
               { emoji: "⏰", title: "請求書作成に時間がかかる", desc: "創作活動の時間が削られるし、内容が合ってるかどうかも分からない", color: "from-orange-500 to-yellow-500", delay: 200 },
@@ -564,13 +564,13 @@ export default function HomePage() {
             ].map((item, index) => (
               <div key={index} className={`group relative transition-all duration-700 delay-${item.delay} ${isVisible['problems'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
                 <div className={`absolute inset-0 bg-gradient-to-r ${item.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300 rounded-2xl blur-xl`}></div>
-                <div className="relative bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 hover:border-transparent hover:-translate-y-2">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-5xl group-hover:scale-110 transition-transform duration-300">{item.emoji}</div>
+                <div className="relative bg-white p-5 md:p-6 lg:p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 hover:border-transparent hover:-translate-y-2">
+                  <div className="flex items-center justify-between mb-3 md:mb-4">
+                    <div className="text-3xl md:text-4xl lg:text-5xl group-hover:scale-110 transition-transform duration-300">{item.emoji}</div>
                     <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${item.color} animate-pulse`}></div>
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-3">{item.title}</h3>
-                  <p className="text-gray-600 leading-relaxed">{item.desc}</p>
+                  <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-3">{item.title}</h3>
+                  <p className="text-sm md:text-base text-gray-600 leading-relaxed">{item.desc}</p>
                 </div>
               </div>
             ))}
@@ -578,15 +578,16 @@ export default function HomePage() {
         </div>
       </section>
 
+
       {/* Solution Section */}
-      <section className="py-20 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50" id="features" data-animate>
+      <section className="py-12 md:py-16 lg:py-20 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50" id="features" data-animate>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className={`text-center mb-16 transition-all duration-700 ${isVisible['features'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            <div className="inline-flex items-center bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-bold mb-6 animate-bounce-slow">
+          <div className={`text-center mb-10 md:mb-14 transition-all duration-700 ${isVisible['features'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+            <div className="inline-flex items-center bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-bold mb-4 md:mb-5 animate-bounce-slow">
               <Zap className="h-4 w-4 mr-2" />
               ソリューション
             </div>
-            <h2 className="text-4xl lg:text-6xl font-black text-gray-900 mb-6">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 mb-4 md:mb-5">
               すべて
               <span className="relative inline-block mx-3">
                 <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">自動化</span>
@@ -594,13 +595,13 @@ export default function HomePage() {
               </span>
               します
             </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-base md:text-lg lg:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
               面倒な計算や入力作業から解放され、<br className="hidden sm:block" />
               本当に大切な<span className="font-bold text-blue-600">創作活動</span>に時間を使えます
             </p>
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-8">
+          <div className="grid lg:grid-cols-2 gap-4 md:gap-6 lg:gap-8">
             {[
               {
                 icon: Calculator,
@@ -612,49 +613,49 @@ export default function HomePage() {
               {
                 icon: Smartphone,
                 title: "スマホ完全対応",
-                desc: "現場でも移動中でもサクッと作成。PCを開く必要なし、スマホだけで完結。",
+                desc: "現場でも移動中でもサクッと作成。PCもExcelも税知識も一切不要。スマホだけで完結。",
                 gradient: "from-purple-500 to-pink-500",
                 delay: 200
               },
               {
                 icon: Zap,
                 title: "1分で請求書完成",
-                desc: "項目を選んで金額を入力するだけ。後は自動で計算・生成・送信・PDF化まで完了。",
+                desc: "質問の項目を選んで金額を入力するだけ。後は、自動で計算・生成・送信・PDF化まで全て完了。",
                 gradient: "from-orange-500 to-red-500",
                 delay: 300
               },
               {
                 icon: Shield,
                 title: "インボイス制度対応",
-                desc: "T番号管理、適格請求書の要件を完全クリア。法改正にも自動対応で安心。",
+                desc: "T番号の管理・記載、適格請求書の要件を完全クリア。法改正にも自動対応で確定申告も安心。",
                 gradient: "from-green-500 to-emerald-500",
                 delay: 400
               },
               {
                 icon: FileText,
                 title: "データ永久保存",
-                desc: "作成した請求書は自動でクラウド保存。検索・フィルターで過去データも瞬時に発見。",
+                desc: "作成した請求書は自動でクラウド保存。検索・フィルターで過去のデータも瞬時に発見。",
                 gradient: "from-indigo-500 to-blue-500",
                 delay: 500
               },
               {
                 icon: Users,
                 title: "主催者連携機能",
-                desc: "主催者コードで主催者と自動紐付け。承認フローで確実な入金管理が可能。",
+                desc: "主催者コードを入力すれば、主催者にアプリ上で請求書の送付が可能。承認フローも入金管理も簡単実現。",
                 gradient: "from-pink-500 to-rose-500",
                 delay: 600
               }
             ].map((feature, index) => (
               <div key={index} className={`group relative transition-all duration-700 delay-${feature.delay} ${isVisible['features'] ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-10'}`}>
                 <div className={`absolute inset-0 bg-gradient-to-r ${feature.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300 rounded-2xl blur-xl`}></div>
-                <div className="relative bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 hover:border-transparent hover:-translate-y-2">
-                  <div className="flex items-start space-x-5">
-                    <div className={`flex-shrink-0 w-14 h-14 bg-gradient-to-r ${feature.gradient} rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-6 transition-all duration-300`}>
-                      <feature.icon className="h-7 w-7 text-white" strokeWidth={2.5} />
+                <div className="relative bg-white p-5 md:p-6 lg:p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 hover:border-transparent hover:-translate-y-2">
+                  <div className="flex items-start space-x-3 md:space-x-4 lg:space-x-5">
+                    <div className={`flex-shrink-0 w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 bg-gradient-to-r ${feature.gradient} rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-6 transition-all duration-300`}>
+                      <feature.icon className="h-5 w-5 md:h-6 md:w-6 lg:h-7 lg:w-7 text-white" strokeWidth={2.5} />
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-xl font-bold text-gray-900 mb-3">{feature.title}</h3>
-                      <p className="text-gray-600 leading-relaxed">{feature.desc}</p>
+                      <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-3">{feature.title}</h3>
+                      <p className="text-sm md:text-base text-gray-600 leading-relaxed">{feature.desc}</p>
                     </div>
                   </div>
                 </div>
@@ -664,25 +665,27 @@ export default function HomePage() {
         </div>
       </section>
 
+
       {/* Pricing Section */}
-      <section id="pricing" className="py-20 bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100" data-animate>
+      <section id="pricing" className="py-12 md:py-16 lg:py-20 bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100" data-animate>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className={`text-center mb-16 transition-all duration-700 ${isVisible['pricing'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            <div className="inline-flex items-center bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-bold mb-6 animate-bounce-slow">
+          <div className={`text-center mb-10 md:mb-14 transition-all duration-700 ${isVisible['pricing'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+            <div className="inline-flex items-center bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-bold mb-4 md:mb-5 animate-bounce-slow">
               <TrendingUp className="h-4 w-4 mr-2" />
               料金プラン
             </div>
-            <h2 className="text-4xl lg:text-6xl font-black text-gray-900 mb-6">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 mb-4 md:mb-5">
               <span className="relative inline-block">
                 <span className="text-green-600">圧倒的</span>
                 <div className="absolute -bottom-2 left-0 right-0 h-3 bg-green-200 opacity-30 animate-pulse"></div>
               </span>
               なコスパ
             </h2>
-            <p className="text-xl text-gray-600">
-              月額わずか<span className="font-black text-green-600 text-2xl">165円</span>で、請求書作成の悩みから完全解放
+            <p className="text-base md:text-lg lg:text-xl text-gray-600">
+              3ヶ月無料<br/>月額わずか<span className="font-black text-green-600 text-xl md:text-2xl">165円</span>で、<br/>請求書作成の悩みから完全解放
             </p>
           </div>
+
 
           <div className="grid lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
             {/* キャスト向けプラン */}
@@ -695,27 +698,86 @@ export default function HomePage() {
                   </div>
                 </div>
                 
-                <div className="text-center mb-8 mt-4">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-4">プレミアムプラン</h3>
-                  <div className="mb-4">
-                    <div className="flex items-baseline justify-center">
-                      <span className="text-6xl font-black bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent animate-gradient">¥1,980</span>
-                      <span className="text-2xl text-gray-500 ml-2">/年</span>
+                <div className="text-center mb-8 mt-4 -mx-4 sm:mx-0">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-6 px-4 sm:px-0">シンプルな料金体系</h3>
+                  
+                  {/* 1つのプランカード */}
+                  <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-2xl p-6 border-2 border-blue-300 relative">
+                                        
+                    {/* ステップ1: 無料期間 */}
+                    <div className="bg-white rounded-xl p-6 sm:p-7 mb-5 border-2 border-green-300 shadow-lg">
+                      <div className="inline-block bg-green-500 text-white px-5 py-2 rounded-full text-sm font-black mb-4 animate-pulse">
+                        🎉 まずは完全無料で開始
+                      </div>
+                      <div className="flex items-baseline justify-center mb-3">
+                        <span className="text-6xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">¥0</span>
+                      </div>
+                      <p className="text-base text-gray-700 font-bold mb-2">
+                        <span className="text-green-600 text-lg">3ヶ月間</span> または <span className="text-green-600 text-lg">3通まで</span>
+                      </p>
+                      <p className="text-sm text-gray-600 font-semibold">全機能使い放題！</p>
+                      <p className="text-xs text-gray-500 mt-2">※どちらか早い方まで</p>
                     </div>
-                    <div className="text-sm text-green-600 bg-green-50 px-4 py-2 rounded-full inline-block mt-3 font-semibold animate-pulse-slow">
-                      月額わずか165円
+
+                    {/* 矢印 */}
+                    <div className="flex justify-center mb-5">
+                      <div className="bg-white rounded-full px-5 py-2 border-2 border-gray-300 text-sm font-bold text-gray-600">
+                        無料期間終了後は...
+                      </div>
                     </div>
+
+                    {/* ステップ2: 選択肢 */}
+                    <div className="bg-white rounded-xl p-6 sm:p-7 border-2 border-blue-300 shadow-lg">
+                      <p className="text-base font-bold text-gray-700 mb-5">
+                        👉 あなたが<span className="text-blue-600 text-lg">選択できます</span>
+                      </p>
+                      
+                      <div className="space-y-4 text-left mb-5">
+                        <div className="flex items-start gap-3">
+                          <span className="text-2xl">✅</span>
+                          <div className="flex-1">
+                            <p className="font-bold text-gray-900 text-base">そのまま継続する</p>
+                            <p className="text-xs text-gray-600">1,980円/年で使い放題</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <span className="text-2xl">✅</span>
+                          <div className="flex-1">
+                            <p className="font-bold text-gray-900 text-base">無料期間で終了</p>
+                            <p className="text-xs text-gray-600">料金は一切かかりません</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                        <p className="text-xs text-blue-800 font-bold mb-2">
+                          💡 継続する場合の料金
+                        </p>
+                        <div className="flex items-baseline justify-center mt-2 mb-2">
+                          <span className="text-4xl font-black bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">¥1,980</span>
+                          <span className="text-lg text-gray-500 ml-2">/年</span>
+                        </div>
+                        <p className="text-xs text-gray-600">月額わずか165円<br/>請求書作成・管理無制限<br/>案件情報も取得可能</p>
+                      </div>
+                    </div>
+
                   </div>
+
+                  <p className="text-sm text-gray-600 mt-4 font-bold px-4 sm:px-0">
+                    ✨ リスクゼロ！まずは無料で始めて、気に入ったら続けるだけ
+                  </p>
                 </div>
+
+
                 
                 <div className="space-y-4 mb-8">
                   {[
-                    "請求書作成無制限",
+                    "データ永久保存",
                     "源泉徴収自動計算",
                     "モバイル完全対応", 
-                    "データ永久保存",
                     "主催者連携/自動送受信",
                     "3ヶ月無料体験",
+                    "請求書作成無制限",
                     "オーディション情報取得",
                     "仕事依頼を受けることが可能"
                   ].map((feature, index) => (
@@ -729,7 +791,7 @@ export default function HomePage() {
                 </div>
 
                 <Link href="/talent/register" className="block w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 text-center">
-                  今すぐ始める
+                  今すぐ無料で始める
                 </Link>
               </div>
             </div>
@@ -744,45 +806,118 @@ export default function HomePage() {
                   </div>
                 </div>
                 
-                <div className="text-center mb-8 mt-4">
-                  <h3 className="text-2xl font-bold mb-4">ビジネスプラン</h3>
-                  <div className="mb-4">
-                    <div className="flex items-baseline justify-center">
-                      <span className="text-6xl font-black animate-gradient">¥980</span>
-                      <span className="text-2xl text-indigo-200 ml-2">/月〜</span>
-                    </div>
-                    <div className="text-sm text-indigo-200 mt-3">
-                      ACTぴっと連動で<span className="font-bold text-yellow-300 animate-pulse">30%OFF</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-4 mb-8">
-                  {[
-                    "請求書管理無制限",
-                    "請求書自動受信",
-                    "支払期日アラート",
-                    "データ永久保存",
-                    "CSV出力機能",
-                    "会計ソフト連携",
-                    "案件情報掲載機能",
-                    "出演オファー機能"
-                  ].map((feature, index) => (
-                    <div key={index} className={`flex items-center space-x-3 transition-all duration-300 delay-${index * 100} ${isVisible['pricing'] ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-5'}`}>
-                      <div className="flex-shrink-0 w-6 h-6 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                        <CheckCircle className="h-4 w-4 text-white" strokeWidth={3} />
+                <div className="text-center mb-8 mt-4 -mx-4 sm:mx-0">
+                  <h3 className="text-2xl font-bold mb-6 px-4 sm:px-0">シンプルな料金体系</h3>
+                  
+                  {/* プランカード */}
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-5 border-2 border-white/30 relative">
+                    
+                    {/* フリープラン */}
+                    <div className="bg-white/95 text-gray-900 rounded-xl p-5 sm:p-6 mb-4 border-2 border-green-300 shadow-lg">
+                      <div className="inline-block bg-green-500 text-white px-5 py-2 rounded-full text-sm font-black mb-3 animate-pulse">
+                        🎉 まずは完全無料でスタート
                       </div>
-                      <span className="font-medium">{feature}</span>
+                      <div className="flex items-baseline justify-center mb-2">
+                        <span className="text-5xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">¥0</span>
+                        <span className="text-lg text-gray-500 ml-2">/月</span>
+                      </div>
+                      <p className="text-sm font-bold text-gray-700 mb-2">基本機能が無料</p>
+                      <div className="text-left space-y-1 text-xs text-gray-600">
+                        <p>✓ 請求書受領・承認</p>
+                        <p>✓ 基本管理機能</p>
+                      </div>
                     </div>
-                  ))}
+
+                    {/* 矢印 */}
+                    <div className="flex justify-center mb-4">
+                      <div className="bg-white/90 text-gray-700 rounded-full px-4 py-2 border-2 border-white/50 text-xs font-bold">
+                        必要に応じてアップグレード
+                      </div>
+                    </div>
+
+                    {/* 有料プラン選択 */}
+                    <div className="bg-white/95 text-gray-900 rounded-xl p-5 sm:p-6 border-2 border-white/50 shadow-lg">
+                      <p className="text-sm font-bold mb-4">
+                        👉 <span className="text-purple-600 text-base">3つのプランから選択</span>
+                      </p>
+                      
+                      <div className="space-y-3 text-left">
+                        {/* ベーシック */}
+                        <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                          <div className="flex justify-between items-baseline mb-2">
+                            <span className="font-black text-blue-600">ベーシック</span>
+                            <div>
+                              <span className="text-2xl font-black text-blue-600">¥980</span>
+                              <span className="text-sm text-gray-500">/月</span>
+                            </div>
+                          </div>
+                          <div className="text-xs text-gray-600 space-y-1">
+                            <p>✓ 支払期日アラート表示</p>
+                            <p>✓ 差し戻し機能</p>
+                            <p>✓ 承認待ち一覧表示</p>
+                            <p>✓ CSV出力</p>
+                          </div>
+                        </div>
+
+                        {/* アドバンス */}
+                        <div className="bg-purple-50 rounded-lg p-3 border-2 border-purple-300">
+                          <div className="inline-block bg-purple-500 text-white px-2 py-1 rounded text-xs font-bold mb-2">
+                            人気
+                          </div>
+                          <div className="flex justify-between items-baseline mb-2">
+                            <span className="font-black text-purple-600">アドバンス</span>
+                            <div>
+                              <span className="text-2xl font-black text-purple-600">¥1,980</span>
+                              <span className="text-sm text-gray-500">/月</span>
+                            </div>
+                          </div>
+                          <div className="text-xs text-gray-600 space-y-1">
+                            <p>✓ ベーシック機能すべて</p>
+                            <p>✓ CSVカスタム・会計フォーマット</p>
+                            <p>✓ 月次支払いレポート（手動）</p>
+                            <p>✓ 案件・AD情報掲載 1件/月</p>
+                          </div>
+                        </div>
+
+                        {/* プロ */}
+                        <div className="bg-gradient-to-br from-pink-50 to-purple-50 rounded-lg p-3 border border-pink-200">
+                          <div className="flex justify-between items-baseline mb-2">
+                            <span className="font-black text-pink-600">プロ</span>
+                            <div>
+                              <span className="text-2xl font-black text-pink-600">¥2,980</span>
+                              <span className="text-sm text-gray-500">/月</span>
+                            </div>
+                          </div>
+                          <div className="text-xs text-gray-600 space-y-1">
+                            <p>✓ アドバンス機能すべて</p>
+                            <p>✓ 全銀協・API連携</p>
+                            <p>✓ 月次支払い自動レポート</p>
+                            <p>✓ 案件・AD情報掲載 2件/月</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 bg-yellow-50 rounded-lg p-3 border border-yellow-200">
+                        <p className="text-xs text-yellow-800 font-bold text-center">
+                          🎁 ACTぴっと連動で<span className="text-base">全プラン30%OFF</span>
+                        </p>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  <p className="text-xs text-white/80 mt-4 font-semibold px-4 sm:px-0">
+                    ✨ フリープランで始めて、必要な機能だけ追加可能
+                  </p>
                 </div>
 
-                <Link href="/organizer/register" className="block w-full bg-white text-purple-600 py-4 rounded-xl font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 text-center">
-                  詳細を見る
+                <Link href="/organizer/register" className="block w-full bg-white text-purple-600 py-4 rounded-xl font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 text-center mt-6">
+                  今すぐ無料で始める
                 </Link>
 
               </div>
             </div>
+
           </div>
 
           <div className={`text-center mt-12 transition-all duration-700 delay-600 ${isVisible['pricing'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
@@ -794,41 +929,42 @@ export default function HomePage() {
       </section>
 
       {/* ACTぴっと連携 */}
-      <section className="py-20 bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50" id="about" data-animate>
+      <section className="py-12 md:py-16 lg:py-20 bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50" id="about" data-animate>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className={`text-center mb-16 transition-all duration-700 ${isVisible['about'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            <h2 className="text-4xl lg:text-6xl font-black text-gray-900 mb-6">
+          <div className={`text-center mb-10 md:mb-14 transition-all duration-700 ${isVisible['about'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 mb-4 md:mb-5">
               <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent animate-gradient">ACTぴっと</span>
               連携で
               <br />
               さらに便利に
             </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-base md:text-lg lg:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
               3万人が利用する演劇チケットシステム「ACTぴっと」との連携で、
               <br className="hidden sm:block" />
-              チケット販売から請求まで<span className="font-bold text-purple-600">一気通貫</span>
+              チケット販売から請求まで<br/><span className="font-bold text-purple-600">一気通貫</span>
             </p>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-8">
+
+          <div className="grid lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
             {[
               {
                 icon: Award,
                 title: "シームレス連携",
-                desc: "ACTぴっとでチケット販売した後、データ取得、チケットバックを請求書に反映。",
+                desc: "ACTぴっとでチケット販売した後、売上データやチケットバック金額を請求書に反映。",
                 gradient: "from-purple-500 to-pink-500",
                 delay: 200
               },
               {
                 icon: Users,
                 title: "3万人のネットワーク",
-                desc: "既存の演劇・芸能コミュニティとの強力な連携で出演募集、応募、販売までスムーズな導入。",
+                desc: "既存の演劇・芸能コミュニティとの連携で出演募集、応募、チケット販売までスムーズ導入。",
                 gradient: "from-blue-500 to-indigo-500",
                 delay: 400
               },
               {
                 icon: CheckCircle,
-                title: "特別割引30%OFF",
+                title: "特別割引永年30%OFF",
                 desc: "ACTぴっと登録事業者は主催者プランが30%OFF。公演をDXの面から充実サポート！",
                 gradient: "from-green-500 to-emerald-500",
                 delay: 600
@@ -836,12 +972,12 @@ export default function HomePage() {
             ].map((item, index) => (
               <div key={index} className={`group relative transition-all duration-700 delay-${item.delay} ${isVisible['about'] ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
                 <div className={`absolute inset-0 bg-gradient-to-r ${item.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300 rounded-2xl blur-xl`}></div>
-                <div className="relative text-center p-10 bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 hover:-translate-y-2">
-                  <div className={`inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r ${item.gradient} rounded-2xl mb-6 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 shadow-lg`}>
-                    <item.icon className="h-10 w-10 text-white" strokeWidth={2.5} />
+                <div className="relative text-center p-5 md:p-6 lg:p-8 bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 hover:-translate-y-2">
+                  <div className={`inline-flex items-center justify-center w-14 h-14 md:w-16 md:h-16 lg:w-20 lg:h-20 bg-gradient-to-r ${item.gradient} rounded-2xl mb-4 md:mb-5 lg:mb-6 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 shadow-lg`}>
+                    <item.icon className="h-7 w-7 md:h-8 md:w-8 lg:h-10 lg:w-10 text-white" strokeWidth={2.5} />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-4">{item.title}</h3>
-                  <p className="text-gray-600 leading-relaxed">{item.desc}</p>
+                  <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-3 md:mb-4">{item.title}</h3>
+                  <p className="text-sm md:text-base text-gray-600 leading-relaxed">{item.desc}</p>
                 </div>
               </div>
             ))}
@@ -849,39 +985,44 @@ export default function HomePage() {
         </div>
       </section>
 
+
             {/* Final CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white relative overflow-hidden">
+            <section className="py-12 md:py-16 lg:py-20 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl animate-float"></div>
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl animate-float-delayed"></div>
         </div>
 
         <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8 relative z-10" id="cta" data-animate>
-          <h2 className={`text-4xl lg:text-6xl font-black mb-6 transition-all duration-700 ${isVisible['cta'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          <h2 className={`text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black mb-3 md:mb-4 lg:mb-5 transition-all duration-700 ${isVisible['cta'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             創作活動に集中しませんか？
           </h2>
-          <p className={`text-xl lg:text-2xl text-blue-100 mb-10 leading-relaxed transition-all duration-700 delay-200 ${isVisible['cta'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            面倒な請求書作成や管理から解放されて、圧倒的な時間の有効活用。<br />
-            今ならキャストは<span className="font-black text-white text-2xl animate-pulse">3ヶ月無料</span>でご利用いただけます。
+          <p className={`text-base sm:text-lg md:text-xl lg:text-2xl text-blue-100 mb-6 md:mb-8 lg:mb-10 leading-relaxed transition-all duration-700 delay-200 ${isVisible['cta'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+            面倒な請求書作成や管理から解放されて、<br />圧倒的な時間の有効活用。<br />
+            今なら、タレント機能を<br/><span className="font-black text-white text-lg sm:text-xl md:text-2xl animate-pulse">3ヶ月完全無料</span>でご利用いただけます。
           </p>
+
+
           
           {/* 選択カード */}
           {!registrationType && !registrationSuccess && (
-            <div className={`grid md:grid-cols-2 gap-6 max-w-3xl mx-auto mb-10 transition-all duration-700 delay-400 ${isVisible['cta'] ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
+            <div className={`grid md:grid-cols-2 gap-4 max-w-2xl mx-auto mb-8 transition-all duration-700 delay-400 ${isVisible['cta'] ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
               <button
                 onClick={() => setRegistrationType('talent')}
-                className="bg-white/10 backdrop-blur-sm border-2 border-white/30 hover:border-white hover:bg-white/20 rounded-2xl p-8 transition-all duration-300 hover:scale-105 text-left"
+                className="bg-white/10 backdrop-blur-sm border-2 border-white/30 hover:border-white hover:bg-white/20 rounded-2xl p-6 transition-all duration-300 hover:scale-105 text-center"
               >
-                <div className="text-5xl mb-4">🎭</div>
-                <h3 className="text-2xl font-black mb-2">キャストとして登録</h3>
+                <div className="text-4xl mb-3">🎭</div>
+                <h3 className="text-xl font-black mb-1">キャストとして登録</h3>
+                <p className="text-sm text-blue-100">請求書の自動作成・送信</p>
               </button>
 
               <button
                 onClick={() => setRegistrationType('organizer')}
-                className="bg-white/10 backdrop-blur-sm border-2 border-white/30 hover:border-white hover:bg-white/20 rounded-2xl p-8 transition-all duration-300 hover:scale-105 text-left"
+                className="bg-white/10 backdrop-blur-sm border-2 border-white/30 hover:border-white hover:bg-white/20 rounded-2xl p-6 transition-all duration-300 hover:scale-105 text-center"
               >
-                <div className="text-5xl mb-4">🎪</div>
-                <h3 className="text-2xl font-black mb-2">主催者として登録</h3>
+                <div className="text-4xl mb-3">🎪</div>
+                <h3 className="text-xl font-black mb-1">主催者として登録</h3>
+                <p className="text-sm text-blue-100">月0円スタート/請求書無制限管理</p>
               </button>
             </div>
           )}
@@ -1054,7 +1195,7 @@ export default function HomePage() {
             <div className={`flex flex-wrap justify-center items-center gap-8 text-sm text-blue-100 transition-all duration-700 delay-600 ${isVisible['cta'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
               {[
                 { icon: Shield, text: "安心の日本製" },
-                { icon: Clock, text: "3ヶ月無料体験" },
+                { icon: Clock, text: "まずは無料でスタート" },
                 { icon: CheckCircle, text: "いつでも解約OK" },
                 { icon: Lock, text: "データ暗号化" }
               ].map((item, index) => (
