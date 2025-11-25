@@ -41,49 +41,50 @@ export default function TalentRegisterPage() {
     }
 
     try {
-      // 1. Supabase Auth で登録
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?type=talent`,
-          data: {
-            full_name: fullName,
-          },
-        },
-      });
+  // 1. Supabase Auth で登録
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: `${window.location.origin}/auth/callback?type=talent`,
+      data: {
+        full_name: fullName,
+      },
+    },
+  });
 
-      if (authError) throw authError;
+  if (authError) throw authError;
 
-      if (authData.user) {
-        // 2. profiles テーブルにデータを挿入
-        const { error: profileError } = await supabase.from('profiles').insert({
-          id: authData.user.id,
-          email: email,
-          full_name: fullName,
-        });
+  // ✅✅✅ ここから新しいコード ✅✅✅
+  if (!authData.user) {
+    throw new Error('ユーザー情報の取得に失敗しました');
+  }
 
-        if (profileError) throw profileError;
+  // profiles へのINSERTは削除（Database Triggerで自動作成）
 
-        // 3. subscriptions テーブルにデータを挿入（無料トライアル）
-        const { error: subscriptionError } = await supabase.from('subscriptions').insert({
-          user_id: authData.user.id,
-          plan: 'free',
-          status: 'active',
-          invoice_count: 0,
-        });
+  // subscriptions テーブルにデータを挿入（無料トライアル）
+  const { error: subscriptionError } = await supabase.from('subscriptions').insert({
+    user_id: authData.user.id,
+    plan: 'free',
+    status: 'active',
+    invoice_count: 0,
+  });
 
-        if (subscriptionError) throw subscriptionError;
+  if (subscriptionError) {
+    console.error('Subscription error:', subscriptionError);
+    // エラーログは出すが、登録自体は成功扱い
+  }
 
-        // 成功
-        setSuccess(true);
-      }
-    } catch (err: any) {
-      console.error('Registration error:', err);
-      setError(err.message || '登録に失敗しました');
-    } finally {
-      setLoading(false);
-    }
+  // 成功
+  setSuccess(true);
+  // ✅✅✅ ここまで新しいコード ✅✅✅
+
+} catch (err: any) {
+  console.error('Registration error:', err);
+  setError(err.message || '登録に失敗しました');
+} finally {
+  setLoading(false);
+}
   };
 
   if (success) {

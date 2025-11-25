@@ -88,67 +88,75 @@ export default function HomePage() {
   };
 
   // 🆕 キャスト登録処理（/talent/register と同じロジック）
-  const handleTalentRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setRegistrationError('');
-    setRegistrationLoading(true);
+const handleTalentRegister = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setRegistrationError('');
+  setRegistrationLoading(true);
 
-    if (!fullName || !email || !password) {
-      setRegistrationError('すべての項目を入力してください');
-      setRegistrationLoading(false);
-      return;
-    }
+  if (!fullName || !email || !password) {
+    setRegistrationError('すべての項目を入力してください');
+    setRegistrationLoading(false);
+    return;
+  }
 
-    if (password !== confirmPassword) {
-      setRegistrationError('パスワードが一致しません');
-      setRegistrationLoading(false);
-      return;
-    }
+  if (password !== confirmPassword) {
+    setRegistrationError('パスワードが一致しません');
+    setRegistrationLoading(false);
+    return;
+  }
 
-    if (password.length < 8) {
-      setRegistrationError('パスワードは8文字以上にしてください');
-      setRegistrationLoading(false);
-      return;
-    }
+  if (password.length < 8) {
+    setRegistrationError('パスワードは8文字以上にしてください');
+    setRegistrationLoading(false);
+    return;
+  }
 
-    try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?type=talent`,
-          data: { full_name: fullName },
-        },
-      });
-
-      if (authError) throw authError;
-
-      if (authData.user) {
-        const { error: profileError } = await supabase.from('profiles').insert({
-          id: authData.user.id,
-          email: email,
+  try {
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?type=talent`,
+        data: { 
           full_name: fullName,
-        });
+          role: 'talent'
+        },
+      },
+    });
 
-        if (profileError) throw profileError;
+    if (authError) throw authError;
 
-        const { error: subscriptionError } = await supabase.from('subscriptions').insert({
-          user_id: authData.user.id,
-          plan: 'free',
-          status: 'active',
-          invoice_count: 0,
-        });
-
-        if (subscriptionError) throw subscriptionError;
-
-        setRegistrationSuccess(true);
-      }
-    } catch (err: any) {
-      setRegistrationError(err.message || '登録に失敗しました');
-    } finally {
-      setRegistrationLoading(false);
+    // ✅✅✅ ここから新しいコード ✅✅✅
+    if (!authData.user) {
+      throw new Error('ユーザー情報の取得に失敗しました');
     }
-  };
+
+    // profiles へのINSERTは削除（Database Triggerで自動作成）
+
+    // subscriptions テーブルへのINSERT
+    const { error: subscriptionError } = await supabase.from('subscriptions').insert({
+      user_id: authData.user.id,
+      plan: 'free',
+      status: 'active',
+      invoice_count: 0,
+    });
+
+    if (subscriptionError) {
+      console.error('Subscription error:', subscriptionError);
+      // エラーログは出すが、登録自体は成功扱い
+    }
+
+    setRegistrationSuccess(true);
+    // ✅✅✅ ここまで新しいコード ✅✅✅
+
+  } catch (err: any) {
+    console.error('Registration error:', err);
+    setRegistrationError(err.message || '登録に失敗しました');
+  } finally {
+    setRegistrationLoading(false);
+  }
+};
+
 
   // 🆕 主催者登録処理（/organizer/register と同じロジック）
   const handleOrganizerRegister = async (e: React.FormEvent) => {
@@ -217,67 +225,75 @@ export default function HomePage() {
   };
 
   // 🆕 Final CTA用のキャスト登録処理
-  const handleFinalTalentRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFinalRegistrationError('');
-    setFinalRegistrationLoading(true);
+const handleFinalTalentRegister = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setFinalRegistrationError('');
+  setFinalRegistrationLoading(true);
 
-    if (!finalFullName || !finalEmail || !finalPassword) {
-      setFinalRegistrationError('すべての項目を入力してください');
-      setFinalRegistrationLoading(false);
-      return;
-    }
+  if (!finalFullName || !finalEmail || !finalPassword) {
+    setFinalRegistrationError('すべての項目を入力してください');
+    setFinalRegistrationLoading(false);
+    return;
+  }
 
-    if (finalPassword !== finalConfirmPassword) {
-      setFinalRegistrationError('パスワードが一致しません');
-      setFinalRegistrationLoading(false);
-      return;
-    }
+  if (finalPassword !== finalConfirmPassword) {
+    setFinalRegistrationError('パスワードが一致しません');
+    setFinalRegistrationLoading(false);
+    return;
+  }
 
-    if (finalPassword.length < 8) {
-      setFinalRegistrationError('パスワードは8文字以上にしてください');
-      setFinalRegistrationLoading(false);
-      return;
-    }
+  if (finalPassword.length < 8) {
+    setFinalRegistrationError('パスワードは8文字以上にしてください');
+    setFinalRegistrationLoading(false);
+    return;
+  }
 
-    try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: finalEmail,
-        password: finalPassword,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?type=talent`,
-          data: { full_name: finalFullName },
-        },
-      });
-
-      if (authError) throw authError;
-
-      if (authData.user) {
-        const { error: profileError } = await supabase.from('profiles').insert({
-          id: authData.user.id,
-          email: finalEmail,
+  try {
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: finalEmail,
+      password: finalPassword,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?type=talent`,
+        data: { 
           full_name: finalFullName,
-        });
+          role: 'talent'
+        },
+      },
+    });
 
-        if (profileError) throw profileError;
+    if (authError) throw authError;
 
-        const { error: subscriptionError } = await supabase.from('subscriptions').insert({
-          user_id: authData.user.id,
-          plan: 'free',
-          status: 'active',
-          invoice_count: 0,
-        });
-
-        if (subscriptionError) throw subscriptionError;
-
-        setFinalRegistrationSuccess(true);
-      }
-    } catch (err: any) {
-      setFinalRegistrationError(err.message || '登録に失敗しました');
-    } finally {
-      setFinalRegistrationLoading(false);
+    // ✅✅✅ ここから新しいコード ✅✅✅
+    if (!authData.user) {
+      throw new Error('ユーザー情報の取得に失敗しました');
     }
-  };
+
+    // profiles へのINSERTは削除（Database Triggerで自動作成）
+
+    // subscriptions テーブルへのINSERT
+    const { error: subscriptionError } = await supabase.from('subscriptions').insert({
+      user_id: authData.user.id,
+      plan: 'free',
+      status: 'active',
+      invoice_count: 0,
+    });
+
+    if (subscriptionError) {
+      console.error('Subscription error:', subscriptionError);
+      // エラーログは出すが、登録自体は成功扱い
+    }
+
+    setFinalRegistrationSuccess(true);
+    // ✅✅✅ ここまで新しいコード ✅✅✅
+
+  } catch (err: any) {
+    console.error('Registration error:', err);
+    setFinalRegistrationError(err.message || '登録に失敗しました');
+  } finally {
+    setFinalRegistrationLoading(false);
+  }
+};
+
 
   // 🆕 Final CTA用の主催者登録処理
   const handleFinalOrganizerRegister = async (e: React.FormEvent) => {
