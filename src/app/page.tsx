@@ -10,7 +10,7 @@ export default function HomePage() {
   const [isVisible, setIsVisible] = useState<{ [key: string]: boolean }>({});
 
   // 🆕 登録フォーム用のstate
-  const [registrationType, setRegistrationType] = useState<'talent' | 'organizer' | null>(null);
+  const [registrationType, setRegistrationType] = useState<'talent' | 'organizer' | null>('talent');
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [registrationError, setRegistrationError] = useState('');
   const [registrationLoading, setRegistrationLoading] = useState(false);
@@ -19,6 +19,18 @@ export default function HomePage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [organizerName, setOrganizerName] = useState('');
   const [organizerCode, setOrganizerCode] = useState('');
+
+  // 🆕 Final CTA用の別state（下部のカード選択式用）
+  const [finalRegistrationType, setFinalRegistrationType] = useState<'talent' | 'organizer' | null>(null);
+  const [finalRegistrationSuccess, setFinalRegistrationSuccess] = useState(false);
+  const [finalRegistrationError, setFinalRegistrationError] = useState('');
+  const [finalRegistrationLoading, setFinalRegistrationLoading] = useState(false);
+  const [finalFullName, setFinalFullName] = useState('');
+  const [finalPassword, setFinalPassword] = useState('');
+  const [finalConfirmPassword, setFinalConfirmPassword] = useState('');
+  const [finalOrganizerName, setFinalOrganizerName] = useState('');
+  const [finalEmail, setFinalEmail] = useState('');
+  const [finalOrganizerCode, setFinalOrganizerCode] = useState('');
 
   const supabase = createClient();
 
@@ -204,6 +216,135 @@ export default function HomePage() {
     }
   };
 
+  // 🆕 Final CTA用のキャスト登録処理
+  const handleFinalTalentRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFinalRegistrationError('');
+    setFinalRegistrationLoading(true);
+
+    if (!finalFullName || !finalEmail || !finalPassword) {
+      setFinalRegistrationError('すべての項目を入力してください');
+      setFinalRegistrationLoading(false);
+      return;
+    }
+
+    if (finalPassword !== finalConfirmPassword) {
+      setFinalRegistrationError('パスワードが一致しません');
+      setFinalRegistrationLoading(false);
+      return;
+    }
+
+    if (finalPassword.length < 8) {
+      setFinalRegistrationError('パスワードは8文字以上にしてください');
+      setFinalRegistrationLoading(false);
+      return;
+    }
+
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: finalEmail,
+        password: finalPassword,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?type=talent`,
+          data: { full_name: finalFullName },
+        },
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        const { error: profileError } = await supabase.from('profiles').insert({
+          id: authData.user.id,
+          email: finalEmail,
+          full_name: finalFullName,
+        });
+
+        if (profileError) throw profileError;
+
+        const { error: subscriptionError } = await supabase.from('subscriptions').insert({
+          user_id: authData.user.id,
+          plan: 'free',
+          status: 'active',
+          invoice_count: 0,
+        });
+
+        if (subscriptionError) throw subscriptionError;
+
+        setFinalRegistrationSuccess(true);
+      }
+    } catch (err: any) {
+      setFinalRegistrationError(err.message || '登録に失敗しました');
+    } finally {
+      setFinalRegistrationLoading(false);
+    }
+  };
+
+  // 🆕 Final CTA用の主催者登録処理
+  const handleFinalOrganizerRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFinalRegistrationError('');
+    setFinalRegistrationLoading(true);
+
+    if (!finalOrganizerName || !finalEmail || !finalPassword || !finalConfirmPassword) {
+      setFinalRegistrationError('全ての項目を入力してください。');
+      setFinalRegistrationLoading(false);
+      return;
+    }
+
+    if (finalPassword.length < 8) {
+      setFinalRegistrationError('パスワードは8文字以上である必要があります。');
+      setFinalRegistrationLoading(false);
+      return;
+    }
+
+    if (finalPassword !== finalConfirmPassword) {
+      setFinalRegistrationError('パスワードが一致しません。');
+      setFinalRegistrationLoading(false);
+      return;
+    }
+
+    try {
+      const newOrganizerCode = await generateUniqueOrganizerCode();
+      setFinalOrganizerCode(newOrganizerCode);
+
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email: finalEmail,
+        password: finalPassword,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: {
+            role: 'organizer',
+            organizer_name: finalOrganizerName,
+            organizer_code: newOrganizerCode,
+          },
+        },
+      });
+
+      if (signUpError) throw signUpError;
+      
+      const userId = authData.user?.id;
+      if (!userId) throw new Error('ユーザー情報の取得に失敗しました。');
+
+      const { error: orgInsertError } = await supabase
+        .from('organizers')
+        .insert({
+          id: userId,
+          organizer_code: newOrganizerCode,
+          company_name: finalOrganizerName,
+          name: finalOrganizerName,
+          email: finalEmail,
+        });
+
+      if (orgInsertError) throw orgInsertError;
+
+      setFinalRegistrationSuccess(true);
+    } catch (err: any) {
+      setFinalRegistrationError(err.message || '予期しないエラーが発生しました。');
+    } finally {
+      setFinalRegistrationLoading(false);
+    }
+  };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -271,43 +412,22 @@ export default function HomePage() {
 
               
               <p className={`text-m lg:text-m text-gray-700 leading-relaxed max-w-m mx-auto font-medium transition-all duration-1000 delay-300 ${isVisible['hero-content'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-                源泉徴収の自動計算、公演数×ギャラ計算、税の対応/非対応、チケットバックやロイヤリティ、インボイス全て対応。<br />
-                主催者連携機能を使えば、ワンクリックで送信、承認、入金まで完了。<br />
-                <span className="text-blue-600 font-bold">芸能業界特化</span>の請求書管理で、創作活動に集中できます。
+                税の対応/非対応、出演ギャラやチケットバック、ロイヤリティ...<br />
+                業界特有の個別項目の税金も自動で判定/計算し、簡単作成。<br />
+                主催者連携機能で、ワンクリックで送信、承認、入金までが完了します。<br />
+                <span className="text-blue-600 font-bold">芸能業界特化</span>の請求書管理で、創作活動に集中できる！
               </p>
             </div>
 
-                        {/* CTA Form */}
+            {/* CTA Form */}
             <div className={`max-w-2xl mx-auto transition-all duration-1000 delay-500 ${isVisible['hero-content'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-              
-              {/* 選択カード（Hero版） */}
-              {!registrationType && !registrationSuccess && (
-                <div className="grid md:grid-cols-2 gap-4 mb-6">
-                  <button
-                    onClick={() => setRegistrationType('talent')}
-                    className="bg-white border-2 border-blue-200 hover:border-blue-400 rounded-2xl p-5 transition-all duration-300 hover:scale-105 hover:shadow-xl text-center group"
-                  >
-                    <div className="text-4xl mb-2 group-hover:scale-110 transition-transform">🎭</div>
-                    <h3 className="text-xl font-black text-gray-900 mb-1">キャスト-無料新規登録</h3>
-                    <p className="text-sm text-gray-600">請求書の自動作成・送信</p>
-                  </button>
-
-                  <button
-                    onClick={() => setRegistrationType('organizer')}
-                    className="bg-white border-2 border-purple-200 hover:border-purple-400 rounded-2xl p-5 transition-all duration-300 hover:scale-105 hover:shadow-xl text-center group"
-                  >
-                    <div className="text-4xl mb-2 group-hover:scale-110 transition-transform">🎪</div>
-                    <h3 className="text-xl font-black text-gray-900 mb-1">主催者-無料新規登録</h3>
-                    <p className="text-sm text-gray-600">月0円スタート/請求書無制限管理</p>
-                  </button>
-                </div>
-              )}
+             
 
               {/* キャスト登録フォーム（Hero版） */}
               {registrationType === 'talent' && !registrationSuccess && (
                 <div className="bg-white rounded-2xl shadow-2xl p-6 border-2 border-blue-200">
-                  <h3 className="text-2xl font-black mb-5 text-center text-gray-900">🎭 キャスト新規登録</h3>
-                  
+                  <h3 className="text-2xl font-black mb-1 text-center text-gray-900">🎭 無料新規登録 🎭</h3>
+                  <p className="text-l font-black mb-5 text-center text-gray-900">タレント</p>
                   {registrationError && (
                     <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm text-center">
                       {registrationError}
@@ -359,12 +479,12 @@ export default function HomePage() {
                       {registrationLoading ? '登録中...' : '登録する'}
                     </button>
                     <button
-                      type="button"
-                      onClick={() => setRegistrationType(null)}
-                      className="w-full text-gray-600 py-2 hover:bg-gray-100 rounded-xl transition-all font-semibold"
-                    >
-                      ← 戻る
-                    </button>
+  type="button"
+  onClick={() => setRegistrationType('organizer')}
+  className="w-full text-purple-600 py-2 hover:bg-purple-50 rounded-xl transition-all font-semibold"
+>
+  主催者はこちら →
+</button>
                   </form>
                 </div>
               )}
@@ -372,7 +492,8 @@ export default function HomePage() {
               {/* 主催者登録フォーム（Hero版） */}
               {registrationType === 'organizer' && !registrationSuccess && (
                 <div className="bg-white rounded-2xl shadow-2xl p-6 border-2 border-purple-200">
-                  <h3 className="text-2xl font-black mb-5 text-center text-gray-900">🎪 主催者新規登録</h3>
+                  <h3 className="text-2xl font-black mb-1 text-center text-gray-900">🎪 無料新規登録 🎪</h3>
+                  <p className="text-l font-black mb-5 text-center text-gray-900">主催者</p>
                   
                   {registrationError && (
                     <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm text-center">
@@ -425,12 +546,12 @@ export default function HomePage() {
                       {registrationLoading ? '登録中...' : '登録する'}
                     </button>
                     <button
-                      type="button"
-                      onClick={() => setRegistrationType(null)}
-                      className="w-full text-gray-600 py-2 hover:bg-gray-100 rounded-xl transition-all font-semibold"
-                    >
-                      ← 戻る
-                    </button>
+  type="button"
+  onClick={() => setRegistrationType('talent')}
+  className="w-full text-blue-600 py-2 hover:bg-blue-50 rounded-xl transition-all font-semibold"
+>
+  ← タレントはこちら
+</button>
                   </form>
                 </div>
               )}
@@ -453,7 +574,7 @@ export default function HomePage() {
                   <button
                     onClick={() => {
                       setRegistrationSuccess(false);
-                      setRegistrationType(null);
+                      setRegistrationType('talent');
                       setEmail('');
                       setPassword('');
                       setConfirmPassword('');
@@ -467,8 +588,8 @@ export default function HomePage() {
                 </div>
               )}
 
-              {/* 注意書き（選択カード表示時のみ） */}
-              {!registrationType && !registrationSuccess && (
+              {/* 注意書き */}
+              {!registrationSuccess && (
                 <p className="text-sm text-gray-500 mt-4 text-center">
                   会計知識/PC不要 • 初期利用無料 • スマホ完全対応
                 </p>
@@ -556,10 +677,10 @@ export default function HomePage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {[
               { emoji: "😵‍💫", title: "源泉徴収の計算が複雑", desc: "10.21%と20.42%の使い分けや税込・税抜の計算が分からない", color: "from-red-500 to-orange-500", delay: 100 },
-              { emoji: "⏰", title: "請求書作成に時間がかかる", desc: "創作活動の時間が削られるし、内容が合ってるかどうかも分からない", color: "from-orange-500 to-yellow-500", delay: 200 },
-              { emoji: "📱", title: "スマホで作業できない", desc: "そもそもExcelもPCも持ってないからスマホでサッと作りたい...", color: "from-yellow-500 to-green-500", delay: 300 },
+              { emoji: "⏰", title: "請求書作成をしたことがない", desc: "創作活動の時間が削られるし、そもそも内容が合ってるかどうかも分からない", color: "from-orange-500 to-yellow-500", delay: 200 },
+              { emoji: "📱", title: "PCもExcelも持っていない", desc: "ExcelもPCも持っていないから、スマホでサッと作りたい...", color: "from-yellow-500 to-green-500", delay: 300 },
               { emoji: "💸", title: "既存ツールが高すぎる", desc: "月額1,000円は収入が不安定な時期には重いしスマホでは使いづらい...", color: "from-green-500 to-blue-500", delay: 400 },
-              { emoji: "🎭", title: "業界特有の項目に非対応", desc: "公演数×ギャラ、チケットバック、ロイヤリティに対応していない...", color: "from-blue-500 to-indigo-500", delay: 500 },
+              { emoji: "🎭", title: "業界特有の個別項目に非対応", desc: "公演数×ギャラ、チケットバック、ロイヤリティに対応していない...", color: "from-blue-500 to-indigo-500", delay: 500 },
               { emoji: "📄", title: "請求書管理がバラバラ", desc: "送った後のやりとりも、過去の請求書を探すのも一苦労...", color: "from-indigo-500 to-purple-500", delay: 600 }
             ].map((item, index) => (
               <div key={index} className={`group relative transition-all duration-700 delay-${item.delay} ${isVisible['problems'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
@@ -596,8 +717,8 @@ export default function HomePage() {
               します
             </h2>
             <p className="text-base md:text-lg lg:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-              面倒な計算や入力作業から解放され、<br className="hidden sm:block" />
-              本当に大切な<span className="font-bold text-blue-600">創作活動</span>に時間を使えます
+              <span className="font-bold text-blue-600">質問に答えるだけで、あっという間に請求書作成。</span><br/>面倒な計算や入力作業から解放され、<br className="hidden sm:block" />
+              本業である創作活動に時間を使えます。
             </p>
           </div>
 
@@ -682,7 +803,7 @@ export default function HomePage() {
               なコスパ
             </h2>
             <p className="text-base md:text-lg lg:text-xl text-gray-600">
-              3ヶ月無料<br/>月額わずか<span className="font-black text-green-600 text-xl md:text-2xl">165円</span>で、<br/>請求書作成の悩みから完全解放
+              まずは<span className="font-black text-green-600 text-xl md:text-2xl">無料</span>で、<br/>請求書作成の悩みから完全解放
             </p>
           </div>
 
@@ -699,7 +820,6 @@ export default function HomePage() {
                 </div>
                 
                 <div className="text-center mb-8 mt-4 -mx-4 sm:mx-0">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-6 px-4 sm:px-0">シンプルな料金体系</h3>
                   
                   {/* 1つのプランカード */}
                   <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-2xl p-6 border-2 border-blue-300 relative">
@@ -710,7 +830,7 @@ export default function HomePage() {
                         🎉 まずは完全無料で開始
                       </div>
                       <div className="flex items-baseline justify-center mb-3">
-                        <span className="text-6xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">¥0</span>
+                        <span className="text-5xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">¥0</span>
                       </div>
                       <p className="text-base text-gray-700 font-bold mb-2">
                         <span className="text-green-600 text-lg">3ヶ月間</span> または <span className="text-green-600 text-lg">3通まで</span>
@@ -757,7 +877,11 @@ export default function HomePage() {
                           <span className="text-4xl font-black bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">¥1,980</span>
                           <span className="text-lg text-gray-500 ml-2">/年</span>
                         </div>
-                        <p className="text-xs text-gray-600">月額わずか165円<br/>請求書作成・管理無制限<br/>案件情報も取得可能</p>
+                        <div className="text-xs text-gray-600 space-y-1">
+                            <p>✓ 月額わずか165円</p>
+                            <p>✓ 請求書作成・管理無制限</p>
+                            <p>✓ 案件情報も取得可能</p>
+                          </div>
                       </div>
                     </div>
 
@@ -807,7 +931,6 @@ export default function HomePage() {
                 </div>
                 
                 <div className="text-center mb-8 mt-4 -mx-4 sm:mx-0">
-                  <h3 className="text-2xl font-bold mb-6 px-4 sm:px-0">シンプルな料金体系</h3>
                   
                   {/* プランカード */}
                   <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-5 border-2 border-white/30 relative">
@@ -920,11 +1043,6 @@ export default function HomePage() {
 
           </div>
 
-          <div className={`text-center mt-12 transition-all duration-700 delay-600 ${isVisible['pricing'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            <p className="text-gray-600 mb-6 text-lg">
-              まずは<span className="font-black text-blue-600 text-xl">無料</span>で3ヶ月お試し
-            </p>
-          </div>
         </div>
       </section>
 
@@ -999,16 +1117,16 @@ export default function HomePage() {
           </h2>
           <p className={`text-base sm:text-lg md:text-xl lg:text-2xl text-blue-100 mb-6 md:mb-8 lg:mb-10 leading-relaxed transition-all duration-700 delay-200 ${isVisible['cta'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             面倒な請求書作成や管理から解放されて、<br />圧倒的な時間の有効活用。<br />
-            今なら、タレント機能を<br/><span className="font-black text-white text-lg sm:text-xl md:text-2xl animate-pulse">3ヶ月完全無料</span>でご利用いただけます。
+            まずは、<span className="font-black text-white text-lg sm:text-xl md:text-2xl animate-pulse">無料</span>で今すぐ開始！
           </p>
 
 
           
-          {/* 選択カード */}
-          {!registrationType && !registrationSuccess && (
+          {/* 選択カード（Final CTA版） */}
+          {!finalRegistrationType && !finalRegistrationSuccess && (
             <div className={`grid md:grid-cols-2 gap-4 max-w-2xl mx-auto mb-8 transition-all duration-700 delay-400 ${isVisible['cta'] ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
               <button
-                onClick={() => setRegistrationType('talent')}
+                onClick={() => setFinalRegistrationType('talent')}
                 className="bg-white/10 backdrop-blur-sm border-2 border-white/30 hover:border-white hover:bg-white/20 rounded-2xl p-6 transition-all duration-300 hover:scale-105 text-center"
               >
                 <div className="text-4xl mb-3">🎭</div>
@@ -1017,7 +1135,7 @@ export default function HomePage() {
               </button>
 
               <button
-                onClick={() => setRegistrationType('organizer')}
+                onClick={() => setFinalRegistrationType('organizer')}
                 className="bg-white/10 backdrop-blur-sm border-2 border-white/30 hover:border-white hover:bg-white/20 rounded-2xl p-6 transition-all duration-300 hover:scale-105 text-center"
               >
                 <div className="text-4xl mb-3">🎪</div>
@@ -1027,65 +1145,65 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* キャスト登録フォーム */}
-          {registrationType === 'talent' && !registrationSuccess && (
+          {/* キャスト登録フォーム（Final CTA版） */}
+          {finalRegistrationType === 'talent' && !finalRegistrationSuccess && (
             <div className="max-w-md mx-auto bg-white rounded-2xl shadow-2xl p-8 text-gray-900">
               <h3 className="text-2xl font-black mb-6 text-center">🎭 キャスト新規登録</h3>
               
-              {registrationError && (
+              {finalRegistrationError && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
-                  {registrationError}
+                  {finalRegistrationError}
                 </div>
               )}
 
-              <form onSubmit={handleTalentRegister} className="space-y-4">
+              <form onSubmit={handleFinalTalentRegister} className="space-y-4">
                 <input
                   type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+                  value={finalFullName}
+                  onChange={(e) => setFinalFullName(e.target.value)}
                   placeholder="お名前"
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  disabled={registrationLoading}
+                  disabled={finalRegistrationLoading}
                   required
                 />
                 <input
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={finalEmail}
+                  onChange={(e) => setFinalEmail(e.target.value)}
                   placeholder="メールアドレス"
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  disabled={registrationLoading}
+                  disabled={finalRegistrationLoading}
                   required
                 />
                 <input
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={finalPassword}
+                  onChange={(e) => setFinalPassword(e.target.value)}
                   placeholder="パスワード（8文字以上）"
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  disabled={registrationLoading}
+                  disabled={finalRegistrationLoading}
                   required
                 />
                 <input
                   type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  value={finalConfirmPassword}
+                  onChange={(e) => setFinalConfirmPassword(e.target.value)}
                   placeholder="パスワード（確認）"
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  disabled={registrationLoading}
+                  disabled={finalRegistrationLoading}
                   required
                 />
                 <button
                   type="submit"
-                  disabled={registrationLoading}
+                  disabled={finalRegistrationLoading}
                   className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-xl font-bold hover:shadow-xl transition-all disabled:opacity-50"
                 >
-                  {registrationLoading ? '登録中...' : '登録する'}
+                  {finalRegistrationLoading ? '登録中...' : '登録する'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setRegistrationType(null)}
-                  className="w-full text-gray-600 py-3 hover:bg-gray-100 rounded-xl transition-all"
+                  onClick={() => setFinalRegistrationType(null)}
+                  className="w-full text-gray-600 py-2 hover:bg-gray-100 rounded-xl transition-all font-semibold"
                 >
                   ← 戻る
                 </button>
@@ -1093,65 +1211,65 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* 主催者登録フォーム */}
-          {registrationType === 'organizer' && !registrationSuccess && (
+          {/* 主催者登録フォーム（Final CTA版） */}
+          {finalRegistrationType === 'organizer' && !finalRegistrationSuccess && (
             <div className="max-w-md mx-auto bg-white rounded-2xl shadow-2xl p-8 text-gray-900">
               <h3 className="text-2xl font-black mb-6 text-center">🎪 主催者新規登録</h3>
               
-              {registrationError && (
+              {finalRegistrationError && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
-                  {registrationError}
+                  {finalRegistrationError}
                 </div>
               )}
 
-              <form onSubmit={handleOrganizerRegister} className="space-y-4">
+              <form onSubmit={handleFinalOrganizerRegister} className="space-y-4">
                 <input
                   type="text"
-                  value={organizerName}
-                  onChange={(e) => setOrganizerName(e.target.value)}
+                  value={finalOrganizerName}
+                  onChange={(e) => setFinalOrganizerName(e.target.value)}
                   placeholder="団体名・事務所名"
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  disabled={registrationLoading}
+                  disabled={finalRegistrationLoading}
                   required
                 />
                 <input
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={finalEmail}
+                  onChange={(e) => setFinalEmail(e.target.value)}
                   placeholder="メールアドレス"
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  disabled={registrationLoading}
+                  disabled={finalRegistrationLoading}
                   required
                 />
                 <input
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={finalPassword}
+                  onChange={(e) => setFinalPassword(e.target.value)}
                   placeholder="パスワード（8文字以上）"
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  disabled={registrationLoading}
+                  disabled={finalRegistrationLoading}
                   required
                 />
                 <input
                   type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  value={finalConfirmPassword}
+                  onChange={(e) => setFinalConfirmPassword(e.target.value)}
                   placeholder="パスワード（確認）"
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  disabled={registrationLoading}
+                  disabled={finalRegistrationLoading}
                   required
                 />
                 <button
                   type="submit"
-                  disabled={registrationLoading}
+                  disabled={finalRegistrationLoading}
                   className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-xl font-bold hover:shadow-xl transition-all disabled:opacity-50"
                 >
-                  {registrationLoading ? '登録中...' : '登録する'}
+                  {finalRegistrationLoading ? '登録中...' : '登録する'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setRegistrationType(null)}
-                  className="w-full text-gray-600 py-3 hover:bg-gray-100 rounded-xl transition-all"
+                  onClick={() => setFinalRegistrationType(null)}
+                  className="w-full text-gray-600 py-2 hover:bg-gray-100 rounded-xl transition-all font-semibold"
                 >
                   ← 戻る
                 </button>
@@ -1159,30 +1277,30 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* 登録成功画面 */}
-          {registrationSuccess && (
+          {/* 登録成功画面（Final CTA版） */}
+          {finalRegistrationSuccess && (
             <div className="max-w-md mx-auto bg-white rounded-2xl shadow-2xl p-10 text-gray-900 text-center">
               <div className="text-6xl mb-4">✉️</div>
               <h3 className="text-2xl font-black mb-4">確認メールを送信しました</h3>
               <p className="text-gray-600 mb-6 leading-relaxed">
-                <span className="font-bold">{email}</span> に確認メールを送信しました。<br />
+                <span className="font-bold">{finalEmail}</span> に確認メールを送信しました。<br />
                 メール内のリンクをクリックして、登録を完了してください。
               </p>
-              {registrationType === 'organizer' && organizerCode && (
+              {finalRegistrationType === 'organizer' && finalOrganizerCode && (
                 <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-4 mb-6">
                   <p className="text-sm text-purple-800 font-bold mb-1">あなたの主催者コード</p>
-                  <p className="text-2xl font-black text-purple-600">{organizerCode}</p>
+                  <p className="text-2xl font-black text-purple-600">{finalOrganizerCode}</p>
                 </div>
               )}
               <button
                 onClick={() => {
-                  setRegistrationSuccess(false);
-                  setRegistrationType(null);
-                  setEmail('');
-                  setPassword('');
-                  setConfirmPassword('');
-                  setFullName('');
-                  setOrganizerName('');
+                  setFinalRegistrationSuccess(false);
+                  setFinalRegistrationType(null);
+                  setFinalEmail('');
+                  setFinalPassword('');
+                  setFinalConfirmPassword('');
+                  setFinalFullName('');
+                  setFinalOrganizerName('');
                 }}
                 className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all"
               >
@@ -1191,7 +1309,7 @@ export default function HomePage() {
             </div>
           )}
 
-          {!registrationType && !registrationSuccess && (
+          {!finalRegistrationType && !finalRegistrationSuccess && (
             <div className={`flex flex-wrap justify-center items-center gap-8 text-sm text-blue-100 transition-all duration-700 delay-600 ${isVisible['cta'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
               {[
                 { icon: Shield, text: "安心の日本製" },
@@ -1243,7 +1361,7 @@ export default function HomePage() {
             <div>
               <h3 className="font-bold mb-6 text-lg">サポート</h3>
               <ul className="space-y-3 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-all duration-300 hover:translate-x-1 inline-block">よくある質問</a></li>
+                <li><a href="faq" className="hover:text-white transition-all duration-300 hover:translate-x-1 inline-block">よくある質問</a></li>
                 <li><a href="#" className="hover:text-white transition-all duration-300 hover:translate-x-1 inline-block">お問い合わせ</a></li>
                 <li><a href="#" className="hover:text-white transition-all duration-300 hover:translate-x-1 inline-block">利用規約</a></li>
                 <li><a href="#" className="hover:text-white transition-all duration-300 hover:translate-x-1 inline-block">プライバシーポリシー</a></li>
