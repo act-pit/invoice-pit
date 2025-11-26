@@ -119,7 +119,8 @@ const handleTalentRegister = async (e: React.FormEvent) => {
         emailRedirectTo: `${window.location.origin}/auth/callback?type=talent`,
         data: { 
           full_name: fullName,
-          role: 'talent'
+          role: 'talent',
+          user_type: 'talent',
         },
       },
     });
@@ -195,6 +196,7 @@ const handleTalentRegister = async (e: React.FormEvent) => {
             role: 'organizer',
             organizer_name: organizerName,
             organizer_code: newOrganizerCode,
+            user_type: 'organizer',
           },
         },
       });
@@ -256,7 +258,8 @@ const handleFinalTalentRegister = async (e: React.FormEvent) => {
         emailRedirectTo: `${window.location.origin}/auth/callback?type=talent`,
         data: { 
           full_name: finalFullName,
-          role: 'talent'
+          role: 'talent',
+          user_type: 'talent', 
         },
       },
     });
@@ -332,6 +335,7 @@ const handleFinalTalentRegister = async (e: React.FormEvent) => {
             role: 'organizer',
             organizer_name: finalOrganizerName,
             organizer_code: newOrganizerCode,
+            user_type: 'organizer',
           },
         },
       });
@@ -572,37 +576,58 @@ const handleFinalTalentRegister = async (e: React.FormEvent) => {
                 </div>
               )}
 
-              {/* 登録成功画面（Hero版） */}
-              {registrationSuccess && (
-                <div className="bg-white rounded-2xl shadow-2xl p-8 text-center border-2 border-green-200">
-                  <div className="text-6xl mb-4">✉️</div>
-                  <h3 className="text-2xl font-black text-gray-900 mb-4">確認メールを送信しました</h3>
-                  <p className="text-gray-600 mb-6 leading-relaxed">
-                    <span className="font-bold text-blue-600">{email}</span> に確認メールを送信しました。<br />
-                    メール内のリンクをクリックして、登録を完了してください。
-                  </p>
-                  {registrationType === 'organizer' && organizerCode && (
-                    <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-4 mb-6">
-                      <p className="text-sm text-purple-800 font-bold mb-1">あなたの主催者コード</p>
-                      <p className="text-2xl font-black text-purple-600">{organizerCode}</p>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => {
-                      setRegistrationSuccess(false);
-                      setRegistrationType('talent');
-                      setEmail('');
-                      setPassword('');
-                      setConfirmPassword('');
-                      setFullName('');
-                      setOrganizerName('');
-                    }}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:shadow-xl transition-all"
-                  >
-                    トップページに戻る
-                  </button>
-                </div>
-              )}
+{/* 登録成功画面（Hero版） */}
+{registrationSuccess && (
+  <div className="bg-white rounded-2xl shadow-2xl p-8 text-center border-2 border-green-200">
+    <div className="text-6xl mb-4">✉️</div>
+    <h3 className="text-2xl font-black text-gray-900 mb-4">確認メールを送信しました</h3>
+    <p className="text-gray-600 mb-6 leading-relaxed">
+      <strong className="text-blue-600">{email}</strong> に確認メールを送信しました。
+      <br />
+      <br />
+      メール内のリンクをクリックして、登録を完了してください。
+      <br />
+      <br />
+      <span className="text-xs text-gray-500">
+        メールが届かない場合は、スパムフォルダもご確認ください。
+      </span>
+    </p>
+    {registrationType === 'organizer' && organizerCode && (
+      <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-4 mb-6">
+        <p className="text-sm text-purple-800 font-bold mb-1">あなたの主催者コード</p>
+        <p className="text-2xl font-black text-purple-600">{organizerCode}</p>
+      </div>
+    )}
+    
+    {/* ✅ 2つのボタンを追加 */}
+    <div className="space-y-3">
+      <button
+        onClick={() => {
+          const loginPath = registrationType === 'talent' ? '/talent/login' : '/organizer/login';
+          window.location.href = loginPath;
+        }}
+        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:shadow-xl transition-all"
+      >
+        ログイン画面へ
+      </button>
+      
+      <button
+        onClick={() => {
+          setRegistrationSuccess(false);
+          setRegistrationType('talent');
+          setEmail('');
+          setPassword('');
+          setConfirmPassword('');
+          setFullName('');
+          setOrganizerName('');
+        }}
+        className="w-full bg-gray-100 text-gray-700 px-8 py-2 rounded-xl font-bold hover:bg-gray-200 transition-all"
+      >
+        トップページに戻る
+      </button>
+    </div>
+  </div>
+)}
 
               {/* 注意書き */}
               {!registrationSuccess && (
@@ -1293,37 +1318,58 @@ const handleFinalTalentRegister = async (e: React.FormEvent) => {
             </div>
           )}
 
-          {/* 登録成功画面（Final CTA版） */}
-          {finalRegistrationSuccess && (
-            <div className="max-w-md mx-auto bg-white rounded-2xl shadow-2xl p-10 text-gray-900 text-center">
-              <div className="text-6xl mb-4">✉️</div>
-              <h3 className="text-2xl font-black mb-4">確認メールを送信しました</h3>
-              <p className="text-gray-600 mb-6 leading-relaxed">
-                <span className="font-bold">{finalEmail}</span> に確認メールを送信しました。<br />
-                メール内のリンクをクリックして、登録を完了してください。
-              </p>
-              {finalRegistrationType === 'organizer' && finalOrganizerCode && (
-                <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-4 mb-6">
-                  <p className="text-sm text-purple-800 font-bold mb-1">あなたの主催者コード</p>
-                  <p className="text-2xl font-black text-purple-600">{finalOrganizerCode}</p>
-                </div>
-              )}
-              <button
-                onClick={() => {
-                  setFinalRegistrationSuccess(false);
-                  setFinalRegistrationType(null);
-                  setFinalEmail('');
-                  setFinalPassword('');
-                  setFinalConfirmPassword('');
-                  setFinalFullName('');
-                  setFinalOrganizerName('');
-                }}
-                className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all"
-              >
-                トップページに戻る
-              </button>
-            </div>
-          )}
+{/* 登録成功画面（Final CTA版） */}
+{finalRegistrationSuccess && (
+  <div className="max-w-md mx-auto bg-white rounded-2xl shadow-2xl p-10 text-gray-900 text-center">
+    <div className="text-6xl mb-4">✉️</div>
+    <h3 className="text-2xl font-black mb-4">確認メールを送信しました</h3>
+    <p className="text-gray-600 mb-6 leading-relaxed">
+      <strong className="text-blue-600">{finalEmail}</strong> に確認メールを送信しました。
+      <br />
+      <br />
+      メール内のリンクをクリックして、登録を完了してください。
+      <br />
+      <br />
+      <span className="text-xs text-gray-500">
+        メールが届かない場合は、スパムフォルダもご確認ください。
+      </span>
+    </p>
+    {finalRegistrationType === 'organizer' && finalOrganizerCode && (
+      <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-4 mb-6">
+        <p className="text-sm text-purple-800 font-bold mb-1">あなたの主催者コード</p>
+        <p className="text-2xl font-black text-purple-600">{finalOrganizerCode}</p>
+      </div>
+    )}
+    
+    {/* ✅ 2つのボタンを追加 */}
+    <div className="space-y-3">
+      <button
+        onClick={() => {
+          const loginPath = finalRegistrationType === 'talent' ? '/talent/login' : '/organizer/login';
+          window.location.href = loginPath;
+        }}
+        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:shadow-xl transition-all"
+      >
+        ログイン画面へ
+      </button>
+      
+      <button
+        onClick={() => {
+          setFinalRegistrationSuccess(false);
+          setFinalRegistrationType(null);
+          setFinalEmail('');
+          setFinalPassword('');
+          setFinalConfirmPassword('');
+          setFinalFullName('');
+          setFinalOrganizerName('');
+        }}
+        className="w-full bg-gray-100 text-gray-700 px-6 py-2 rounded-xl font-bold hover:bg-gray-200 transition-all"
+      >
+        トップページに戻る
+      </button>
+    </div>
+  </div>
+)}
 
           {!finalRegistrationType && !finalRegistrationSuccess && (
             <div className={`flex flex-wrap justify-center items-center gap-8 text-sm text-blue-100 transition-all duration-700 delay-600 ${isVisible['cta'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
