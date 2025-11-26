@@ -191,7 +191,7 @@ const handleTalentRegister = async (e: React.FormEvent) => {
         email: email,
         password: password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?type=organizer`,  
           data: {
             role: 'organizer',
             organizer_name: organizerName,
@@ -330,7 +330,7 @@ const handleFinalTalentRegister = async (e: React.FormEvent) => {
         email: finalEmail,
         password: finalPassword,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?type=organizer`, 
           data: {
             role: 'organizer',
             organizer_name: finalOrganizerName,

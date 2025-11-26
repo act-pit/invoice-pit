@@ -98,7 +98,7 @@ export default function OrganizerRegisterPage() {
         email: email,
         password: password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?type=organizer`,
           data: {
             role: 'organizer',
             organizer_name: organizerName,
