@@ -103,6 +103,7 @@ export default function OrganizerRegisterPage() {
             role: 'organizer',
             organizer_name: organizerName,
             organizer_code: newOrganizerCode,
+            user_type: 'organizer', 
           },
         },
       });
@@ -176,7 +177,7 @@ if (orgInsertError) {
       // 7秒後にログインページへリダイレクト
       setTimeout(() => {
         router.push('/organizer/login');
-      }, 7000);
+      }, 15000);
     } catch (err: any) {
       console.error('💥 予期しないエラー:', err);
       setError(err.message || '予期しないエラーが発生しました。もう一度お試しください。');
@@ -205,7 +206,23 @@ if (orgInsertError) {
             {/* 成功メッセージ */}
             {success && (
               <Alert className="bg-green-50 border-green-200">
-                <AlertDescription className="text-green-800 whitespace-pre-line">{success}</AlertDescription>
+                <AlertDescription className="text-green-800 whitespace-pre-line">{success}
+                  <div className="mt-4 space-y-2">
+                    <Button 
+                      onClick={() => router.push('/organizer/login')}
+                      className="w-full bg-green-600 hover:bg-green-700"
+                    >
+                      ログイン画面へ
+                    </Button>
+                    <Button 
+                      onClick={() => router.push('/')}
+                      variant="outline"
+                      className="w-full"
+                   >
+                      トップページに戻る
+                    </Button>
+                  </div>
+                </AlertDescription>
               </Alert>
             )}
 

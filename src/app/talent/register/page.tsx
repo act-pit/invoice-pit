@@ -49,6 +49,7 @@ export default function TalentRegisterPage() {
       emailRedirectTo: `${window.location.origin}/auth/callback?type=talent`,
       data: {
         full_name: fullName,
+        user_type: 'talent',
       },
     },
   });
@@ -88,30 +89,47 @@ export default function TalentRegisterPage() {
   };
 
   if (success) {
-    return (
-      <div className="min-h-screen bg-blue-100 flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-xl border-2 border-gray-300 p-8">
-          <div className="text-center">
-            <div className="text-6xl mb-4">✉️</div>
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-              確認メールを送信しました
-            </h2>
-            <p className="text-gray-600 mb-6 text-sm leading-relaxed">
-              {email} に確認メールを送信しました。
-              <br />
-              メール内のリンクをクリックして、登録を完了してください。
-            </p>
+  return (
+    <div className="min-h-screen bg-blue-100 flex items-center justify-center px-4">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-xl border-2 border-gray-300 p-8">
+        <div className="text-center">
+          <div className="text-6xl mb-4">✉️</div>
+          <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+            確認メールを送信しました
+          </h2>
+          <p className="text-gray-600 mb-6 text-sm leading-relaxed">
+            <strong>{email}</strong> に確認メールを送信しました。
+            <br />
+            <br />
+            メール内のリンクをクリックして、登録を完了してください。
+            <br />
+            <br />
+            <span className="text-xs text-gray-500">
+              メールが届かない場合は、スパムフォルダもご確認ください。
+            </span>
+          </p>
+          
+          {/* ✅ ボタンを2つに変更 */}
+          <div className="space-y-3">
+            <button
+              onClick={() => router.push('/talent/login')}
+              className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition"
+            >
+              ログイン画面へ
+            </button>
+            
             <button
               onClick={() => router.push('/')}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition"
+              className="w-full bg-gray-100 text-gray-700 px-6 py-2 rounded-lg font-medium hover:bg-gray-200 transition"
             >
               トップページに戻る
             </button>
           </div>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   return (
     <div className="min-h-screen bg-blue-100 flex items-center justify-center px-4">
