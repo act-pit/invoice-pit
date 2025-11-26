@@ -31,15 +31,19 @@ export async function GET(request: NextRequest) {
     
     // コードをセッションに交換
     await supabase.auth.exchangeCodeForSession(code);
-  }
-
-  // タイプに応じてリダイレクト
-  if (type === 'talent') {
-    return NextResponse.redirect(new URL('/talent/dashboard', request.url));
-  }
-  
-  if (type === 'organizer') {
-    return NextResponse.redirect(new URL('/organizer/dashboard', request.url));
+    
+    // ✅ user_metadataからuser_typeを取得（typeパラメータがない場合のフォールバック）
+    const { data: { user } } = await supabase.auth.getUser();
+    const userType = type || user?.user_metadata?.user_type;
+    
+    // ✅ user_typeに応じてログイン画面にリダイレクト
+    if (userType === 'talent') {
+      return NextResponse.redirect(new URL('/talent/login', request.url));
+    }
+    
+    if (userType === 'organizer') {
+      return NextResponse.redirect(new URL('/organizer/login', request.url));
+    }
   }
 
   // タイプが不明な場合はトップページへ
