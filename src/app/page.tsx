@@ -1026,7 +1026,7 @@ const handleFinalTalentRegister = async (e: React.FormEvent) => {
                         {/* アドバンス */}
                         <div className="bg-purple-50 rounded-lg p-3 border-2 border-purple-300">
                           <div className="inline-block bg-purple-500 text-white px-2 py-1 rounded text-xs font-bold mb-2">
-                            人気
+                            おすすめ
                           </div>
                           <div className="flex justify-between items-baseline mb-2">
                             <span className="font-black text-purple-600">アドバンス</span>
