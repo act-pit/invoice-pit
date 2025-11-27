@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -63,13 +63,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const isInitializedRef = useRef(false); // ← 追加
 
   const determineUserType = async (userId: string): Promise<UserProfile> => {
     try {
       console.log('🔵 determineUserType: 開始', userId);
       
       const timeoutPromise = new Promise<UserProfile>((_, reject) => 
-        setTimeout(() => reject(new Error('UserType判定タイムアウト')), 10000)
+        setTimeout(() => reject(new Error('UserType判定タイムアウト')), 3000) // ← 3秒に短縮
       );
 
       const checkUserType = async (): Promise<UserProfile> => {
@@ -117,7 +118,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const supabase = createClient();
 
-    // ✅ 修正: 初期化処理を先に実行
     const init = async () => {
       try {
         console.log('🔵 AuthContext: 初期化開始');
@@ -139,6 +139,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(userProfile);
           setUserType(userProfile?.type || null);
         }
+        
+        isInitializedRef.current = true; // ← 初期化完了フラグを立てる
       } catch (error) {
         console.error('🔴 AuthContext: 初期化エラー:', error);
       } finally {
@@ -149,10 +151,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     init();
 
-    // ✅ 修正: isInitializedフラグを削除し、常に処理
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('🔵 AuthContext: 認証状態変更:', event);
+        
+        // ← 初回のSIGNED_INイベントをスキップ
+        if (!isInitializedRef.current && event === 'SIGNED_IN') {
+          console.log('⏭️ AuthContext: 初回SIGNED_INをスキップ');
+          return;
+        }
         
         setSession(session);
         setUser(session?.user ?? null);
