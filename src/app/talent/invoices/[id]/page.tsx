@@ -528,7 +528,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
                     <span><span className="font-semibold">支店名：</span>{profile.branch_name || profile.bank_branch}</span>
                     )}
                     {profile.account_type && (
-                     <span><span className="font-semibold">口座種別：</span>{profile.account_type === '普通預金' ? '普通預金' : '当座預金'}</span>
+                     <span><span className="font-semibold">口座種別：</span>{profile.account_type === '普通' ? '普通預金' : '当座預金'}</span>
                     )}
                     {profile.account_number && (
                     <span><span className="font-semibold">口座番号：</span>{profile.account_number}</span>
@@ -549,7 +549,7 @@ export default function InvoicePrintPage({ params }: { params: Promise<{ id: str
                     <><span className="font-semibold">支店名：</span>{profile.branch_name || profile.bank_branch}　</>
                     )}
                     {profile.account_type && (
-                    <><span className="font-semibold">口座種別：</span>{profile.account_type === '普通預金' ? '普通預金' : '当座預金'}</>
+                    <><span className="font-semibold">口座種別：</span>{profile.account_type === '普通' ? '普通預金' : '当座預金'}</>
                     )}
                     </p>
                     <p>

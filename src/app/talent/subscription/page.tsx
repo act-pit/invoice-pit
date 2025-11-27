@@ -330,45 +330,49 @@ const handleCancel = async () => {
             </div>
           </div>
 
-          {/* 利用状況 */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">利用状況</h2>
-            
-            {isFree && (
-              <>
-                {/* トライアル期間 */}
-                <div className="mb-6">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-gray-700">トライアル期間</span>
-                    <span className="text-sm font-bold text-blue-600">残り {daysRemaining} 日</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-green-600 h-2 rounded-full transition-all"
-                      style={{ width: `${Math.min(100, ((90 - daysRemaining) / 90) * 100)}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    3ヶ月の無料トライアル期間中です
-                  </p>
-                </div>
+{/* 利用状況 */}
+<div className="bg-white rounded-lg shadow-md p-6 mb-6">
+  <h2 className="text-xl font-bold text-gray-900 mb-4">利用状況</h2>  
+  {isFree && (
+    <>
 
-                {/* 請求書送信可能数 */}
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-gray-700">請求書送信可能数</span>
-                    <span className="text-sm font-bold text-blue-600">残り {invoicesRemaining} 通</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-green-600 h-2 rounded-full transition-all"
-                    style={{ width: `${Math.min(100, ((90 - daysRemaining) / 90) * 100)}%` }}
-                   ></div>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    フリープランは3通まで送信可能です（使用済み: {subscription.invoice_count}通）
-                  </p>
-                </div>
+{/* トライアル期間 */}
+<div className="mb-6">
+  <div className="flex justify-between items-center mb-2">
+    <span className="text-sm font-medium text-gray-700">トライアル期間</span>
+    <span className="text-sm font-bold text-blue-600">残り {daysRemaining} 日</span>
+  </div>
+  <div className="w-full bg-gray-200 rounded-full h-2">
+    <div
+      className="bg-green-600 h-2 rounded-full transition-all"
+      style={{ 
+        width: `${Math.max(0, Math.min(100, (1 - (daysRemaining / 92)) * 100))}%` 
+      }}
+    ></div>
+  </div>
+  <p className="text-xs text-gray-500 mt-1">
+    3ヶ月の無料トライアル期間中です
+  </p>
+</div>
+
+
+{/* 請求書送信可能数 */}
+<div>
+  <div className="flex justify-between items-center mb-2">
+    <span className="text-sm font-medium text-gray-700">請求書送信可能数</span>
+    <span className="text-sm font-bold text-blue-600">残り {invoicesRemaining} 通</span>
+  </div>
+  <div className="w-full bg-gray-200 rounded-full h-2">
+    <div
+      className="bg-green-600 h-2 rounded-full transition-all"
+      style={{ width: `${Math.min(100, ((3 - invoicesRemaining) / 3) * 100)}%` }}
+    ></div>
+  </div>
+  <p className="text-xs text-gray-500 mt-1">
+    フリープランは3通まで送信可能です（使用済み: {subscription.invoice_count}通）
+  </p>
+</div>
+
               </>
             )}
 

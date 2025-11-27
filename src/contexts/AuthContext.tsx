@@ -44,17 +44,15 @@ type UserProfile =
   | { type: 'organizer'; data: OrganizerData }
   | null;
 
-
 type AuthContextType = {
   user: User | null;
   session: Session | null;
   userType: UserType;
-  profile: UserProfile;  // ← 追加
+  profile: UserProfile;
   loading: boolean;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
 };
-
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -64,127 +62,115 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userType, setUserType] = useState<UserType>(null);
   const [profile, setProfile] = useState<UserProfile>(null);
   const [loading, setLoading] = useState(true);
-  const [isInitialized, setIsInitialized] = useState(false);
   const router = useRouter();
+
+  const determineUserType = async (userId: string): Promise<UserProfile> => {
+    try {
+      console.log('🔵 determineUserType: 開始', userId);
+      
+      const timeoutPromise = new Promise<UserProfile>((_, reject) => 
+        setTimeout(() => reject(new Error('UserType判定タイムアウト')), 10000)
+      );
+
+      const checkUserType = async (): Promise<UserProfile> => {
+        const supabase = createClient();
+        
+        const { data: talentData, error: talentError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+
+        console.log('🔵 profiles結果:', talentData, talentError);
+
+        if (talentData) {
+          console.log('✅ タレント確認成功:', talentData.full_name);
+          return { type: 'talent', data: talentData };
+        }
+
+        const { data: organizerData, error: organizerError } = await supabase
+          .from('organizers')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+
+        console.log('🔵 organizers結果:', organizerData, organizerError);
+
+        if (organizerData) {
+          console.log('✅ 主催者確認成功:', organizerData.company_name || organizerData.name);
+          return { type: 'organizer', data: organizerData };
+        }
+
+        return null;
+      };
+
+      const result = await Promise.race([checkUserType(), timeoutPromise]);
+      console.log('🟢 determineUserType: 完了', result);
+      return result;
+
+    } catch (error) {
+      console.error('🔴 determineUserType: エラー', error);
+      return null;
+    }
+  };
 
   useEffect(() => {
     const supabase = createClient();
 
-    const determineUserType = async (userId: string): Promise<UserProfile> => {
-  try {
-    console.log('🔵 determineUserType: 開始', userId);
-    
-    // タイムアウト設定（10秒）
-    const timeoutPromise = new Promise<UserProfile>((_, reject) => 
-      setTimeout(() => reject(new Error('UserType判定タイムアウト')), 10000)
-    );
-
-    const checkUserType = async (): Promise<UserProfile> => {
-      const { data: talentData, error: talentError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      console.log('🔵 profiles結果:', talentData, talentError);
-
-      if (talentData) {
-        console.log('✅ タレント確認成功:', talentData.full_name);
-        return { type: 'talent', data: talentData };
-      }
-
-      const { data: organizerData, error: organizerError } = await supabase
-        .from('organizers')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      console.log('🔵 organizers結果:', organizerData, organizerError);
-
-      if (organizerData) {
-        console.log('✅ 主催者確認成功:', organizerData.company_name || organizerData.name);
-        return { type: 'organizer', data: organizerData };
-      }
-
-      return null;
-    };
-
-    const result = await Promise.race([checkUserType(), timeoutPromise]);
-    console.log('🟢 determineUserType: 完了', result);
-    return result;
-
-  } catch (error) {
-    console.error('🔴 determineUserType: エラー', error);
-    return null;
-  }
-};
-
-
+    // ✅ 修正: 初期化処理を先に実行
     const init = async () => {
-  try {
-    console.log('🔵 AuthContext: 初期化開始');
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
-    if (error) {
-      console.error('🔴 AuthContext: セッション取得エラー:', error);
-      setLoading(false);
-      setIsInitialized(true);  // ← 追加
-      return;
-    }
+      try {
+        console.log('🔵 AuthContext: 初期化開始');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('🔴 AuthContext: セッション取得エラー:', error);
+          setLoading(false);
+          return;
+        }
 
-    console.log('🔵 AuthContext: セッション取得完了', session ? 'あり' : 'なし');
-    setSession(session);
-    setUser(session?.user ?? null);
+        console.log('🔵 AuthContext: セッション取得完了', session ? 'あり' : 'なし');
+        setSession(session);
+        setUser(session?.user ?? null);
 
-    if (session?.user) {
-      const userProfile = await determineUserType(session.user.id);
-      console.log('🔵 AuthContext: ユーザープロフィール:', userProfile);
-      setProfile(userProfile);
-      setUserType(userProfile?.type || null);
-    }
-  } catch (error) {
-    console.error('🔴 AuthContext: 初期化エラー:', error);
-  } finally {
-    console.log('🟢 AuthContext: 初期化完了、loading=false');
-    setLoading(false);
-    setIsInitialized(true);  // ← 追加
-  }
-};
-
-
+        if (session?.user) {
+          const userProfile = await determineUserType(session.user.id);
+          console.log('🔵 AuthContext: ユーザープロフィール:', userProfile);
+          setProfile(userProfile);
+          setUserType(userProfile?.type || null);
+        }
+      } catch (error) {
+        console.error('🔴 AuthContext: 初期化エラー:', error);
+      } finally {
+        console.log('🟢 AuthContext: 初期化完了、loading=false');
+        setLoading(false);
+      }
+    };
 
     init();
 
+    // ✅ 修正: isInitializedフラグを削除し、常に処理
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-  async (event, session) => {
-    console.log('🔵 AuthContext: 認証状態変更:', event);
-    
-    // 初期化中のSIGNED_INイベントはスキップ
-    if (event === 'SIGNED_IN' && !isInitialized) {
-      console.log('🔵 AuthContext: 初期化中のSIGNED_INイベントはスキップ');
-      return;
-    }
-    
-    setSession(session);
-    setUser(session?.user ?? null);
+      async (event, session) => {
+        console.log('🔵 AuthContext: 認証状態変更:', event);
+        
+        setSession(session);
+        setUser(session?.user ?? null);
 
-    if (session?.user) {
+        if (session?.user) {
+          console.log('🔵 AuthContext: プロフィール取得開始');
+          const userProfile = await determineUserType(session.user.id);
+          setProfile(userProfile);
+          setUserType(userProfile?.type || null);
+          console.log('✅ AuthContext: プロフィール取得完了');
+        } else {
+          setProfile(null);
+          setUserType(null);
+        }
 
-      console.log('🔵 AuthContext: プロフィール取得開始');
-      const userProfile = await determineUserType(session.user.id);
-      setProfile(userProfile);
-      setUserType(userProfile?.type || null);
-      console.log('✅ AuthContext: プロフィール取得完了');
-    } else {
-      setProfile(null);
-      setUserType(null);
-    }
-
-    setLoading(false);
-  }
-);
-
-
+        setLoading(false);
+      }
+    );
 
     return () => {
       console.log('🔵 AuthContext: クリーンアップ');
@@ -198,7 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setSession(null);
     setUserType(null);
-    setProfile(null); 
+    setProfile(null);
     router.push('/');
   };
 
@@ -209,7 +195,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(session?.user ?? null);
     
     if (session?.user) {
-      setUserType('talent'); // 簡略化
+      const userProfile = await determineUserType(session.user.id);
+      setProfile(userProfile);
+      setUserType(userProfile?.type || null);
     }
   };
 
@@ -219,7 +207,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         session,
         userType,
-        profile, 
+        profile,
         loading,
         signOut,
         refreshSession,

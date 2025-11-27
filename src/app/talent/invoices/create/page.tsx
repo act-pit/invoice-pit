@@ -18,7 +18,7 @@ type Subscription = Database['public']['Tables']['subscriptions']['Row'];
 
 interface InvoiceItem {
   name: string;
-  quantity: number;
+  quantity: number | ''; 
   amount: number;
   category: string;
   isTaxIncluded: boolean;
@@ -310,98 +310,106 @@ useEffect(() => {
   setShowPreviewModal(true);
 };
 
-  const handleConfirmCreate = async () => {
-    setLoading(true);
-    setMessage('');
-    setShowPreviewModal(false);
+const handleConfirmCreate = async () => {
+  setLoading(true);
+  setMessage('');
+  setShowPreviewModal(false);
 
-    try {
-      const subtotal = calculateSubtotal();
-      const tax = calculateTax();
-      const withholdingTotal = calculateWithholdingTotal();
-      const total = calculateTotal();
-      const invoiceNumber = generateInvoiceNumber();
+  try {
+    // ✅ 追加: Supabaseから直接ユーザーを取得
+    const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !currentUser) {
+      throw new Error('ユーザー情報を取得できませんでした。再度ログインしてください。');
+    }
+    // ✅ ここまで追加
 
-      const { data: invoiceData, error: invoiceError } = await supabase
-        .from('invoices')
+    const subtotal = calculateSubtotal();
+    const tax = calculateTax();
+    const withholdingTotal = calculateWithholdingTotal();
+    const total = calculateTotal();
+    const invoiceNumber = generateInvoiceNumber();
+
+    const { data: invoiceData, error: invoiceError } = await supabase
+      .from('invoices')
+      .insert({
+        user_id: currentUser.id,  // ✅ 変更: user!.id → currentUser.id
+        invoice_number: invoiceNumber,
+        work_date: workDate || new Date().toISOString().split('T')[0],
+        payment_due_date: paymentDueDate || (() => {
+          const invoiceDate = new Date(workDate || new Date());
+          const year = invoiceDate.getFullYear();
+          const month = invoiceDate.getMonth() + 1;
+          const lastDay = new Date(year, month + 1, 0);
+          return lastDay.toISOString().split('T')[0];
+        })(),
+        recipient_name: recipientName || null,
+        recipient_address: recipientAddress || null,
+        notes: notes || null,
+        items: items as any,
+        subtotal: subtotal,
+        tax_amount: tax,
+        withholding: withholdingTotal,
+        total_amount: total,
+        payment_status: 'unpaid',
+        organizer_id: verifiedOrganizer?.id || null,
+      })
+      .select()
+      .single();
+
+    if (invoiceError) throw invoiceError;
+
+    // すべてのユーザーでカウント更新
+    await supabase
+      .from('subscriptions')
+      .update({ invoice_count: (subscription?.invoice_count || 0) + 1 })
+      .eq('user_id', currentUser.id)  // ✅ 変更: user!.id → currentUser.id
+      .eq('user_type', 'talent');
+
+    // 主催者への送信
+    if (verifiedOrganizer && invoiceData) {
+      const { error: orgInvoiceError } = await supabase
+        .from('organizer_invoices')
         .insert({
-          user_id: user!.id,
+          organizer_id: verifiedOrganizer.id,
+          invoice_id: invoiceData.id,
           invoice_number: invoiceNumber,
+          cast_name: profile?.full_name || currentUser.email || '',  // ✅ 変更: user!.email → currentUser.email
+          cast_email: currentUser.email || '',  // ✅ 変更: user!.email → currentUser.email
+          subject: subject || null,
           work_date: workDate || new Date().toISOString().split('T')[0],
-          payment_due_date: paymentDueDate || (() => {
-            const invoiceDate = new Date(workDate || new Date());
-            const year = invoiceDate.getFullYear();
-            const month = invoiceDate.getMonth() + 1;
-            const lastDay = new Date(year, month + 1, 0);
-            return lastDay.toISOString().split('T')[0];
-          })(),
-          recipient_name: recipientName || null,
-          recipient_address: recipientAddress || null,
-          notes: notes || null,
+          payment_due_date: paymentDueDate || new Date().toISOString().split('T')[0],
           items: items as any,
           subtotal: subtotal,
-          tax_amount: tax,
+          tax: tax,
           withholding: withholdingTotal,
-          total_amount: total,
-          payment_status: 'unpaid',
-          organizer_id: verifiedOrganizer?.id || null,
-        })
-        .select()
-        .single();
+          total: total,
+          bank_name: profile?.bank_name || null,
+          branch_name: profile?.branch_name || null,
+          account_type: profile?.account_type || null,
+          account_number: profile?.account_number || null,
+          account_holder: profile?.account_holder || null,
+          invoice_reg_number: profile?.invoice_reg_number || null,
+          status: 'pending',
+        });
 
-      if (invoiceError) throw invoiceError;
-
-      // 【修正後】すべてのユーザーでカウント更新
-  await supabase
-  .from('subscriptions')
-  .update({ invoice_count: (subscription?.invoice_count || 0) + 1 })
-  .eq('user_id', user!.id)
-  .eq('user_type', 'talent');
-
-      // 主催者への送信
-  if (verifiedOrganizer && invoiceData) {
-  const { error: orgInvoiceError } = await supabase
-    .from('organizer_invoices')
-    .insert({
-      organizer_id: verifiedOrganizer.id,
-      invoice_id: invoiceData.id,
-      invoice_number: invoiceNumber,
-      cast_name: profile?.full_name || user!.email || '',
-      cast_email: user!.email || '',
-      subject: subject || null,
-      work_date: workDate || new Date().toISOString().split('T')[0],
-      payment_due_date: paymentDueDate || new Date().toISOString().split('T')[0],
-      items: items as any,
-      subtotal: subtotal,
-      tax: tax,
-      withholding: withholdingTotal,
-      total: total,
-      bank_name: profile?.bank_name || null,
-      branch_name: profile?.branch_name || null,
-      account_type: profile?.account_type || null,
-      account_number: profile?.account_number || null,
-      account_holder: profile?.account_holder || null,
-      invoice_reg_number: profile?.invoice_reg_number || null,
-      status: 'pending',
-    });
-
-    if (orgInvoiceError) throw orgInvoiceError;
-  }
-
-
-      setMessage(verifiedOrganizer 
-        ? '請求書を作成し、主催者に送信しました！'
-        : '請求書を作成しました！');
-      
-      setTimeout(() => {
-        router.push('/talent/invoices');
-      }, 1500);
-    } catch (error: any) {
-      console.error('作成エラー:', error);
-      setMessage('作成に失敗しました: ' + error.message);
-      setLoading(false);
+      if (orgInvoiceError) throw orgInvoiceError;
     }
-  };
+
+    setMessage(verifiedOrganizer 
+      ? '請求書を作成し、主催者に送信しました！'
+      : '請求書を作成しました！');
+    
+    setTimeout(() => {
+      router.push('/talent/invoices');
+    }, 1500);
+  } catch (error: any) {
+    console.error('作成エラー:', error);
+    setMessage('作成に失敗しました: ' + error.message);
+    setLoading(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -689,15 +697,26 @@ useEffect(() => {
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">個数</label>
-                      <input
-                        type="number"
-                        value={item.quantity || ''}
-                        onChange={(e) => updateItem(index, 'quantity', Number(e.target.value) || 1)}
-                        placeholder="1"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        step="1"
-                        required
-                      />
+                        <input
+                          type="number"
+                          value={item.quantity === '' ? '' : item.quantity}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '') {
+                              // 空文字を許可（削除可能にする）
+                              updateItem(index, 'quantity', '');
+                            } else {
+                              // 数値に変換
+                              const num = Number(value);
+                              // 正の数なら設定、0以下なら空にする
+                              updateItem(index, 'quantity', num > 0 ? num : '');
+                            }
+                          }}
+                          placeholder="1"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          step="1"
+                          required
+                        />
                     </div>
 
                     <div className="col-span-2 space-y-2">

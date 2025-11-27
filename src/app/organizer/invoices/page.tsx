@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext'; // ← コメント解除
-import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Organizer, OrganizerInvoice } from '@/types/database';
@@ -17,8 +15,11 @@ function ReturnStatusBadge({ invoiceId }: { invoiceId: string }) {
   useEffect(() => {
     const fetchReturnStatus = async () => {
       try {
+        const supabase = createClient();  // ← この行を追加
+        
         const { data, error } = await supabase
           .from('invoices')
+
           .select('return_status')
           .eq('id', invoiceId)
           .single();
@@ -54,12 +55,13 @@ function ReturnStatusBadge({ invoiceId }: { invoiceId: string }) {
   );
 }
 
-export default function OrganizerDashboardPage() {
-  const { user, loading: authLoading, signOut } = useAuth();
+export default function OrganizerInvoicesPage() {
   const router = useRouter();
   
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [organizer, setOrganizer] = useState<Organizer | null>(null);
+
   const [invoices, setInvoices] = useState<OrganizerInvoice[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<OrganizerInvoice | null>(null);
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
@@ -81,79 +83,130 @@ export default function OrganizerDashboardPage() {
   });
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/organizer/login');
-    } else if (user) {
-      loadData();
-    }
-  }, [user, authLoading, router]);
-
-
-  const loadData = async () => {
+  const supabase = createClient();
+  
+  const checkUser = async () => {
     try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      if (error || !user) {
+        router.push('/organizer/login');
+        return;
+      }
+      
+      setUser(user);
+      
+      // 主催者データ取得
       const { data: organizerData, error: organizerError } = await supabase
         .from('organizers')
         .select('*')
-        .eq('id', user!.id)
+        .eq('id', user.id)
         .single();
 
       if (organizerError) {
-        if (organizerError.code === 'PGRST116') {
-          router.push('/organizer/register');
-          return;
-        }
-        throw organizerError;
+        console.error('主催者データ取得エラー:', organizerError);
+        router.push('/organizer/login');
+        return;
       }
 
       setOrganizer(organizerData);
-
-      const { data: invoicesData, error: invoicesError } = await supabase
-        .from('organizer_invoices')
-        .select('*')
-        .eq('organizer_id', organizerData.id)
-        .order('created_at', { ascending: false });
-
-      if (invoicesError) throw invoicesError;
-
-      setInvoices(invoicesData || []);
-
-      const pending = invoicesData?.filter(inv => inv.status === 'pending').length || 0;
-      const approved = invoicesData?.filter(inv => inv.status === 'approved').length || 0;
-      const paid = invoicesData?.filter(inv => inv.status === 'paid').length || 0;
-      const returned = invoicesData?.filter(inv => inv.status === 'returned').length || 0;
-      const totalAmount = invoicesData?.reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
-
-      setStats({ pending, approved, paid, totalAmount, returned });
-
-    } catch (error: any) {
-      console.error('データ読み込みエラー:', error);
-      alert('データの読み込みに失敗しました');
+      
+      // 請求書データ取得
+      loadInvoiceData(organizerData.id);
+      
+    } catch (error) {
+      console.error('エラー:', error);
+      router.push('/organizer/login');
     } finally {
       setLoading(false);
     }
   };
 
-  const updateInvoiceStatus = async (invoiceId: string, newStatus: 'approved' | 'paid') => {
-    try {
-      const updateData: any = { status: newStatus };
-      if (newStatus === 'approved') {
-        updateData.approved_at = new Date().toISOString();
-      } else if (newStatus === 'paid') {
-        updateData.paid_at = new Date().toISOString();
-      }
+  checkUser();
+}, [router]);
 
-      const { data: orgInvoice, error: orgError } = await supabase
+
+  const loadInvoiceData = async (organizerId: string) => {
+  try {
+    const supabase = createClient();
+    
+    console.log('📄 請求書取得中...');
+    const { data: invoicesData, error: invoicesError } = await supabase
+
+      .from('organizer_invoices')
+      .select('*')
+      .eq('organizer_id', organizerId)
+      .order('created_at', { ascending: false });
+
+    if (invoicesError) {
+      console.error('❌ 請求書取得エラー:', invoicesError);
+      throw invoicesError;
+    }
+
+    console.log('✅ 請求書取得成功:', invoicesData?.length || 0, '件');
+    setInvoices(invoicesData || []);
+
+    // 統計計算
+    const pending = invoicesData?.filter(inv => inv.status === 'pending').length || 0;
+    const approved = invoicesData?.filter(inv => inv.status === 'approved').length || 0;
+    const paid = invoicesData?.filter(inv => inv.status === 'paid').length || 0;
+    const returned = invoicesData?.filter(inv => inv.status === 'returned').length || 0;
+    const totalAmount = invoicesData?.reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
+
+    setStats({ pending, approved, paid, totalAmount, returned });
+    console.log('📊 統計計算完了:', { pending, approved, paid, returned, totalAmount });
+
+  } catch (error: any) {
+    console.error('❌ データ読み込みエラー:', error);
+    alert('データの読み込みに失敗しました: ' + error.message);
+  } finally {
+    setLoading(false);
+    console.log('✅ loadData完了');
+  }
+};
+
+
+  const updateInvoiceStatus = async (invoiceId: string, newStatus: 'approved' | 'paid') => {
+  if (!organizer) {
+    console.error('❌ 主催者データなし');
+    return;
+  }
+
+  try {
+    const supabase = createClient();
+
+    
+    console.log('🔄 ステータス更新開始:', { invoiceId, newStatus });
+    
+    const updateData: any = { status: newStatus };
+    if (newStatus === 'approved') {
+      updateData.approved_at = new Date().toISOString();
+    } else if (newStatus === 'paid') {
+      updateData.paid_at = new Date().toISOString();
+    }
+
+    const { data: orgInvoice, error: orgError } = await supabase
+
         .from('organizer_invoices')
         .update(updateData)
         .eq('id', invoiceId)
         .select('invoice_id')
         .single();
 
-      if (orgError) throw orgError;
+          if (orgError) {
+      console.error('❌ 更新エラー:', orgError);
+      throw orgError;
+    }
 
-      if (newStatus === 'paid' && orgInvoice.invoice_id) {
-        const { error: invoiceError } = await supabase
-          .from('invoices')
+    console.log('✅ organizer_invoices更新成功');
+
+    // 支払済みの場合、タレント側も更新
+    if (newStatus === 'paid' && orgInvoice.invoice_id) {
+      console.log('🔄 タレント側も更新中...');
+      
+      const { error: invoiceError } = await supabase
+        .from('invoices')
+
           .update({
             status: 'paid',
             payment_status: 'paid',
@@ -167,37 +220,51 @@ export default function OrganizerDashboardPage() {
         }
       }
 
-      loadData();
-      alert('ステータスを更新しました');
-    } catch (error: any) {
-      console.error('ステータス更新エラー:', error);
-      alert('更新に失敗しました');
-    }
-  };
+        await loadInvoiceData(organizer.id);
+        alert('ステータスを更新しました');
+
+    
+  } catch (error: any) {
+    console.error('❌ ステータス更新エラー:', error);
+    alert('更新に失敗しました: ' + error.message);
+  }
+};
+
 
   const handleReturn = async () => {
-    if (!returnComment.trim()) {
-      alert('差し戻し理由を入力してください');
-      return;
-    }
+  if (!returnComment.trim()) {
+    alert('差し戻し理由を入力してください');
+    return;
+  }
 
-    if (!returningInvoiceId) return;
+  if (!returningInvoiceId) return;
+  
+  if (!organizer) {
+    console.error('❌ 主催者データなし');
+    return;
+  }
 
-    setIsSubmitting(true);
+  setIsSubmitting(true);
 
-    try {
-      console.log('🔄 差し戻し開始 - returningInvoiceId:', returningInvoiceId);
-      
-      const { data: orgInvoiceData, error: fetchError } = await supabase
+
+  try {
+    const supabase = createClient();  // ← この行を追加
+    
+    console.log('🔄 差し戻し開始 - returningInvoiceId:', returningInvoiceId);
+    
+    const { data: orgInvoiceData, error: fetchError } = await supabase
+
         .from('organizer_invoices')
         .select('invoice_id, status')
         .eq('id', returningInvoiceId)
         .single();
 
-      console.log('📊 organizer_invoices データ:', orgInvoiceData);
-      console.log('❌ エラー:', fetchError);
+          console.log('📊 organizer_invoices データ:', orgInvoiceData);
+    if (fetchError) {
+      console.error('❌ 取得エラー:', fetchError);
+      throw fetchError;
+    }
 
-      if (fetchError) throw fetchError;
       
       if (!orgInvoiceData.invoice_id) {
         alert('関連する請求書が見つかりません');
@@ -233,22 +300,29 @@ export default function OrganizerDashboardPage() {
 
       if (orgError) throw orgError;
 
-      setIsReturnModalOpen(false);
-      setReturnComment('');
-      setReturningInvoiceId(null);
-      await loadData();
-      setRefreshKey(prev => prev + 1);
+          setIsReturnModalOpen(false);
+    setReturnComment('');
+    setReturningInvoiceId(null);
+    await loadInvoiceData(organizer.id);
+    setRefreshKey(prev => prev + 1);
 
-      alert('差し戻しが完了しました');
+    alert('差し戻しが完了しました');
 
-    } catch (error) {
-      console.error('差し戻しに失敗:', error);
-      alert('差し戻しに失敗しました');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-  
+
+      } catch (error) {
+    console.error('❌ 差し戻しに失敗:', error);
+    alert('差し戻しに失敗しました: ' + (error as Error).message);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
+const handleSignOut = async () => {
+  const supabase = createClient();
+  await supabase.auth.signOut();
+  router.push('/organizer/login');
+};
+
   const exportToCSV = () => {
     if (invoices.length === 0) {
       alert('エクスポートする請求書がありません');
@@ -319,20 +393,16 @@ export default function OrganizerDashboardPage() {
     return true;
   });
 
-  if (authLoading || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">読み込み中...</p>
-        </div>
+  if (loading) {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+        <p className="mt-4 text-gray-600">読み込み中...</p>
       </div>
-    );
-  }
-
-  if (!user || !organizer) {
-    return null;
-  }
+    </div>
+  );
+}
 
   return (
     <>
@@ -344,12 +414,13 @@ export default function OrganizerDashboardPage() {
             <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-4 flex justify-between items-center">
               <h1 className="text-lg sm:text-2xl font-bold text-green-600">請求書ぴっと - 主催者</h1>
               <div className="flex items-center gap-2 sm:gap-4">
-                <span className="text-xs sm:text-sm text-gray-900">{organizer.name}</span>
-                <Button onClick={signOut} variant="outline" size="sm" className="text-xs sm:text-sm">
-                  ログアウト
-                </Button>
+  <span className="text-xs sm:text-sm text-gray-900">{organizer?.name || organizer?.company_name}</span>
+  <Button onClick={handleSignOut} variant="outline" size="sm" className="text-xs sm:text-sm">
+    ログアウト
+  </Button>
+</div>
 
-              </div>
+
             </div>
           </header>
 
@@ -388,19 +459,22 @@ export default function OrganizerDashboardPage() {
                 <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
                   <div className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-600 rounded-lg px-4 sm:px-6 py-3 sm:py-4">
                     <p className="text-2xl sm:text-3xl font-bold text-green-600 tracking-wider">
-                      {organizer.organizer_code}
-                    </p>
+  {organizer?.organizer_code}
+</p>
+
                   </div>
                   <Button
                     variant="outline"
                     size="sm"
                     className="text-xs sm:text-sm border-2 border-green-400"
                     onClick={() => {
-                      if (organizer.organizer_code) {
-                        navigator.clipboard.writeText(organizer.organizer_code);
-                        alert('コードをコピーしました！');
-                      }
-                    }}
+  if (organizer?.organizer_code) {
+    navigator.clipboard.writeText(organizer.organizer_code);
+    alert('コードをコピーしました！');
+  }
+}}
+
+
                   >
                     📋 コピー
                   </Button>

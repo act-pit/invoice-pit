@@ -16,7 +16,7 @@ type Organizer = Database['public']['Tables']['organizers']['Row'];
 
 interface InvoiceItem {
   name: string;
-  quantity: number;
+  quantity: number | '';
   amount: number;
   category: string;
   isTaxIncluded: boolean;
@@ -581,15 +581,26 @@ const loadInvoiceData = async () => {
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">個数</label>
-                      <input
-                        type="number"
-                        value={item.quantity || ''}
-                        onChange={(e) => updateItem(index, 'quantity', Number(e.target.value) || 1)}
-                        placeholder="1"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        step="1"
-                        required
-                      />
+                        <input
+                          type="number"
+                          value={item.quantity === '' ? '' : item.quantity}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '') {
+                              // 空文字を許可（削除可能にする）
+                              updateItem(index, 'quantity', '');
+                            } else {
+                              // 数値に変換
+                              const num = Number(value);
+                              // 正の数なら設定、0以下なら空にする
+                              updateItem(index, 'quantity', num > 0 ? num : '');
+                            }
+                          }}
+                          placeholder="1"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          step="1"
+                          required
+                        />
                     </div>
 
                     <div className="col-span-2 space-y-2">
