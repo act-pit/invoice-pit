@@ -8,6 +8,44 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import type { Organizer, OrganizerInvoice } from '@/types/database';
 import { canUseFeature } from '@/utils/subscription'
 
+// ✅ 追加: 支払期日までの日数を計算する関数
+function getDaysUntilDue(dueDate: string | null): number | null {
+  if (!dueDate) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dueDate);
+  due.setHours(0, 0, 0, 0);
+  const diffTime = due.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+}
+
+// ✅ 追加: 期日バッジのスタイルと文言を返す関数
+function getDueDateBadge(daysUntil: number | null) {
+  if (daysUntil === null) return null;
+  
+  if (daysUntil < 0) {
+    return {
+      text: `期日超過（${Math.abs(daysUntil)}日）`,
+      className: 'bg-red-100 text-red-700 border border-red-300',
+      icon: '🔴'
+    };
+  } else if (daysUntil === 0) {
+    return {
+      text: '本日期限',
+      className: 'bg-orange-100 text-orange-700 border border-orange-300',
+      icon: '🟠'
+    };
+  } else if (daysUntil <= 3) {
+    return {
+      text: `残り${daysUntil}日`,
+      className: 'bg-yellow-100 text-yellow-700 border border-yellow-300',
+      icon: '🟡'
+    };
+  }
+  
+  return null;
+}
 
 // 差し戻しステータス表示コンポーネント
 function ReturnStatusBadge({ invoiceId }: { invoiceId: string }) {
@@ -17,11 +55,10 @@ function ReturnStatusBadge({ invoiceId }: { invoiceId: string }) {
   useEffect(() => {
     const fetchReturnStatus = async () => {
       try {
-        const supabase = createClient();  // ← この行を追加
+        const supabase = createClient();
         
         const { data, error } = await supabase
           .from('invoices')
-
           .select('return_status')
           .eq('id', invoiceId)
           .single();
@@ -69,7 +106,6 @@ export default function OrganizerInvoicesPage() {
 
   const [invoices, setInvoices] = useState<OrganizerInvoice[]>([]);
 
-
   const [selectedInvoice, setSelectedInvoice] = useState<OrganizerInvoice | null>(null);
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
   const [returnComment, setReturnComment] = useState('');
@@ -80,6 +116,8 @@ export default function OrganizerInvoicesPage() {
   // 検索・フィルター用のstate
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'paid' | 'returned'>('all');
+  const [sortBy, setSortBy] = useState<'default' | 'due_date_asc'>('default'); // ✅ 追加
+  const [showOverdueOnly, setShowOverdueOnly] = useState(false); // ✅ 追加
   
   const [stats, setStats] = useState({
     pending: 0,
@@ -87,6 +125,8 @@ export default function OrganizerInvoicesPage() {
     paid: 0,
     totalAmount: 0,
     returned: 0,
+    upcomingDue: 0,  // ✅ 追加: 3日以内に期日
+    overdue: 0,      // ✅ 追加: 期日超過
   });
 
   useEffect(() => {
@@ -132,7 +172,6 @@ export default function OrganizerInvoicesPage() {
   checkUser();
 }, [router]);
 
-
   const loadInvoiceData = async (organizerId: string) => {
   try {
     const supabase = createClient();
@@ -167,7 +206,6 @@ export default function OrganizerInvoicesPage() {
       console.log('⚠️ サブスクリプション情報なし（フリープランとして扱う）');
     }
 
-
     // 統計計算
     const pending = invoicesData?.filter(inv => inv.status === 'pending').length || 0;
     const approved = invoicesData?.filter(inv => inv.status === 'approved').length || 0;
@@ -175,8 +213,20 @@ export default function OrganizerInvoicesPage() {
     const returned = invoicesData?.filter(inv => inv.status === 'returned').length || 0;
     const totalAmount = invoicesData?.reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
 
-    setStats({ pending, approved, paid, totalAmount, returned });
-    console.log('📊 統計計算完了:', { pending, approved, paid, returned, totalAmount });
+    // ✅ 追加: 期日が近い・超過した請求書を計算（未払いのみ）
+    const unpaidInvoices = invoicesData?.filter(inv => inv.status !== 'paid') || [];
+    const upcomingDue = unpaidInvoices.filter(inv => {
+      const days = getDaysUntilDue(inv.payment_due_date);
+      return days !== null && days >= 0 && days <= 3;
+    }).length;
+
+    const overdue = unpaidInvoices.filter(inv => {
+      const days = getDaysUntilDue(inv.payment_due_date);
+      return days !== null && days < 0;
+    }).length;
+
+    setStats({ pending, approved, paid, totalAmount, returned, upcomingDue, overdue });
+    console.log('📊 統計計算完了:', { pending, approved, paid, returned, totalAmount, upcomingDue, overdue });
 
   } catch (error: any) {
     console.error('❌ データ読み込みエラー:', error);
@@ -187,7 +237,6 @@ export default function OrganizerInvoicesPage() {
   }
 };
 
-
   const updateInvoiceStatus = async (invoiceId: string, newStatus: 'approved' | 'paid') => {
   if (!organizer) {
     console.error('❌ 主催者データなし');
@@ -196,7 +245,6 @@ export default function OrganizerInvoicesPage() {
 
   try {
     const supabase = createClient();
-
     
     console.log('🔄 ステータス更新開始:', { invoiceId, newStatus });
     
@@ -208,14 +256,13 @@ export default function OrganizerInvoicesPage() {
     }
 
     const { data: orgInvoice, error: orgError } = await supabase
-
         .from('organizer_invoices')
         .update(updateData)
         .eq('id', invoiceId)
         .select('invoice_id')
         .single();
 
-          if (orgError) {
+    if (orgError) {
       console.error('❌ 更新エラー:', orgError);
       throw orgError;
     }
@@ -228,7 +275,6 @@ export default function OrganizerInvoicesPage() {
       
       const { error: invoiceError } = await supabase
         .from('invoices')
-
           .update({
             status: 'paid',
             payment_status: 'paid',
@@ -242,16 +288,14 @@ export default function OrganizerInvoicesPage() {
         }
       }
 
-        await loadInvoiceData(organizer.id);
-        alert('ステータスを更新しました');
-
+    await loadInvoiceData(organizer.id);
+    alert('ステータスを更新しました');
     
   } catch (error: any) {
     console.error('❌ ステータス更新エラー:', error);
     alert('更新に失敗しました: ' + error.message);
   }
 };
-
 
   const handleReturn = async () => {
   if (!returnComment.trim()) {
@@ -268,61 +312,58 @@ export default function OrganizerInvoicesPage() {
 
   setIsSubmitting(true);
 
-
   try {
-    const supabase = createClient();  // ← この行を追加
+    const supabase = createClient();
     
     console.log('🔄 差し戻し開始 - returningInvoiceId:', returningInvoiceId);
     
     const { data: orgInvoiceData, error: fetchError } = await supabase
-
         .from('organizer_invoices')
         .select('invoice_id, status')
         .eq('id', returningInvoiceId)
         .single();
 
-          console.log('📊 organizer_invoices データ:', orgInvoiceData);
+    console.log('📊 organizer_invoices データ:', orgInvoiceData);
     if (fetchError) {
       console.error('❌ 取得エラー:', fetchError);
       throw fetchError;
     }
-
       
-      if (!orgInvoiceData.invoice_id) {
-        alert('関連する請求書が見つかりません');
-        return;
-      }
+    if (!orgInvoiceData.invoice_id) {
+      alert('関連する請求書が見つかりません');
+      return;
+    }
 
-      console.log('🎯 更新対象の invoice_id:', orgInvoiceData.invoice_id);
-      console.log('👤 user.id:', user?.id);
+    console.log('🎯 更新対象の invoice_id:', orgInvoiceData.invoice_id);
+    console.log('👤 user.id:', user?.id);
 
-      const { data: updateResult, error: invoiceError } = await supabase
-        .from('invoices')
-        .update({
-          return_status: 'returned',
-          return_comment: returnComment,
-          return_date: new Date().toISOString(),
-          returned_by: user!.id,
-          status: 'draft',
-        })
-        .eq('id', orgInvoiceData.invoice_id)
-        .select();
+    const { data: updateResult, error: invoiceError } = await supabase
+      .from('invoices')
+      .update({
+        return_status: 'returned',
+        return_comment: returnComment,
+        return_date: new Date().toISOString(),
+        returned_by: user!.id,
+        status: 'draft',
+      })
+      .eq('id', orgInvoiceData.invoice_id)
+      .select();
 
-      console.log('✅ 更新結果:', updateResult);
-      console.log('❌ 更新エラー:', invoiceError);
+    console.log('✅ 更新結果:', updateResult);
+    console.log('❌ 更新エラー:', invoiceError);
 
-      if (invoiceError) throw invoiceError;
+    if (invoiceError) throw invoiceError;
 
-      const { error: orgError } = await supabase
-        .from('organizer_invoices')
-        .update({
-          status: 'returned',
-        })
-        .eq('id', returningInvoiceId);
+    const { error: orgError } = await supabase
+      .from('organizer_invoices')
+      .update({
+        status: 'returned',
+      })
+      .eq('id', returningInvoiceId);
 
-      if (orgError) throw orgError;
+    if (orgError) throw orgError;
 
-          setIsReturnModalOpen(false);
+    setIsReturnModalOpen(false);
     setReturnComment('');
     setReturningInvoiceId(null);
     await loadInvoiceData(organizer.id);
@@ -330,8 +371,7 @@ export default function OrganizerInvoicesPage() {
 
     alert('差し戻しが完了しました');
 
-
-      } catch (error) {
+  } catch (error) {
     console.error('❌ 差し戻しに失敗:', error);
     alert('差し戻しに失敗しました: ' + (error as Error).message);
   } finally {
@@ -395,12 +435,22 @@ const handleSignOut = async () => {
     document.body.removeChild(link);
   };
 
-  // フィルター・検索適用
-  const filteredInvoices = invoices.filter(invoice => {
+  // ✅ 修正: フィルター・検索・ソート適用
+  let filteredInvoices = invoices.filter(invoice => {
     // ステータスフィルター
     if (statusFilter !== 'all' && invoice.status !== statusFilter) {
       return false;
     }
+    
+    // 期日超過フィルター（ベーシックプラン以上のみ）
+      if (showOverdueOnly && canUseFeature(subscription?.plan || 'free', 'payment_alert')) {
+    // 支払済みは除外
+      if (invoice.status === 'paid') return false;
+  
+     const days = getDaysUntilDue(invoice.payment_due_date);
+      if (days === null || days >= 0) return false;
+    }
+
     
     // 検索フィルター
     if (searchQuery) {
@@ -414,6 +464,15 @@ const handleSignOut = async () => {
     
     return true;
   });
+
+  // ソート処理（ベーシックプラン以上のみ）
+  if (sortBy === 'due_date_asc' && canUseFeature(subscription?.plan || 'free', 'payment_alert')) {
+    filteredInvoices = [...filteredInvoices].sort((a, b) => {
+      if (!a.payment_due_date) return 1;
+      if (!b.payment_due_date) return -1;
+      return new Date(a.payment_due_date).getTime() - new Date(b.payment_due_date).getTime();
+    });
+  }
 
   if (loading) {
   return (
@@ -441,8 +500,6 @@ const handleSignOut = async () => {
     ログアウト
   </Button>
 </div>
-
-
             </div>
           </header>
 
@@ -471,6 +528,45 @@ const handleSignOut = async () => {
               </div>
             )}
 
+            {/* ✅ 追加: 支払期日アラート（ベーシックプラン以上のみ） */}
+            {canUseFeature(subscription?.plan || 'free', 'payment_alert') && (
+              <>
+                {stats.upcomingDue > 0 && (
+                  <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-yellow-50 border-l-4 border-yellow-500 rounded-r-lg">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-xs sm:text-sm font-medium text-yellow-800">
+                          支払期日が近い請求書が {stats.upcomingDue} 件あります（3日以内）
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {stats.overdue > 0 && (
+                  <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-xs sm:text-sm font-medium text-red-800">
+                          支払期日を超過した請求書が {stats.overdue} 件あります
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
             {/* 主催者コード */}
             <Card className="mb-6 sm:mb-8 bg-white card-compact border-green-200">
               <CardHeader>
@@ -483,7 +579,6 @@ const handleSignOut = async () => {
                     <p className="text-2xl sm:text-3xl font-bold text-green-600 tracking-wider">
   {organizer?.organizer_code}
 </p>
-
                   </div>
                   <Button
                     variant="outline"
@@ -495,8 +590,6 @@ const handleSignOut = async () => {
     alert('コードをコピーしました！');
   }
 }}
-
-
                   >
                     📋 コピー
                   </Button>
@@ -545,52 +638,83 @@ const handleSignOut = async () => {
               </Card>
             </div>
 
-            {/* 検索・フィルター・CSV出力 */}
+            {/* ✅ 修正: 検索・フィルター・CSV出力 */}
             <Card className="mb-6 bg-white card-compact">
               <CardContent className="pt-4 sm:pt-6">
-                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                  {/* 検索 */}
-                  <div className="flex-1">
-                    <input
-                      type="text"
-                      placeholder="キャスト名・請求書番号で検索..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    />
-                  </div>
-                  
-                  {/* ステータスフィルター */}
-                  <div className="w-full sm:w-auto">
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value as any)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                <div className="space-y-3">
+                  {/* 1行目: 検索・ステータスフィルター・CSV出力 */}
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                    {/* 検索 */}
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        placeholder="キャスト名・請求書番号で検索..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                    
+                    {/* ステータスフィルター */}
+                    <div className="w-full sm:w-auto">
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value as any)}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="all">全て</option>
+                        <option value="pending">未承認</option>
+                        <option value="approved">承認済み</option>
+                        <option value="paid">支払済み</option>
+                        <option value="returned">差し戻し中</option>
+                      </select>
+                    </div>
+                    
+                    {/* CSV出力 */}
+                    <Button 
+                      onClick={() => {
+                        if (!canUseFeature(subscription?.plan || 'free', 'csv_export')) {
+                          setUpgradeFeatureName('CSV出力');
+                          setShowUpgradeModal(true);
+                          return;
+                        }
+                        exportToCSV();
+                      }}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs sm:text-sm border-2 border-purple-400"
                     >
-                      <option value="all">全て</option>
-                      <option value="pending">未承認</option>
-                      <option value="approved">承認済み</option>
-                      <option value="paid">支払済み</option>
-                      <option value="returned">差し戻し中</option>
-                    </select>
+                      📊 CSV出力
+                    </Button>
                   </div>
-                  
-{/* CSV出力 */}
-<Button 
-  onClick={() => {
-    if (!canUseFeature(subscription?.plan || 'free', 'csv_export')) {
-      setUpgradeFeatureName('CSV出力');
-      setShowUpgradeModal(true);
-      return;
-    }
-    exportToCSV();
-  }}
-  variant="outline"
-  size="sm"
-  className="text-xs sm:text-sm border-2 border-purple-400"
->
-  📊 CSV出力
-</Button>
+
+                  {/* ✅ 追加: 2行目: 期日フィルター・ソート（ベーシックプラン以上のみ） */}
+                  {canUseFeature(subscription?.plan || 'free', 'payment_alert') && (
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center">
+                      {/* ソート */}
+                      <div className="w-full sm:w-auto">
+                        <select
+                          value={sortBy}
+                          onChange={(e) => setSortBy(e.target.value as any)}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        >
+                          <option value="default">デフォルト順</option>
+                          <option value="due_date_asc">支払期日が近い順</option>
+                        </select>
+                      </div>
+
+                      {/* 期日超過フィルター */}
+                      <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={showOverdueOnly}
+                          onChange={(e) => setShowOverdueOnly(e.target.checked)}
+                          className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                        />
+                        <span>期日超過のみ表示</span>
+                      </label>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -631,6 +755,19 @@ const handleSignOut = async () => {
                                invoice.status === 'approved' ? '承認済み' :
                                invoice.status === 'returned' ? '差し戻し中' : '支払済み'}
                             </div>
+                            {/* ✅ 追加: 支払期日バッジ（ベーシックプラン以上のみ） */}
+                            {canUseFeature(subscription?.plan || 'free', 'payment_alert') && 
+                             invoice.status !== 'paid' && 
+                             (() => {
+                               const daysUntil = getDaysUntilDue(invoice.payment_due_date);
+                               const badge = getDueDateBadge(daysUntil);
+                               return badge ? (
+                                 <div className={`text-xs sm:text-sm px-2 py-1 rounded-full font-medium ${badge.className}`}>
+                                   {badge.icon} {badge.text}
+                                 </div>
+                               ) : null;
+                             })()
+                            }
                           </div>
                         </div>
                       </div>
@@ -680,23 +817,22 @@ const handleSignOut = async () => {
                               ✅ 承認
                             </Button>
 
-<Button 
-  size="sm" 
-  variant="outline"
-  className="text-xs sm:text-sm border-2 border-orange-500 text-orange-600 hover:bg-orange-50"
-  onClick={() => {
-    if (!canUseFeature(subscription?.plan || 'free', 'reject_function')) {
-      setUpgradeFeatureName('差し戻し機能');
-      setShowUpgradeModal(true);
-      return;
-    }
-    setReturningInvoiceId(invoice.id);
-    setIsReturnModalOpen(true);
-  }}
->
-  ↩️ 差し戻し
-</Button>
-
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="text-xs sm:text-sm border-2 border-orange-500 text-orange-600 hover:bg-orange-50"
+                              onClick={() => {
+                                if (!canUseFeature(subscription?.plan || 'free', 'reject_function')) {
+                                  setUpgradeFeatureName('差し戻し機能');
+                                  setShowUpgradeModal(true);
+                                  return;
+                                }
+                                setReturningInvoiceId(invoice.id);
+                                setIsReturnModalOpen(true);
+                              }}
+                            >
+                              ↩️ 差し戻し
+                            </Button>
                           </>
                         )}
 
@@ -877,7 +1013,7 @@ const handleSignOut = async () => {
         </div>
       )}
 
-            {/* アップグレード促進モーダル */}
+      {/* アップグレード促進モーダル */}
       {showUpgradeModal && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 animate-fadeIn">
@@ -915,7 +1051,6 @@ const handleSignOut = async () => {
           </div>
         </div>
       )}
-
     </>
   );
 }

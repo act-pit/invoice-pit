@@ -8,6 +8,7 @@ export const PLAN_FEATURES = {
     csv_export: false,            // ❌ フリーでは使えない
     alert_display: false,         // ❌ フリーでは使えない
     approval_list: false,         // ❌ フリーでは使えない
+    payment_alert: false,         // ❌ フリーでは使えない（支払期日アラート）
   },
   basic: {
     invoice_receive: true,
@@ -16,6 +17,7 @@ export const PLAN_FEATURES = {
     csv_export: true,             // ✅ ベーシック以上
     alert_display: true,          // ✅ ベーシック以上
     approval_list: true,          // ✅ ベーシック以上
+    payment_alert: true,          // ✅ ベーシック以上（支払期日アラート）
   },
   advance: {
     invoice_receive: true,
@@ -24,6 +26,7 @@ export const PLAN_FEATURES = {
     csv_export: true,
     alert_display: true,
     approval_list: true,
+    payment_alert: true,
   },
   pro: {
     invoice_receive: true,
@@ -32,6 +35,7 @@ export const PLAN_FEATURES = {
     csv_export: true,
     alert_display: true,
     approval_list: true,
+    payment_alert: true,
   }
 } as const;
 
@@ -41,17 +45,14 @@ export type FeatureType = keyof typeof PLAN_FEATURES.free;
 /**
  * ユーザーのプランで特定機能が使用可能かチェック
  */
-export const canUseFeature = (
+export function canUseFeature(
   userPlan: string | null | undefined, 
   feature: FeatureType
-): boolean => {
+): boolean {
   // プランが不明な場合はフリープランとして扱う
   if (!userPlan || !(userPlan in PLAN_FEATURES)) {
     return PLAN_FEATURES.free[feature];
   }
   
   return PLAN_FEATURES[userPlan as PlanType][feature];
-};
-
-// 🗑️ この関数は削除 (モーダル制御はコンポーネント内で行う)
-// export const showUpgradeAlert = ...
+}
