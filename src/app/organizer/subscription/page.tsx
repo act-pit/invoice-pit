@@ -23,13 +23,15 @@ export default function OrganizerSubscriptionPage() {
   const [showDowngradeModal, setShowDowngradeModal] = useState(false)
   const [isUpgrading, setIsUpgrading] = useState(false)
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
-  const [priceAnimating, setPriceAnimating] = useState(false) // 🆕 追加
+  const [priceAnimating, setPriceAnimating] = useState(false)
+  const [couponCode, setCouponCode] = useState('')
+  const [couponError, setCouponError] = useState('')
+  const [couponSuccess, setCouponSuccess] = useState('')
 
   useEffect(() => {
     loadData()
   }, [])
 
-  // 🆕 追加: 価格変更アニメーション
   useEffect(() => {
     setPriceAnimating(true)
     const timer = setTimeout(() => setPriceAnimating(false), 300)
@@ -41,7 +43,6 @@ export default function OrganizerSubscriptionPage() {
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       if (userError || !user) throw new Error('認証エラー')
 
-      // 主催者情報を取得
       const { data: organizerData, error: organizerError } = await supabase
         .from('organizers')
         .select('*')
@@ -51,17 +52,15 @@ export default function OrganizerSubscriptionPage() {
       if (organizerError) throw organizerError
       setOrganizer(organizerData)
 
-      // 🆕 修正1: サブスクリプション情報を取得（.maybeSingle()に変更）
       const { data: subData, error: subError } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('user_id', user.id)
         .eq('user_type', 'organizer')
-        .maybeSingle() // 🆕 .single()から.maybeSingle()に変更
+        .maybeSingle()
 
       if (subError) throw subError
 
-      // 🆕 修正1: レコードがない場合は作成（フォールバック）
       if (!subData) {
         console.log('⚠️ サブスクリプションレコードが存在しません。作成します。')
         const { data: newSubData, error: createError } = await supabase
@@ -90,7 +89,6 @@ export default function OrganizerSubscriptionPage() {
         setSubscription(subData)
       }
 
-      // 請求書受信数を取得
       const { count, error: countError } = await supabase
         .from('organizer_invoices')
         .select('*', { count: 'exact', head: true })
@@ -107,7 +105,6 @@ export default function OrganizerSubscriptionPage() {
     }
   }
 
-  // ベーシックプランへのアップグレード
   async function handleUpgradeToBasic() {
     setIsUpgrading(true)
     try {
@@ -118,7 +115,6 @@ export default function OrganizerSubscriptionPage() {
         return
       }
 
-      // 課金サイクルに応じてPrice IDを選択
       const priceId = billingCycle === 'monthly'
         ? process.env.NEXT_PUBLIC_STRIPE_PRICE_ORGANIZER_BASIC_MONTHLY
         : process.env.NEXT_PUBLIC_STRIPE_PRICE_ORGANIZER_BASIC_YEARLY;
@@ -126,7 +122,6 @@ export default function OrganizerSubscriptionPage() {
       console.log('🔍 選択された課金サイクル:', billingCycle)
       console.log('🔍 使用するPrice ID:', priceId)
 
-      // Stripe Checkoutセッションを作成
       const response = await fetch('/api/stripe/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -136,6 +131,7 @@ export default function OrganizerSubscriptionPage() {
           userType: 'organizer',
           planType: 'basic',
           billingCycle: billingCycle,
+          couponCode: couponCode.trim() || undefined,
         }),
       });
 
@@ -154,7 +150,6 @@ export default function OrganizerSubscriptionPage() {
     }
   }
 
-  // フリープランへのダウングレード
   async function handleDowngradeToFree() {
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser()
@@ -163,7 +158,6 @@ export default function OrganizerSubscriptionPage() {
         return
       }
 
-      // Stripeサブスクリプションをキャンセル
       const response = await fetch('/api/stripe/manage-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -227,7 +221,6 @@ export default function OrganizerSubscriptionPage() {
     <div className="min-h-screen bg-gradient-to-br from-green-100 via-emerald-50 to-teal-100 relative">
       <div className="absolute inset-0 bg-white/30 backdrop-blur-3xl"></div>
       <div className="relative z-10">
-        {/* ヘッダー */}
         <header className="bg-white shadow-sm border-b sticky top-0 z-20">
           <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-4 flex justify-between items-center">
             <h1 className="text-lg sm:text-2xl font-bold text-green-600">請求書ぴっと - 主催者</h1>
@@ -238,7 +231,6 @@ export default function OrganizerSubscriptionPage() {
         </header>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* パンくずナビ */}
           <div className="mb-8">
             <Link href="/organizer/dashboard" className="text-green-600 hover:underline mb-4 inline-block">
               ← ダッシュボードに戻る
@@ -246,25 +238,52 @@ export default function OrganizerSubscriptionPage() {
             <h1 className="text-3xl font-bold text-gray-900">サブスクリプション管理</h1>
           </div>
 
-          {/* 現在のプラン */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">現在のプラン</h2>
             
-            {/* デスクトップ表示 */}
             <div className="hidden sm:flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-green-600">
-                  {subscription.plan === 'free' && 'フリープラン'}
-                  {subscription.plan === 'basic' && 'ベーシックプラン'}
-                  {subscription.plan === 'advance' && 'アドバンスプラン'}
-                  {subscription.plan === 'pro' && 'プロプラン'}
-                </p>
-                <p className="text-sm text-gray-600 mt-1">
-                  ステータス: <span className="font-medium">
-                    {subscription.status === 'active' ? '有効' : subscription.status}
-                  </span>
-                </p>
-              </div>
+  <p className="text-2xl font-bold text-green-600">
+    {subscription.plan === 'free' && 'フリープラン'}
+    {subscription.plan === 'basic' && 'ベーシックプラン'}
+    {subscription.plan === 'advance' && 'アドバンスプラン'}
+    {subscription.plan === 'pro' && 'プロプラン'}
+  </p>
+  <div className="mt-2 space-y-1 text-sm text-gray-600">
+    <p>
+      ステータス: <span className="font-medium">
+        {subscription.status === 'active' ? '有効' : subscription.status}
+      </span>
+    </p>
+    <p>
+      課金サイクル: <span className="font-medium">
+        {subscription.billing_cycle === 'monthly' ? '月額' : '年額'}
+      </span>
+    </p>
+    {subscription.start_date && (
+      <p>
+        契約開始日: <span className="font-medium">
+          {new Date(subscription.start_date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
+        </span>
+      </p>
+    )}
+    {subscription.next_billing_date && subscription.plan !== 'free' && (
+      <p>
+        次回更新日: <span className="font-medium text-green-600">
+          {new Date(subscription.next_billing_date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
+        </span>
+      </p>
+    )}
+    {subscription.end_date && (
+      <p>
+        契約終了日: <span className="font-medium text-red-600">
+          {new Date(subscription.end_date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
+        </span>
+      </p>
+    )}
+  </div>
+</div>
+
               {subscription.plan === 'free' && (
                 <button 
                   onClick={handleUpgradeToBasic}
@@ -285,18 +304,51 @@ export default function OrganizerSubscriptionPage() {
               )}
             </div>
 
-            {/* スマホ表示 */}
             <div className="sm:hidden space-y-3">
-              <p className="text-lg">
-                <span className="font-medium text-gray-700">現在のプラン：</span>
-                <span className="font-bold text-green-600">
-                  {subscription.plan === 'free' && 'フリープラン'}
-                  {subscription.plan === 'basic' && 'ベーシックプラン'}
-                  {subscription.plan === 'advance' && 'アドバンスプラン'}
-                  {subscription.plan === 'pro' && 'プロプラン'}
-                </span>
-              </p>
-              {subscription.plan === 'free' && (
+  <p className="text-lg">
+    <span className="font-medium text-gray-700">現在のプラン：</span>
+    <span className="font-bold text-green-600">
+      {subscription.plan === 'free' && 'フリープラン'}
+      {subscription.plan === 'basic' && 'ベーシックプラン'}
+      {subscription.plan === 'advance' && 'アドバンスプラン'}
+      {subscription.plan === 'pro' && 'プロプラン'}
+    </span>
+  </p>
+  <div className="text-sm text-gray-600 space-y-1">
+    <p>
+      ステータス: <span className="font-medium">
+        {subscription.status === 'active' ? '有効' : subscription.status}
+      </span>
+    </p>
+    <p>
+      課金サイクル: <span className="font-medium">
+        {subscription.billing_cycle === 'monthly' ? '月額' : '年額'}
+      </span>
+    </p>
+    {subscription.start_date && (
+      <p>
+        契約開始日: <span className="font-medium">
+          {new Date(subscription.start_date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
+        </span>
+      </p>
+    )}
+    {subscription.next_billing_date && subscription.plan !== 'free' && (
+      <p>
+        次回更新日: <span className="font-medium text-green-600">
+          {new Date(subscription.next_billing_date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
+        </span>
+      </p>
+    )}
+    {subscription.end_date && (
+      <p>
+        契約終了日: <span className="font-medium text-red-600">
+          {new Date(subscription.end_date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
+        </span>
+      </p>
+    )}
+  </div>
+  {subscription.plan === 'free' && (
+
                 <button 
                   onClick={handleUpgradeToBasic}
                   disabled={isUpgrading}
@@ -317,11 +369,9 @@ export default function OrganizerSubscriptionPage() {
             </div>
           </div>
 
-          {/* 利用状況 */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">利用状況</h2>
             
-            {/* 請求書受信実績 */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -335,7 +385,6 @@ export default function OrganizerSubscriptionPage() {
               </p>
             </div>
 
-            {/* 案件投稿 */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -353,11 +402,9 @@ export default function OrganizerSubscriptionPage() {
             </div>
           </div>
 
-          {/* プラン一覧カード */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-6">プラン一覧</h2>
             
-            {/* 🆕 課金サイクル選択をここに移動 */}
             {subscription.plan === 'free' && (
               <div className="flex justify-center mb-6">
                 <div className="inline-flex rounded-lg border border-gray-300 p-1 bg-white shadow-sm">
@@ -380,20 +427,46 @@ export default function OrganizerSubscriptionPage() {
                     }`}
                   >
                     年額プラン
-                    <span className="ml-2 text-xs bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded">
-                      約17%お得
-                    </span>
+                    <p><span className="ml-2 text-xs bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded">
+                    約17%お得
+                    </span></p>
                   </button>
                 </div>
               </div>
             )}
 
+            {subscription.plan === 'free' && (
+              <div className="flex justify-center mb-6">
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 max-w-md w-full">
+                  <label className="block text-sm font-medium text-purple-900 mb-2">
+                    🎟️ クーポンコード（任意）
+                  </label>
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => {
+                      setCouponCode(e.target.value.toUpperCase())
+                      setCouponError('')
+                      setCouponSuccess('')
+                    }}
+                    className="w-full px-4 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                  {couponError && (
+                    <p className="text-red-600 text-xs mt-2">⚠️ {couponError}</p>
+                  )}
+                  {couponSuccess && (
+                    <p className="text-green-600 text-xs mt-2">✅ {couponSuccess}</p>
+                  )}
+
+
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {/* フリープラン */}
               <div className="border-2 border-gray-200 rounded-lg p-6 hover:border-green-500 transition-colors">
                 <div className="text-center mb-4">
                   <h3 className="text-lg font-bold text-gray-900 mb-2">フリー</h3>
-                  {/* 🆕 アニメーション追加 */}
                   <div className={`transition-all duration-300 ${priceAnimating ? 'scale-110 text-green-600' : ''}`}>
                     <div className="text-3xl font-bold text-gray-900">¥0</div>
                     <div className="text-sm text-gray-600">/月</div>
@@ -425,7 +498,6 @@ export default function OrganizerSubscriptionPage() {
                 )}
               </div>
 
-              {/* ベーシックプラン */}
               <div className="border-2 border-green-500 rounded-lg p-6 relative">
                 <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
                   <span className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold">
@@ -435,7 +507,6 @@ export default function OrganizerSubscriptionPage() {
                 
                 <div className="text-center mb-4">
                   <h3 className="text-lg font-bold text-gray-900 mb-2">ベーシック</h3>
-                  {/* 🆕 アニメーション追加 */}
                   <div className={`transition-all duration-300 ${priceAnimating ? 'scale-110 text-green-600' : ''}`}>
                     {billingCycle === 'monthly' ? (
                       <>
@@ -495,28 +566,25 @@ export default function OrganizerSubscriptionPage() {
                 )}
               </div>
 
-              {/* アドバンスプラン */}
               <div className="border-2 border-gray-200 rounded-lg p-6 hover:border-green-500 transition-colors opacity-75">
                 <div className="text-center mb-4">
                   <h3 className="text-lg font-bold text-gray-900 mb-2">アドバンス</h3>
-                  {/* 🆕 アニメーション追加 */}
                   <div className={`transition-all duration-300 ${priceAnimating ? 'scale-110 text-green-600' : ''}`}>
-  {billingCycle === 'monthly' ? (
-    <>
-      <div className="text-3xl font-bold text-gray-900">¥1,980</div>
-      <div className="text-sm text-gray-600">/月</div>
-    </>
-  ) : (
-    <>
-      <div className="text-3xl font-bold text-gray-900">¥19,800</div>
-      <div className="text-sm text-gray-600">/年</div>
-      <div className="text-xs text-green-600 mt-1 font-medium">
-        月額換算: ¥1,650/月
-      </div>
-    </>
-  )}
-</div>
-
+                    {billingCycle === 'monthly' ? (
+                      <>
+                        <div className="text-3xl font-bold text-gray-900">¥1,980</div>
+                        <div className="text-sm text-gray-600">/月</div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-3xl font-bold text-gray-900">¥19,800</div>
+                        <div className="text-sm text-gray-600">/年</div>
+                        <div className="text-xs text-green-600 mt-1 font-medium">
+                          月額換算: ¥1,650/月
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
                 
                 <ul className="space-y-2 mb-6 text-sm text-gray-700">
@@ -547,28 +615,25 @@ export default function OrganizerSubscriptionPage() {
                 </button>
               </div>
 
-              {/* プロプラン */}
               <div className="border-2 border-gray-200 rounded-lg p-6 hover:border-green-500 transition-colors opacity-75">
                 <div className="text-center mb-4">
                   <h3 className="text-lg font-bold text-gray-900 mb-2">プロ</h3>
-                  {/* 🆕 アニメーション追加 */}
                   <div className={`transition-all duration-300 ${priceAnimating ? 'scale-110 text-green-600' : ''}`}>
-  {billingCycle === 'monthly' ? (
-    <>
-      <div className="text-3xl font-bold text-gray-900">¥2,980</div>
-      <div className="text-sm text-gray-600">/月</div>
-    </>
-  ) : (
-    <>
-      <div className="text-3xl font-bold text-gray-900">¥29,800</div>
-      <div className="text-sm text-gray-600">/年</div>
-      <div className="text-xs text-green-600 mt-1 font-medium">
-        月額換算: ¥2,483/月
-      </div>
-    </>
-  )}
-</div>
-
+                    {billingCycle === 'monthly' ? (
+                      <>
+                        <div className="text-3xl font-bold text-gray-900">¥2,980</div>
+                        <div className="text-sm text-gray-600">/月</div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-3xl font-bold text-gray-900">¥29,800</div>
+                        <div className="text-sm text-gray-600">/年</div>
+                        <div className="text-xs text-green-600 mt-1 font-medium">
+                          月額換算: ¥2,483/月
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
                 
                 <ul className="space-y-2 mb-6 text-sm text-gray-700">
@@ -590,7 +655,7 @@ export default function OrganizerSubscriptionPage() {
                   </li>
                 </ul>
                 
-                <button
+                                <button
                   onClick={() => alert('プロプランは現在準備中です')}
                   className="w-full py-2 bg-gray-300 text-gray-500 rounded cursor-not-allowed font-medium text-sm"
                   disabled
@@ -599,12 +664,21 @@ export default function OrganizerSubscriptionPage() {
                 </button>
               </div>
             </div>
-          </div>
 
+            <div className="mt-8 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-6 border border-purple-200">
+             <h3 className="text-lg font-bold text-purple-900 mb-2">🎉 ACTぴっと連動特典</h3>
+             <p className="text-purple-700">
+               ACTぴっと登録事業者様は、全プラン
+                <span className="font-bold text-xl text-purple-900"> 30%OFF</span> でご利用いただけます！
+             </p>
+             <p className="text-sm text-purple-600 mt-2">
+               ※   ACTぴっと経由でお申し込みの方には、専用クーポンコードをお送りしております
+             </p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* ダウングレード警告モーダル */}
       {showDowngradeModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">

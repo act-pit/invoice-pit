@@ -7,7 +7,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, priceId, userType, planType, billingCycle } = await request.json();
+    const { userId, priceId, userType, planType, billingCycle, couponCode } = await request.json();
     
     if (!userId) {
       return NextResponse.json(
@@ -38,33 +38,35 @@ export async function POST(request: NextRequest) {
     }
 
     // Create Stripe checkout session
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price: finalPriceId,
-          quantity: 1,
-        },
-      ],
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://invoice-pit.com'}/${finalUserType}/subscription/success?plan=${finalPlanType}&billing_cycle=${finalBillingCycle}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://invoice-pit.com'}/${finalUserType}/subscription/cancelled`,
-      customer_email: profile.email,
-      metadata: {
-        userId: userId,
-        userType: finalUserType,
-        planType: finalPlanType,
-        billingCycle: finalBillingCycle,
-      },
-      subscription_data: {
-        metadata: {
-          userId: userId,
-          userType: finalUserType,
-          planType: finalPlanType,
-          billingCycle: finalBillingCycle,
-        },
-      },
-    });
+  const session = await stripe.checkout.sessions.create({
+  mode: 'subscription',
+  payment_method_types: ['card'],
+  line_items: [
+    {
+      price: finalPriceId,
+      quantity: 1,
+    },
+  ],
+  success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://invoice-pit.com'}/${finalUserType}/subscription/success?plan=${finalPlanType}&billing_cycle=${finalBillingCycle}`,
+  cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://invoice-pit.com'}/${finalUserType}/subscription/cancelled`,
+  customer_email: profile.email,
+  ...(couponCode && { discounts: [{ coupon: couponCode }] }),
+  metadata: {
+    userId: userId,
+    userType: finalUserType,
+    planType: finalPlanType,
+    billingCycle: finalBillingCycle,
+  },
+  subscription_data: {
+    metadata: {
+      userId: userId,
+      userType: finalUserType,
+      planType: finalPlanType,
+      billingCycle: finalBillingCycle,
+    },
+  },
+});
+
 
     return NextResponse.json({ sessionId: session.id, url: session.url });
   } catch (error: any) {

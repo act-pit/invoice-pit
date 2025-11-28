@@ -134,6 +134,7 @@ export interface Database {
           job_post_limit: number | null
           start_date: string | null
           end_date: string | null
+          next_billing_date: string | null
           created_at: string
           updated_at: string
         }
@@ -152,6 +153,7 @@ export interface Database {
           job_post_limit?: number | null
           start_date?: string | null
           end_date?: string | null
+          next_billing_date: string | null
           created_at?: string
           updated_at?: string
         }
@@ -170,6 +172,7 @@ export interface Database {
           job_post_limit?: number | null
           start_date?: string | null
           end_date?: string | null
+          next_billing_date: string | null
           created_at?: string
           updated_at?: string
         }
