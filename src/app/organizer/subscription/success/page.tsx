@@ -1,17 +1,28 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 export default function SubscriptionSuccessPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const plan = searchParams.get('plan') || 'basic' // URLパラメータからプラン名取得
+
+  // プラン名の表示
+  const planNames: Record<string, string> = {
+    basic: 'ベーシックプラン',
+    advance: 'アドバンスプラン',
+    pro: 'プロプラン',
+  }
+
+  const displayPlanName = planNames[plan] || 'ベーシックプラン'
 
   useEffect(() => {
     // 3秒後に自動的にサブスクリプションページにリダイレクト
     const timer = setTimeout(() => {
       router.push('/organizer/subscription')
-    }, 3000)
+    }, 5000)
 
     return () => clearTimeout(timer)
   }, [router])
@@ -32,7 +43,7 @@ export default function SubscriptionSuccessPage() {
         </h1>
         
         <p className="text-gray-600 mb-6">
-          ベーシックプランへのアップグレードが完了しました。
+          <span className="font-bold text-green-600">{displayPlanName}</span>へのアップグレードが完了しました。
           <br />
           ご利用ありがとうございます！
         </p>
@@ -54,7 +65,7 @@ export default function SubscriptionSuccessPage() {
         </div>
         
         <p className="text-sm text-gray-500 mt-6">
-          3秒後に自動的にリダイレクトされます...
+          5秒後に自動的にリダイレクトされます...
         </p>
       </div>
     </div>

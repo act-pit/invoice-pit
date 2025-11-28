@@ -341,11 +341,12 @@ export default function OrganizerSubscriptionPage() {
                   </div>
                 ) : (
                   <button
-                    onClick={() => alert('フリープランへのダウングレードは準備中です')}
-                    className="w-full py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors font-medium text-sm"
+                    onClick={() => setShowDowngradeModal(true)}
+                   className="w-full py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors font-medium text-sm"
                   >
-                    このプランに変更
+                   このプランに変更
                   </button>
+
                 )}
               </div>
 

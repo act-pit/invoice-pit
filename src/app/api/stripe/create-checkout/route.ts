@@ -46,7 +46,7 @@ const finalPlanType = planType || 'basic';
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://invoice-pit.com'}/${finalUserType}/subscription/success`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://invoice-pit.com'}/${finalUserType}/subscription/success?plan=${finalPlanType}`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://invoice-pit.com'}/${finalUserType}/subscription/cancelled`,
       customer_email: profile.email,
       metadata: {
