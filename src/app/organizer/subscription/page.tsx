@@ -73,14 +73,17 @@ export default function OrganizerSubscriptionPage() {
 
   // ベーシックプランへのアップグレード
   async function handleUpgradeToBasic() {
-    setIsUpgrading(true) // ← ローディング開始
+    setIsUpgrading(true)
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       if (userError || !user) {
         alert('認証エラーが発生しました')
-        setIsUpgrading(false) // ← ローディング終了
+        setIsUpgrading(false)
         return
       }
+
+      // ← デバッグログ追加
+      console.log('🔍 NEXT_PUBLIC_STRIPE_PRICE_ORGANIZER_BASIC:', process.env.NEXT_PUBLIC_STRIPE_PRICE_ORGANIZER_BASIC)
 
       // Stripe Checkoutセッションを作成
       const response = await fetch('/api/stripe/create-checkout', {
@@ -90,27 +93,24 @@ export default function OrganizerSubscriptionPage() {
           userId: user.id,
           priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ORGANIZER_BASIC,
           userType: 'organizer',
-         planType: 'basic',
-       }),
+          planType: 'basic',
+        }),
       });
-
 
       const data = await response.json()
 
       if (data.url) {
-        // Stripe決済画面に遷移（ローディングは遷移まで継続）
         window.location.href = data.url
       } else {
         alert('決済画面の作成に失敗しました')
-        setIsUpgrading(false) // ← ローディング終了
+        setIsUpgrading(false)
       }
     } catch (error) {
       console.error('Upgrade error:', error)
       alert('アップグレード処理中にエラーが発生しました')
-      setIsUpgrading(false) // ← ローディング終了
+      setIsUpgrading(false)
     }
   }
-
 
   // フリープランへのダウングレード
   async function handleDowngradeToFree() {
@@ -136,7 +136,7 @@ export default function OrganizerSubscriptionPage() {
       if (data.success) {
         alert('ダウングレードが完了しました。次回の請求期間終了時にフリープランに変更されます。')
         setShowDowngradeModal(false)
-        loadData() // データを再読み込み
+        loadData()
       } else {
         alert('ダウングレードに失敗しました: ' + (data.error || '不明なエラー'))
       }
@@ -394,7 +394,6 @@ export default function OrganizerSubscriptionPage() {
                   >
                     {isUpgrading ? '処理中...' : 'アップグレード'}
                   </button>
-
                 ) : (
                   <button
                     onClick={() => alert('ダウングレード機能は準備中です')}
