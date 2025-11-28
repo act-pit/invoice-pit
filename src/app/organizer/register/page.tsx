@@ -125,46 +125,66 @@ export default function OrganizerRegisterPage() {
       console.log('✅ Auth登録成功:', userId);
       
       // 3. organizersテーブルに挿入
-console.log('📝 挿入データ:', {
-  id: userId,
-  organizer_code: newOrganizerCode,
-  company_name: organizerName,  // ← organizer_name から変更
-  name: organizerName,            // ← 追加
-  email: email,
-  // created_by は削除
-});
+      console.log('📝 挿入データ:', {
+        id: userId,
+        organizer_code: newOrganizerCode,
+        company_name: organizerName,
+        name: organizerName,
+        email: email,
+      });
 
-const { data: insertedData, error: orgInsertError } = await supabase
-  .from('organizers')
-  .insert({
-    id: userId,
-    organizer_code: newOrganizerCode,
-    company_name: organizerName,   // ← これ
-    name: organizerName,            // ← これも
-    email: email,
-    // created_by: userId,  ← 削除
-  })
-  .select();
+      const { data: insertedData, error: orgInsertError } = await supabase
+        .from('organizers')
+        .insert({
+          id: userId,
+          organizer_code: newOrganizerCode,
+          company_name: organizerName,
+          name: organizerName,
+          email: email,
+        })
+        .select();
 
-console.log('📊 挿入結果:', { data: insertedData, error: orgInsertError });
+      console.log('📊 挿入結果:', { data: insertedData, error: orgInsertError });
 
-if (orgInsertError) {
-  console.error('主催者情報挿入エラー:', orgInsertError.message, orgInsertError.code);
-  console.error('❌ エラー詳細:', {
-    message: orgInsertError.message,
-    details: orgInsertError.details,
-    hint: orgInsertError.hint,
-    code: orgInsertError.code,
-  });
-  setError(`主催者情報の登録に失敗しました: ${orgInsertError.message}`);
-  setLoading(false);
-  return;
-}
-
+      if (orgInsertError) {
+        console.error('主催者情報挿入エラー:', orgInsertError.message, orgInsertError.code);
+        console.error('❌ エラー詳細:', {
+          message: orgInsertError.message,
+          details: orgInsertError.details,
+          hint: orgInsertError.hint,
+          code: orgInsertError.code,
+        });
+        setError(`主催者情報の登録に失敗しました: ${orgInsertError.message}`);
+        setLoading(false);
+        return;
+      }
 
       console.log('✅ 主催者情報登録成功');
+
+      // ✅ 4. subscriptionsテーブルにフリープランのレコードを作成
+      console.log('📝 サブスクリプションレコード作成開始');
+      const { data: subscriptionData, error: subscriptionError } = await supabase
+        .from('subscriptions')
+        .insert({
+          user_id: userId,
+          user_type: 'organizer',
+          plan: 'free',
+          billing_cycle: 'monthly',
+          status: 'active',
+          invoice_count: 0,
+          job_post_count: 0,
+          job_post_limit: 0,
+        })
+        .select();
+
+      if (subscriptionError) {
+        console.error('❌ サブスクリプション作成エラー:', subscriptionError);
+        // サブスクリプション作成に失敗しても登録は完了とする
+      } else {
+        console.log('✅ サブスクリプション作成成功:', subscriptionData);
+      }
       
-      // 4. 成功メッセージ
+      // 5. 成功メッセージ
       setSuccess(
         `登録が完了しました！\n\n` +
         `メールアドレス宛に確認メールを送信しました。\n` +
