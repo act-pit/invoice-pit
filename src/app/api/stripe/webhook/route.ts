@@ -41,13 +41,13 @@ export async function POST(request: NextRequest) {
         const session = event.data.object as Stripe.Checkout.Session;
         const userId = session.metadata?.userId;
         const userType = session.metadata?.userType || 'talent';
+        const planType = session.metadata?.planType || 'basic';
 
         if (!userId) {
           console.error('Missing userId in checkout session metadata');
           break;
         }
 
-        // サブスクリプション情報を取得
         const subscriptionId = typeof session.subscription === 'string' 
           ? session.subscription 
           : session.subscription?.id;
@@ -55,12 +55,11 @@ export async function POST(request: NextRequest) {
         if (subscriptionId) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
-          // subscriptionsテーブルを更新
           const { error } = await supabase
             .from('subscriptions')
             .update({
               status: 'active',
-              plan: 'premium',
+              plan: planType,
               stripe_customer_id: typeof session.customer === 'string' ? session.customer : session.customer?.id || null,
               stripe_subscription_id: subscriptionId,
               updated_at: new Date().toISOString(),
@@ -76,7 +75,7 @@ export async function POST(request: NextRequest) {
             );
           }
 
-          console.log(`Subscription activated for user ${userId} (${userType})`);
+          console.log(`Subscription activated for user ${userId} (${userType}) - Plan: ${planType}`);
         }
         break;
       }
@@ -104,7 +103,8 @@ export async function POST(request: NextRequest) {
             status: status,
             updated_at: new Date().toISOString(),
           })
-          .eq('stripe_subscription_id', subscription.id);
+          .eq('stripe_subscription_id', subscription.id)
+          .eq('user_type', userType);
 
         if (error) {
           console.error('Error updating subscription:', error);
@@ -132,7 +132,8 @@ export async function POST(request: NextRequest) {
             stripe_subscription_id: null,
             updated_at: new Date().toISOString(),
           })
-          .eq('stripe_subscription_id', subscription.id);
+          .eq('stripe_subscription_id', subscription.id)
+          .eq('user_type', userType);
 
         if (error) {
           console.error('Error canceling subscription:', error);
@@ -145,7 +146,6 @@ export async function POST(request: NextRequest) {
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice;
         
-        // invoiceから直接取得（型アサーション使用）
         const subscriptionId = (invoice as any).subscription as string | undefined;
         const paymentIntentId = (invoice as any).payment_intent as string | undefined;
 
@@ -155,7 +155,6 @@ export async function POST(request: NextRequest) {
             const userId = subscription.metadata?.userId;
 
             if (userId) {
-              // payment_historyテーブルに記録
               const { error } = await supabase.from('payment_history').insert({
                 talent_id: userId,
                 stripe_payment_intent_id: paymentIntentId || null,
@@ -180,7 +179,6 @@ export async function POST(request: NextRequest) {
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;
         
-        // invoiceから直接取得（型アサーション使用）
         const subscriptionId = (invoice as any).subscription as string | undefined;
         const paymentIntentId = (invoice as any).payment_intent as string | undefined;
 
@@ -190,7 +188,6 @@ export async function POST(request: NextRequest) {
             const userId = subscription.metadata?.userId;
 
             if (userId) {
-              // payment_historyテーブルに記録
               const { error } = await supabase.from('payment_history').insert({
                 talent_id: userId,
                 stripe_payment_intent_id: paymentIntentId || null,

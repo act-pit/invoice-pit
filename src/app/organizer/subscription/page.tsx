@@ -88,12 +88,12 @@ export default function OrganizerSubscriptionPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user.id,
+          priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_BASIC,
           userType: 'organizer',
-          priceId: 'price_1STKwwHmYzKNJc4nn04Du9q6', // 主催者ベーシックプランのID
-          successUrl: `${window.location.origin}/organizer/subscription?upgraded=true`,
-          cancelUrl: `${window.location.origin}/organizer/subscription/cancelled`,
-        }),
-      })
+         planType: 'basic',
+       }),
+      });
+
 
       const data = await response.json()
 

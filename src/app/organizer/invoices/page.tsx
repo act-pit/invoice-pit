@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Organizer, OrganizerInvoice } from '@/types/database';
+import { canUseFeature } from '@/utils/subscription'
+
 
 // 差し戻しステータス表示コンポーネント
 function ReturnStatusBadge({ invoiceId }: { invoiceId: string }) {
@@ -61,8 +63,13 @@ export default function OrganizerInvoicesPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [organizer, setOrganizer] = useState<Organizer | null>(null);
+  const [subscription, setSubscription] = useState<any>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeFeatureName, setUpgradeFeatureName] = useState('');
 
   const [invoices, setInvoices] = useState<OrganizerInvoice[]>([]);
+
+
   const [selectedInvoice, setSelectedInvoice] = useState<OrganizerInvoice | null>(null);
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
   const [returnComment, setReturnComment] = useState('');
@@ -132,7 +139,6 @@ export default function OrganizerInvoicesPage() {
     
     console.log('📄 請求書取得中...');
     const { data: invoicesData, error: invoicesError } = await supabase
-
       .from('organizer_invoices')
       .select('*')
       .eq('organizer_id', organizerId)
@@ -145,6 +151,22 @@ export default function OrganizerInvoicesPage() {
 
     console.log('✅ 請求書取得成功:', invoicesData?.length || 0, '件');
     setInvoices(invoicesData || []);
+
+    // サブスクリプション情報を取得
+    const { data: subData, error: subError } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', organizerId)
+      .eq('user_type', 'organizer')
+      .single();
+
+    if (!subError && subData) {
+      setSubscription(subData);
+      console.log('✅ サブスクリプション取得成功:', subData.plan);
+    } else {
+      console.log('⚠️ サブスクリプション情報なし（フリープランとして扱う）');
+    }
+
 
     // 統計計算
     const pending = invoicesData?.filter(inv => inv.status === 'pending').length || 0;
@@ -553,15 +575,22 @@ const handleSignOut = async () => {
                     </select>
                   </div>
                   
-                  {/* CSV出力 */}
-                  <Button 
-                    onClick={exportToCSV} 
-                    variant="outline"
-                    size="sm"
-                    className="text-xs sm:text-sm border-2 border-purple-400"
-                  >
-                    📊 CSV出力
-                  </Button>
+{/* CSV出力 */}
+<Button 
+  onClick={() => {
+    if (!canUseFeature(subscription?.plan || 'free', 'csv_export')) {
+      setUpgradeFeatureName('CSV出力');
+      setShowUpgradeModal(true);
+      return;
+    }
+    exportToCSV();
+  }}
+  variant="outline"
+  size="sm"
+  className="text-xs sm:text-sm border-2 border-purple-400"
+>
+  📊 CSV出力
+</Button>
                 </div>
               </CardContent>
             </Card>
@@ -650,19 +679,27 @@ const handleSignOut = async () => {
                             >
                               ✅ 承認
                             </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              className="text-xs sm:text-sm border-2 border-orange-500 text-orange-600 hover:bg-orange-50"
-                              onClick={() => {
-                                setReturningInvoiceId(invoice.id);
-                                setIsReturnModalOpen(true);
-                              }}
-                            >
-                              ↩️ 差し戻し
-                            </Button>
+
+<Button 
+  size="sm" 
+  variant="outline"
+  className="text-xs sm:text-sm border-2 border-orange-500 text-orange-600 hover:bg-orange-50"
+  onClick={() => {
+    if (!canUseFeature(subscription?.plan || 'free', 'reject_function')) {
+      setUpgradeFeatureName('差し戻し機能');
+      setShowUpgradeModal(true);
+      return;
+    }
+    setReturningInvoiceId(invoice.id);
+    setIsReturnModalOpen(true);
+  }}
+>
+  ↩️ 差し戻し
+</Button>
+
                           </>
                         )}
+
                         {invoice.status === 'approved' && (
                           <Button 
                             size="sm" 
@@ -839,6 +876,46 @@ const handleSignOut = async () => {
           </div>
         </div>
       )}
+
+            {/* アップグレード促進モーダル */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 animate-fadeIn">
+            <div className="flex items-center justify-center w-12 h-12 mx-auto bg-blue-100 rounded-full mb-4">
+              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            
+            <h3 className="text-xl font-bold text-gray-900 text-center mb-2">
+              プラン機能の制限
+            </h3>
+            
+            <p className="text-gray-600 text-center mb-6">
+              <span className="font-semibold text-blue-600">{upgradeFeatureName}</span>
+              は<span className="font-semibold">ベーシックプラン以上</span>の機能です。
+              <br />
+              アップグレードしますか?
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowUpgradeModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                キャンセル
+              </button>
+              <a
+                href="/organizer/subscription"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-center"
+              >
+                プランを見る
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
     </>
   );
 }

@@ -8,8 +8,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, priceId, userType } = await request.json();
-
+    const { userId, priceId, userType, planType } = await request.json();
     if (!userId) {
       return NextResponse.json(
         { error: 'User ID is required' },
@@ -17,9 +16,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // デフォルト値の設定
-    const finalPriceId = priceId || process.env.STRIPE_PRICE_TALENT_PREMIUM!;
-    const finalUserType = userType || 'talent';
+// デフォルト値の設定
+const finalPriceId = priceId || process.env.STRIPE_PRICE_TALENT_PREMIUM!;
+const finalUserType = userType || 'talent';
+const finalPlanType = planType || 'basic';
 
     // Get user profile
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -52,11 +52,14 @@ export async function POST(request: NextRequest) {
       metadata: {
         userId: userId,
         userType: finalUserType,
+        planType: finalPlanType,
       },
+
       subscription_data: {
         metadata: {
           userId: userId,
           userType: finalUserType,
+          planType: finalPlanType,
         },
       },
     });
