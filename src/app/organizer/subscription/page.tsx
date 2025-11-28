@@ -43,16 +43,44 @@ export default function OrganizerSubscriptionPage() {
       if (organizerError) throw organizerError
       setOrganizer(organizerData)
 
-      // サブスクリプション情報を取得
+      // 🆕 修正1: サブスクリプション情報を取得（.maybeSingle()に変更）
       const { data: subData, error: subError } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('user_id', user.id)
         .eq('user_type', 'organizer')
-        .single()
+        .maybeSingle() // 🆕 .single()から.maybeSingle()に変更
 
       if (subError) throw subError
-      setSubscription(subData)
+
+      // 🆕 修正1: レコードがない場合は作成（フォールバック）
+      if (!subData) {
+        console.log('⚠️ サブスクリプションレコードが存在しません。作成します。')
+        const { data: newSubData, error: createError } = await supabase
+          .from('subscriptions')
+          .insert({
+            user_id: user.id,
+            user_type: 'organizer',
+            plan: 'free',
+            billing_cycle: 'monthly',
+            status: 'active',
+            invoice_count: 0,
+            job_post_count: 0,
+            job_post_limit: 0,
+          })
+          .select()
+          .single()
+
+        if (createError) {
+          console.error('❌ サブスクリプション作成エラー:', createError)
+          throw new Error('初期データの作成に失敗しました')
+        }
+
+        console.log('✅ サブスクリプションレコード作成成功:', newSubData)
+        setSubscription(newSubData)
+      } else {
+        setSubscription(subData)
+      }
 
       // 請求書受信数を取得
       const { count, error: countError } = await supabase

@@ -123,6 +123,35 @@ export default function OrganizerRegisterPage() {
       }
 
       console.log('✅ Auth登録成功:', userId);
+
+      // 🆕 修正1: usersテーブルに反映されるまで待機（最大3秒）
+      let userExistsInTable = false;
+      let attempts = 0;
+      const maxAttempts = 15; // 15回 × 200ms = 最大3秒
+
+      while (!userExistsInTable && attempts < maxAttempts) {
+        const { data: userData, error: userCheckError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (userData) {
+          userExistsInTable = true;
+          console.log('✅ usersテーブルでユーザー確認:', userId);
+        } else {
+          attempts++;
+          console.log(`⏳ usersテーブル確認中... (${attempts}/${maxAttempts})`);
+          await new Promise(resolve => setTimeout(resolve, 200)); // 200ms待機
+        }
+      }
+
+      if (!userExistsInTable) {
+        console.error('❌ usersテーブルでユーザーが確認できませんでした');
+        setError('ユーザー登録の完了確認に失敗しました。しばらくしてから再度お試しください。');
+        setLoading(false);
+        return;
+      }
       
       // 3. organizersテーブルに挿入
       console.log('📝 挿入データ:', {
@@ -175,10 +204,17 @@ export default function OrganizerRegisterPage() {
           job_post_count: 0,
           job_post_limit: 0,
         })
-        .select();
+        .select()
+        .single(); // 🆕 修正2: .single()を追加
 
       if (subscriptionError) {
         console.error('❌ サブスクリプション作成エラー:', subscriptionError);
+        console.error('エラー詳細:', { // 🆕 修正2: エラー詳細を追加
+          code: subscriptionError.code,
+          message: subscriptionError.message,
+          details: subscriptionError.details,
+          hint: subscriptionError.hint,
+        });
         // サブスクリプション作成に失敗しても登録は完了とする
       } else {
         console.log('✅ サブスクリプション作成成功:', subscriptionData);
