@@ -98,7 +98,7 @@ export default function OrganizerRegisterPage() {
         email: email,
         password: password,
         options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?type=organizer`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?type=organizer`,
           data: {
             role: 'organizer',
             organizer_name: organizerName,
@@ -123,35 +123,6 @@ export default function OrganizerRegisterPage() {
       }
 
       console.log('✅ Auth登録成功:', userId);
-
-      // 🆕 修正1: usersテーブルに反映されるまで待機（最大3秒）
-      let userExistsInTable = false;
-      let attempts = 0;
-      const maxAttempts = 15; // 15回 × 200ms = 最大3秒
-
-      while (!userExistsInTable && attempts < maxAttempts) {
-        const { data: userData, error: userCheckError } = await supabase
-          .from('users')
-          .select('id')
-          .eq('id', userId)
-          .maybeSingle();
-
-        if (userData) {
-          userExistsInTable = true;
-          console.log('✅ usersテーブルでユーザー確認:', userId);
-        } else {
-          attempts++;
-          console.log(`⏳ usersテーブル確認中... (${attempts}/${maxAttempts})`);
-          await new Promise(resolve => setTimeout(resolve, 200)); // 200ms待機
-        }
-      }
-
-      if (!userExistsInTable) {
-        console.error('❌ usersテーブルでユーザーが確認できませんでした');
-        setError('ユーザー登録の完了確認に失敗しました。しばらくしてから再度お試しください。');
-        setLoading(false);
-        return;
-      }
       
       // 3. organizersテーブルに挿入
       console.log('📝 挿入データ:', {
@@ -190,7 +161,7 @@ export default function OrganizerRegisterPage() {
 
       console.log('✅ 主催者情報登録成功');
 
-      // ✅ 4. subscriptionsテーブルにフリープランのレコードを作成
+      // 4. subscriptionsテーブルにフリープランのレコードを作成
       console.log('📝 サブスクリプションレコード作成開始');
       const { data: subscriptionData, error: subscriptionError } = await supabase
         .from('subscriptions')
@@ -205,11 +176,11 @@ export default function OrganizerRegisterPage() {
           job_post_limit: 0,
         })
         .select()
-        .single(); // 🆕 修正2: .single()を追加
+        .single();
 
       if (subscriptionError) {
         console.error('❌ サブスクリプション作成エラー:', subscriptionError);
-        console.error('エラー詳細:', { // 🆕 修正2: エラー詳細を追加
+        console.error('エラー詳細:', {
           code: subscriptionError.code,
           message: subscriptionError.message,
           details: subscriptionError.details,
@@ -230,7 +201,7 @@ export default function OrganizerRegisterPage() {
       );
       setLoading(false);
 
-      // 7秒後にログインページへリダイレクト
+      // 15秒後にログインページへリダイレクト
       setTimeout(() => {
         router.push('/organizer/login');
       }, 15000);
@@ -274,7 +245,7 @@ export default function OrganizerRegisterPage() {
                       onClick={() => router.push('/')}
                       variant="outline"
                       className="w-full"
-                   >
+                    >
                       トップページに戻る
                     </Button>
                   </div>
