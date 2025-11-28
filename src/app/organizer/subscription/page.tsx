@@ -88,7 +88,7 @@ export default function OrganizerSubscriptionPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user.id,
-          priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_BASIC,
+          priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ORGANIZER_BASIC,
           userType: 'organizer',
          planType: 'basic',
        }),

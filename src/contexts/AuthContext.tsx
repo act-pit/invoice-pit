@@ -73,37 +73,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setTimeout(() => reject(new Error('UserType判定タイムアウト')), 3000) // ← 3秒に短縮
       );
 
-      const checkUserType = async (): Promise<UserProfile> => {
-        const supabase = createClient();
-        
-        const { data: talentData, error: talentError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .maybeSingle();
+const checkUserType = async (): Promise<UserProfile> => {
+  const supabase = createClient();
+  
+  // ✅ 先に主催者をチェック
+  const { data: organizerData, error: organizerError } = await supabase
+    .from('organizers')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
 
-        console.log('🔵 profiles結果:', talentData, talentError);
+  console.log('🔵 organizers結果:', organizerData, organizerError);
 
-        if (talentData) {
-          console.log('✅ タレント確認成功:', talentData.full_name);
-          return { type: 'talent', data: talentData };
-        }
+  if (organizerData) {
+    console.log('✅ 主催者確認成功:', organizerData.company_name || organizerData.name);
+    return { type: 'organizer', data: organizerData };
+  }
 
-        const { data: organizerData, error: organizerError } = await supabase
-          .from('organizers')
-          .select('*')
-          .eq('id', userId)
-          .maybeSingle();
+  // 主催者でなければタレント
+  const { data: talentData, error: talentError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
 
-        console.log('🔵 organizers結果:', organizerData, organizerError);
+  console.log('🔵 profiles結果:', talentData, talentError);
 
-        if (organizerData) {
-          console.log('✅ 主催者確認成功:', organizerData.company_name || organizerData.name);
-          return { type: 'organizer', data: organizerData };
-        }
+  if (talentData) {
+    console.log('✅ タレント確認成功:', talentData.full_name);
+    return { type: 'talent', data: talentData };
+  }
 
-        return null;
-      };
+  return null;
+};
+
 
       const result = await Promise.race([checkUserType(), timeoutPromise]);
       console.log('🟢 determineUserType: 完了', result);
