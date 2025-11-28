@@ -38,47 +38,51 @@ export async function POST(request: NextRequest) {
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session;
-        const userId = session.metadata?.userId;
-        const userType = session.metadata?.userType || 'talent';
-        const planType = session.metadata?.planType || 'basic';
+  const session = event.data.object as Stripe.Checkout.Session;
+  const userId = session.metadata?.userId;
+  const userType = session.metadata?.userType || 'talent';
+  const planType = session.metadata?.planType || 'basic';
+  const billingCycle = session.metadata?.billingCycle || 'monthly'; // ← 追加
 
-        if (!userId) {
-          console.error('Missing userId in checkout session metadata');
-          break;
-        }
+  if (!userId) {
+    console.error('Missing userId in checkout session metadata');
+    break;
+  }
 
-        const subscriptionId = typeof session.subscription === 'string' 
-          ? session.subscription 
-          : session.subscription?.id;
+  // サブスクリプション情報を取得
+  const subscriptionId = typeof session.subscription === 'string' 
+    ? session.subscription 
+    : session.subscription?.id;
 
-        if (subscriptionId) {
-          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  if (subscriptionId) {
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
-          const { error } = await supabase
-            .from('subscriptions')
-            .update({
-              status: 'active',
-              plan: planType,
-              stripe_customer_id: typeof session.customer === 'string' ? session.customer : session.customer?.id || null,
-              stripe_subscription_id: subscriptionId,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('user_id', userId)
-            .eq('user_type', userType);
+    // subscriptionsテーブルを更新
+    const { error } = await supabase
+      .from('subscriptions')
+      .update({
+        status: 'active',
+        plan: planType,
+        billing_cycle: billingCycle, // ← 追加
+        stripe_customer_id: typeof session.customer === 'string' ? session.customer : session.customer?.id || null,
+        stripe_subscription_id: subscriptionId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId)
+      .eq('user_type', userType);
 
-          if (error) {
-            console.error('Error updating subscription:', error);
-            return NextResponse.json(
-              { error: 'Failed to update subscription' },
-              { status: 500 }
-            );
-          }
+    if (error) {
+      console.error('Error updating subscription:', error);
+      return NextResponse.json(
+        { error: 'Failed to update subscription' },
+        { status: 500 }
+      );
+    }
 
-          console.log(`Subscription activated for user ${userId} (${userType}) - Plan: ${planType}`);
-        }
-        break;
-      }
+    console.log(`✅ Subscription activated for user ${userId} (${userType}), Plan: ${planType}, Billing: ${billingCycle}`); // ← ログ改善
+  }
+  break;
+}
 
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;

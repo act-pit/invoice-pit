@@ -1,4 +1,3 @@
-// api/stripe/create-checkout/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { createClient } from '@supabase/supabase-js';
@@ -8,7 +7,8 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, priceId, userType, planType } = await request.json();
+    const { userId, priceId, userType, planType, billingCycle } = await request.json();
+    
     if (!userId) {
       return NextResponse.json(
         { error: 'User ID is required' },
@@ -16,10 +16,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-// デフォルト値の設定
-const finalPriceId = priceId || process.env.STRIPE_PRICE_TALENT_PREMIUM!;
-const finalUserType = userType || 'talent';
-const finalPlanType = planType || 'basic';
+    // デフォルト値の設定
+    const finalPriceId = priceId || process.env.STRIPE_PRICE_TALENT_PREMIUM!;
+    const finalUserType = userType || 'talent';
+    const finalPlanType = planType || 'basic';
+    const finalBillingCycle = billingCycle || 'monthly';
 
     // Get user profile
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -46,20 +47,21 @@ const finalPlanType = planType || 'basic';
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://invoice-pit.com'}/${finalUserType}/subscription/success?plan=${finalPlanType}`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://invoice-pit.com'}/${finalUserType}/subscription/success?plan=${finalPlanType}&billing_cycle=${finalBillingCycle}`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://invoice-pit.com'}/${finalUserType}/subscription/cancelled`,
       customer_email: profile.email,
       metadata: {
         userId: userId,
         userType: finalUserType,
         planType: finalPlanType,
+        billingCycle: finalBillingCycle,
       },
-
       subscription_data: {
         metadata: {
           userId: userId,
           userType: finalUserType,
           planType: finalPlanType,
+          billingCycle: finalBillingCycle,
         },
       },
     });

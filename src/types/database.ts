@@ -1,5 +1,5 @@
 // src/types/database.ts
-// 完全再構築版 - subscriptionsテーブルにjob_post_count/job_post_limitを追加
+// 完全再構築版 - billing_cycleを追加
 
 export type Json =
   | string
@@ -127,12 +127,13 @@ export interface Database {
           stripe_subscription_id: string | null
           status: 'trial' | 'active' | 'canceled' | 'expired'
           plan: string
+          billing_cycle: 'monthly' | 'yearly'  // ✅ 追加
           trial_end_date: string | null
           invoice_count: number
-          job_post_count: number | null      // ✅ 追加
-          job_post_limit: number | null      // ✅ 追加
-          start_date: string | null          // ✅ 追加（Supabaseに存在する可能性）
-          end_date: string | null            // ✅ 追加（Supabaseに存在する可能性）
+          job_post_count: number | null
+          job_post_limit: number | null
+          start_date: string | null
+          end_date: string | null
           created_at: string
           updated_at: string
         }
@@ -144,12 +145,13 @@ export interface Database {
           stripe_subscription_id?: string | null
           status?: 'trial' | 'active' | 'canceled' | 'expired'
           plan?: string
+          billing_cycle?: 'monthly' | 'yearly'  // ✅ 追加
           trial_end_date?: string | null
           invoice_count?: number
-          job_post_count?: number | null     // ✅ 追加
-          job_post_limit?: number | null     // ✅ 追加
-          start_date?: string | null         // ✅ 追加
-          end_date?: string | null           // ✅ 追加
+          job_post_count?: number | null
+          job_post_limit?: number | null
+          start_date?: string | null
+          end_date?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -161,12 +163,13 @@ export interface Database {
           stripe_subscription_id?: string | null
           status?: 'trial' | 'active' | 'canceled' | 'expired'
           plan?: string
+          billing_cycle?: 'monthly' | 'yearly'  // ✅ 追加
           trial_end_date?: string | null
           invoice_count?: number
-          job_post_count?: number | null     // ✅ 追加
-          job_post_limit?: number | null     // ✅ 追加
-          start_date?: string | null         // ✅ 追加
-          end_date?: string | null           // ✅ 追加
+          job_post_count?: number | null
+          job_post_limit?: number | null
+          start_date?: string | null
+          end_date?: string | null
           created_at?: string
           updated_at?: string
         }
