@@ -23,10 +23,18 @@ export default function OrganizerSubscriptionPage() {
   const [showDowngradeModal, setShowDowngradeModal] = useState(false)
   const [isUpgrading, setIsUpgrading] = useState(false)
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
+  const [priceAnimating, setPriceAnimating] = useState(false) // 🆕 追加
 
   useEffect(() => {
     loadData()
   }, [])
+
+  // 🆕 追加: 価格変更アニメーション
+  useEffect(() => {
+    setPriceAnimating(true)
+    const timer = setTimeout(() => setPriceAnimating(false), 300)
+    return () => clearTimeout(timer)
+  }, [billingCycle])
 
   async function loadData() {
     try {
@@ -309,37 +317,6 @@ export default function OrganizerSubscriptionPage() {
             </div>
           </div>
 
-          {/* 課金サイクル選択 */}
-          {subscription.plan === 'free' && (
-            <div className="flex justify-center mb-6">
-              <div className="inline-flex rounded-lg border border-gray-300 p-1 bg-white shadow-sm">
-                <button
-                  onClick={() => setBillingCycle('monthly')}
-                  className={`px-6 py-2 rounded-md text-sm font-medium transition ${
-                    billingCycle === 'monthly'
-                      ? 'bg-green-600 text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  月額プラン
-                </button>
-                <button
-                  onClick={() => setBillingCycle('yearly')}
-                  className={`px-6 py-2 rounded-md text-sm font-medium transition ${
-                    billingCycle === 'yearly'
-                      ? 'bg-green-600 text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  年額プラン
-                  <span className="ml-2 text-xs bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded">
-                    約17%お得
-                  </span>
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* 利用状況 */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">利用状況</h2>
@@ -380,13 +357,47 @@ export default function OrganizerSubscriptionPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-6">プラン一覧</h2>
             
+            {/* 🆕 課金サイクル選択をここに移動 */}
+            {subscription.plan === 'free' && (
+              <div className="flex justify-center mb-6">
+                <div className="inline-flex rounded-lg border border-gray-300 p-1 bg-white shadow-sm">
+                  <button
+                    onClick={() => setBillingCycle('monthly')}
+                    className={`px-6 py-2 rounded-md text-sm font-medium transition ${
+                      billingCycle === 'monthly'
+                        ? 'bg-green-600 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    月額プラン
+                  </button>
+                  <button
+                    onClick={() => setBillingCycle('yearly')}
+                    className={`px-6 py-2 rounded-md text-sm font-medium transition ${
+                      billingCycle === 'yearly'
+                        ? 'bg-green-600 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    年額プラン
+                    <span className="ml-2 text-xs bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded">
+                      約17%お得
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {/* フリープラン */}
               <div className="border-2 border-gray-200 rounded-lg p-6 hover:border-green-500 transition-colors">
                 <div className="text-center mb-4">
                   <h3 className="text-lg font-bold text-gray-900 mb-2">フリー</h3>
-                  <div className="text-3xl font-bold text-gray-900">¥0</div>
-                  <div className="text-sm text-gray-600">/月</div>
+                  {/* 🆕 アニメーション追加 */}
+                  <div className={`transition-all duration-300 ${priceAnimating ? 'scale-110 text-green-600' : ''}`}>
+                    <div className="text-3xl font-bold text-gray-900">¥0</div>
+                    <div className="text-sm text-gray-600">/月</div>
+                  </div>
                 </div>
                 
                 <ul className="space-y-2 mb-6 text-sm text-gray-700">
@@ -424,20 +435,23 @@ export default function OrganizerSubscriptionPage() {
                 
                 <div className="text-center mb-4">
                   <h3 className="text-lg font-bold text-gray-900 mb-2">ベーシック</h3>
-                  {billingCycle === 'monthly' ? (
-                    <>
-                      <div className="text-3xl font-bold text-green-600">¥980</div>
-                      <div className="text-sm text-gray-600">/月</div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-3xl font-bold text-green-600">¥9,800</div>
-                      <div className="text-sm text-gray-600">/年</div>
-                      <div className="text-xs text-green-600 mt-1 font-medium">
-                        月額換算: ¥817/月
-                      </div>
-                    </>
-                  )}
+                  {/* 🆕 アニメーション追加 */}
+                  <div className={`transition-all duration-300 ${priceAnimating ? 'scale-110 text-green-600' : ''}`}>
+                    {billingCycle === 'monthly' ? (
+                      <>
+                        <div className="text-3xl font-bold text-green-600">¥980</div>
+                        <div className="text-sm text-gray-600">/月</div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-3xl font-bold text-green-600">¥9,800</div>
+                        <div className="text-sm text-gray-600">/年</div>
+                        <div className="text-xs text-green-600 mt-1 font-medium">
+                          月額換算: ¥817/月
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
                 
                 <ul className="space-y-2 mb-6 text-sm text-gray-700">
@@ -485,8 +499,24 @@ export default function OrganizerSubscriptionPage() {
               <div className="border-2 border-gray-200 rounded-lg p-6 hover:border-green-500 transition-colors opacity-75">
                 <div className="text-center mb-4">
                   <h3 className="text-lg font-bold text-gray-900 mb-2">アドバンス</h3>
-                  <div className="text-3xl font-bold text-gray-900">¥1,980</div>
-                  <div className="text-sm text-gray-600">/月</div>
+                  {/* 🆕 アニメーション追加 */}
+                  <div className={`transition-all duration-300 ${priceAnimating ? 'scale-110 text-green-600' : ''}`}>
+  {billingCycle === 'monthly' ? (
+    <>
+      <div className="text-3xl font-bold text-gray-900">¥1,980</div>
+      <div className="text-sm text-gray-600">/月</div>
+    </>
+  ) : (
+    <>
+      <div className="text-3xl font-bold text-gray-900">¥19,800</div>
+      <div className="text-sm text-gray-600">/年</div>
+      <div className="text-xs text-green-600 mt-1 font-medium">
+        月額換算: ¥1,650/月
+      </div>
+    </>
+  )}
+</div>
+
                 </div>
                 
                 <ul className="space-y-2 mb-6 text-sm text-gray-700">
@@ -521,8 +551,24 @@ export default function OrganizerSubscriptionPage() {
               <div className="border-2 border-gray-200 rounded-lg p-6 hover:border-green-500 transition-colors opacity-75">
                 <div className="text-center mb-4">
                   <h3 className="text-lg font-bold text-gray-900 mb-2">プロ</h3>
-                  <div className="text-3xl font-bold text-gray-900">¥2,980</div>
-                  <div className="text-sm text-gray-600">/月</div>
+                  {/* 🆕 アニメーション追加 */}
+                  <div className={`transition-all duration-300 ${priceAnimating ? 'scale-110 text-green-600' : ''}`}>
+  {billingCycle === 'monthly' ? (
+    <>
+      <div className="text-3xl font-bold text-gray-900">¥2,980</div>
+      <div className="text-sm text-gray-600">/月</div>
+    </>
+  ) : (
+    <>
+      <div className="text-3xl font-bold text-gray-900">¥29,800</div>
+      <div className="text-sm text-gray-600">/年</div>
+      <div className="text-xs text-green-600 mt-1 font-medium">
+        月額換算: ¥2,483/月
+      </div>
+    </>
+  )}
+</div>
+
                 </div>
                 
                 <ul className="space-y-2 mb-6 text-sm text-gray-700">

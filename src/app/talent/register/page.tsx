@@ -65,11 +65,16 @@ export default function TalentRegisterPage() {
 
   // subscriptions テーブルにデータを挿入（無料トライアル）
   const { error: subscriptionError } = await supabase.from('subscriptions').insert({
-    user_id: authData.user.id,
-    plan: 'free',
-    status: 'active',
-    invoice_count: 0,
-  });
+  user_id: authData.user.id,
+  user_type: 'talent', // 🆕 追加
+  plan: 'free',
+  billing_cycle: 'monthly', // 🆕 追加
+  status: 'active',
+  invoice_count: 0,
+  job_post_count: 0, // 🆕 追加
+  job_post_limit: 0, // 🆕 追加
+});
+
 
   if (subscriptionError) {
     console.error('Subscription error:', subscriptionError);
