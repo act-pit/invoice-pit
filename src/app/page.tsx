@@ -370,30 +370,50 @@ const handleFinalTalentRegister = async (e: React.FormEvent) => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-50 shadow-sm transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3 animate-fade-in">
-              <div className="relative group">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6">
-                  <FileText className="h-6 w-6 text-white" strokeWidth={2.5} />
-                </div>
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
-              </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                請求書ぴっと
-              </span>
-            </div>
-            <nav className="hidden md:flex items-center space-x-8">
-              <a href="#features" className="text-gray-600 hover:text-blue-600 transition-all duration-300 font-medium hover:scale-105">機能</a>
-              <a href="#pricing" className="text-gray-600 hover:text-blue-600 transition-all duration-300 font-medium hover:scale-105">料金</a>
-              <a href="#about" className="text-gray-600 hover:text-blue-600 transition-all duration-300 font-medium hover:scale-105">概要</a>
-              <Link href="talent/login" className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2.5 rounded-xl hover:shadow-xl hover:scale-105 transition-all duration-300 font-semibold">
-                タレントログイン
-              </Link>
-            </nav>
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="flex justify-between items-center h-16">
+      {/* ロゴ */}
+      <div className="flex items-center space-x-3 animate-fade-in">
+        <div className="relative group">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6">
+            <FileText className="h-6 w-6 text-white" strokeWidth={2.5} />
           </div>
+          <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
         </div>
-      </header>
+        <span className="text-xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
+          請求書ぴっと
+        </span>
+      </div>
+
+      {/* PC用ナビゲーション */}
+      <nav className="hidden md:flex items-center space-x-6">
+        <a href="#features" className="text-gray-600 hover:text-blue-600 transition-all duration-300 font-medium hover:scale-105">機能</a>
+        <a href="#pricing" className="text-gray-600 hover:text-blue-600 transition-all duration-300 font-medium hover:scale-105">料金</a>
+        <a href="#about" className="text-gray-600 hover:text-blue-600 transition-all duration-300 font-medium hover:scale-105">概要</a>
+        
+        {/* 2つのログインボタン */}
+        <div className="flex items-center gap-3">
+          <Link href="/talent/login" className="text-blue-600 hover:text-blue-700 transition-all duration-300 font-semibold text-sm hover:scale-105">
+            タレントログイン
+          </Link>
+          <Link href="/organizer/login" className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-300 font-semibold text-sm">
+            主催者ログイン
+          </Link>
+        </div>
+      </nav>
+
+      {/* スマホ用：コンパクトなログインボタン */}
+      <div className="flex md:hidden items-center gap-2">
+        <Link href="/talent" className="text-blue-600 font-semibold text-xs px-3 py-2 border border-blue-300 rounded-lg hover:bg-blue-50 transition-all">
+          タレント
+        </Link>
+        <Link href="/organizer" className="bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold text-xs px-3 py-2 rounded-lg hover:shadow-lg transition-all">
+          主催者
+        </Link>
+      </div>
+    </div>
+  </div>
+</header>
 
       {/* Hero Section */}
       <section className="relative py-12 md:py-16 lg:py-20 overflow-hidden">
@@ -424,7 +444,7 @@ const handleFinalTalentRegister = async (e: React.FormEvent) => {
                 </span>
                 <span className="block relative inline-block">
                   <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent animate-gradient">
-                    たった1分で作成完了
+                    たった3分で作成完了
                   </span>
                   <div className="absolute -bottom-3 left-0 right-0 h-3 bg-gradient-to-r from-yellow-200 via-yellow-300 to-yellow-200 opacity-30 blur-sm animate-pulse"></div>
                 </span>
@@ -672,8 +692,8 @@ const handleFinalTalentRegister = async (e: React.FormEvent) => {
             {[
               { number: "3万人+", label: "ACTぴっとユーザー", icon: Users, delay: 100 },
               { number: "100社+", label: "登録団体・事務所", icon: Globe, delay: 200 },
-              { number: "15年", label: "制作活動実績", icon: Calculator, delay: 300 },
-              { number: "1分", label: "請求書作成時間", icon: Zap, delay: 400 }
+              { number: "15年", label: "制作実務・開発調査", icon: Calculator, delay: 300 },
+              { number: "3分", label: "請求書作成時間", icon: Zap, delay: 400 }
             ].map((stat, index) => (
               <div key={index} className={`text-center group cursor-pointer transition-all duration-700 delay-${stat.delay} ${isVisible['stats'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
                 <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl mb-3 group-hover:scale-110 transition-all duration-300 group-hover:rotate-6">
