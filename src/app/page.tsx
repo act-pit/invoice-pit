@@ -393,11 +393,11 @@ const handleFinalTalentRegister = async (e: React.FormEvent) => {
         
         {/* 2つのログインボタン */}
         <div className="flex items-center gap-3">
-          <Link href="/talent/login" className="text-blue-600 hover:text-blue-700 transition-all duration-300 font-semibold text-sm hover:scale-105">
-            タレントログイン
+          <Link href="/talent" className="text-blue-600 hover:text-blue-700 transition-all duration-300 font-semibold text-sm hover:scale-105">
+            タレント詳細
           </Link>
-          <Link href="/organizer/login" className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-300 font-semibold text-sm">
-            主催者ログイン
+          <Link href="/organizer" className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-300 font-semibold text-sm">
+            主催者詳細
           </Link>
         </div>
       </nav>
