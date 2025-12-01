@@ -21,7 +21,7 @@ export default function TalentHomePage() {
 
       <div className="container mx-auto px-4 py-12 sm:py-16">
         {/* ヒーローセクション */}
-        <div className="text-center mb-16 sm:mb-20">
+        <div className="text-center mb-10 sm:mb-20">
           <div className="inline-block mb-6 px-4 py-2 bg-blue-100 rounded-full">
             <span className="text-sm font-semibold text-blue-700">芸能フリーランス向け</span>
           </div>
@@ -66,11 +66,11 @@ export default function TalentHomePage() {
 
                 {/* 主な機能 */}
         <div className="max-w-5xl mx-auto mb-16">
-          <h2 className="text-2xl sm:text-3xl font-bold text-center text-gray-900 mb-10">
+          <h2 className="text-2xl sm:text-3xl font-bold text-center text-gray-900 mb-3">
             主な機能
           </h2>
           
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {/* 機能1 */}
             <Card className="border-2 border-blue-100 hover:border-blue-300 transition-all hover:shadow-lg group">
               <CardContent className="pt-5 pb-4 px-4 text-center">
