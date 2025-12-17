@@ -23,9 +23,45 @@ export default function UpdatePasswordPage() {
   const [checkingSession, setCheckingSession] = useState(true);
 
   useEffect(() => {
-    // セッションの確認
-    const checkSession = async () => {
-      console.log('🔍 セッション確認中...');
+    const initializeSession = async () => {
+      console.log('🔍 セッション初期化中...');
+      
+      // URLハッシュからトークンを取得
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      const type = hashParams.get('type');
+      
+      console.log('Hash type:', type);
+      console.log('Access token:', accessToken ? 'exists' : 'missing');
+      
+      // recovery typeの場合、トークンを使ってセッションを設定
+      if (type === 'recovery' && accessToken) {
+        console.log('🔄 Recovery tokenを使用してセッションを設定');
+        
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken || '',
+        });
+        
+        if (sessionError) {
+          console.error('❌ セッション設定エラー:', sessionError);
+          setError('セッションの設定に失敗しました。再度パスワードリセットをお試しください。');
+          setCheckingSession(false);
+          return;
+        }
+        
+        console.log('✅ セッション設定成功');
+        
+        // URLからハッシュを削除（見た目をクリーンに）
+        window.history.replaceState(null, '', window.location.pathname);
+        
+        setIsValidSession(true);
+        setCheckingSession(false);
+        return;
+      }
+      
+      // トークンがない場合、既存のセッションを確認
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
@@ -49,7 +85,7 @@ export default function UpdatePasswordPage() {
       setCheckingSession(false);
     };
     
-    checkSession();
+    initializeSession();
   }, [supabase]);
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
