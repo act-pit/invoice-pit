@@ -18,52 +18,50 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState('');
 
   const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    setLoading(true);
+  e.preventDefault();
+  setError('');
+  setSuccess('');
+  setLoading(true);
 
-    if (!email) {
-      setError('メールアドレスを入力してください。');
+  if (!email) {
+    setError('メールアドレスを入力してください。');
+    setLoading(false);
+    return;
+  }
+
+  try {
+    console.log('🔄 パスワードリセット要求:', email);
+
+    // ✅ 修正: 完全なURLをハードコード
+    const redirectUrl = 'https://invoice-pit.com/auth/update-password';
+
+    console.log('📍 Redirect URL:', redirectUrl);
+
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectUrl,
+    });
+
+    if (resetError) {
+      console.error('❌ リセットエラー:', resetError);
+      setError(`エラーが発生しました: ${resetError.message}`);
       setLoading(false);
       return;
     }
 
-    try {
-      console.log('🔄 パスワードリセット要求:', email);
-
-      // ✅ 修正: 環境に応じたURLを設定
-      const redirectUrl = typeof window !== 'undefined' 
-        ? `${window.location.origin}/auth/update-password`
-        : 'https://invoice-pit.com/auth/update-password';
-
-      console.log('📍 Redirect URL:', redirectUrl);
-
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectUrl,
-      });
-
-      if (resetError) {
-        console.error('❌ リセットエラー:', resetError);
-        setError(`エラーが発生しました: ${resetError.message}`);
-        setLoading(false);
-        return;
-      }
-
-      console.log('✅ リセットメール送信成功');
-      setSuccess(
-        'パスワードリセット用のメールを送信しました。\n\n' +
-        `${email} 宛に送信されたメールを開き、リンクをクリックして新しいパスワードを設定してください。\n\n` +
-        'メールが届かない場合は、迷惑メールフォルダもご確認ください。'
-      );
-      setEmail('');
-    } catch (err: any) {
-      console.error('💥 予期しないエラー:', err);
-      setError('予期しないエラーが発生しました。もう一度お試しください。');
-    } finally {
-      setLoading(false);
-    }
-  };
+    console.log('✅ リセットメール送信成功');
+    setSuccess(
+      'パスワードリセット用のメールを送信しました。\n\n' +
+      `${email} 宛に送信されたメールを開き、リンクをクリックして新しいパスワードを設定してください。\n\n` +
+      'メールが届かない場合は、迷惑メールフォルダもご確認ください。'
+    );
+    setEmail('');
+  } catch (err: any) {
+    console.error('💥 予期しないエラー:', err);
+    setError('予期しないエラーが発生しました。もう一度お試しください。');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
