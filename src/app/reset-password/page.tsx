@@ -32,8 +32,15 @@ export default function ResetPasswordPage() {
     try {
       console.log('🔄 パスワードリセット要求:', email);
 
+      // ✅ 修正: 環境に応じたURLを設定
+      const redirectUrl = typeof window !== 'undefined' 
+        ? `${window.location.origin}/auth/update-password`
+        : 'https://invoice-pit.com/auth/update-password';
+
+      console.log('📍 Redirect URL:', redirectUrl);
+
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/update-password`,
+        redirectTo: redirectUrl,
       });
 
       if (resetError) {
