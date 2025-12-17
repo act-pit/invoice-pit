@@ -1,160 +1,209 @@
 'use client';
 
-import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link'; 
+import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 
 export default function TalentLoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
   const router = useRouter();
   const supabase = createClient();
 
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        console.log('[TalentLoginPage] Already logged in, checking user type...');
+        
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          console.error('[TalentLoginPage] Error checking profile:', profileError);
+          return;
+        }
+
+        if (profile) {
+          console.log('[TalentLoginPage] Profile exists, redirecting to dashboard');
+          router.push('/talent/dashboard');
+        }
+      }
+    };
+    
+    checkSession();
+  }, [supabase, router]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('=== ログイン処理開始 ===');
-    console.log('Email:', email);
-    console.log('Password length:', password.length);
-    
     setError('');
     setLoading(true);
 
-    try {
-      console.log('Supabaseログイン試行中...');
-      // Supabaseでログイン
+    console.log('[TalentLoginPage] Login attempt with email:', email);
 
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (signInError) throw signInError;
+      console.log('[TalentLoginPage] Auth response:', { 
+        user: authData?.user ? 'exists' : 'null', 
+        error: authError?.message || 'none' 
+      });
 
-      if (data.user) {
-        // メール確認済みかチェック
-        if (!data.user.email_confirmed_at) {
-          setError('メールアドレスの確認が完了していません。メールを確認してください。');
-          await supabase.auth.signOut();
-          setLoading(false);
-          return;
+      if (authError) {
+        console.error('[TalentLoginPage] Auth error:', authError);
+        if (authError.message.includes('Invalid login credentials')) {
+          setError('メールアドレスまたはパスワードが正しくありません');
+        } else {
+          setError(`ログインに失敗しました: ${authError.message}`);
         }
-
-                // profilesテーブルでタレントか確認
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('id', data.user.id)
-          .maybeSingle();
-
-        console.log('Profile check:', { profile, profileError }); // デバッグ用
-
-        if (profileError) {
-          console.error('Profile error:', profileError);
-        }
-
-                if (profile) {
-          // タレントとして確認できた
-          console.log('Profile found, redirecting...');
-          router.push('/talent/dashboard');
-          return;
-        }
-
-        // タレントではない
-        console.log('Profile not found');
-        setError('タレントアカウントが見つかりません。');
-        await supabase.auth.signOut();
-
+        setLoading(false);
+        return;
       }
-    } catch (err: any) {
-      console.error('Login error:', err);
-      console.error('Error details:', JSON.stringify(err, null, 2)); 
-      setError(err.message || 'ログインに失敗しました');
-    } finally {
+
+      if (!authData.user) {
+        console.error('[TalentLoginPage] No user data in response');
+        setError('ログインに失敗しました。もう一度お試しください。');
+        setLoading(false);
+        return;
+      }
+
+      if (!authData.user.email_confirmed_at) {
+        console.warn('[TalentLoginPage] Email not confirmed');
+        setError('メールアドレスが確認されていません。メールを確認してください。');
+        await supabase.auth.signOut();
+        setLoading(false);
+        return;
+      }
+
+      console.log('[TalentLoginPage] Checking profiles table for user:', authData.user.id);
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .eq('id', authData.user.id)
+        .maybeSingle();
+
+      console.log('[TalentLoginPage] Profiles query result:', {
+        profile: profile ? 'exists' : 'null',
+        error: profileError?.message || 'none'
+      });
+
+      if (profileError) {
+        console.error('[TalentLoginPage] Profiles query error:', profileError);
+        setError('ユーザー情報の確認中にエラーが発生しました。');
+        await supabase.auth.signOut();
+        setLoading(false);
+        return;
+      }
+
+      if (!profile) {
+        console.error('[TalentLoginPage] Profile not found in profiles table');
+        setError('このアカウントはタレント登録されていません。');
+        await supabase.auth.signOut();
+        setLoading(false);
+        return;
+      }
+
+      console.log('[TalentLoginPage] ✅ Login successful! Redirecting...');
+
+      router.push('/talent/dashboard');
+    } catch (err: unknown) {
+      console.error('[TalentLoginPage] Unexpected error:', err);
+      const errorMessage = err instanceof Error ? err.message : '不明なエラー';
+      setError(`予期しないエラーが発生しました: ${errorMessage}`);
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-blue-100 flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-xl border-2 border-gray-300 p-8">
-        <h1 className="text-3xl font-semibold text-blue-600 mb-2 text-center">
-          タレントログイン
-        </h1>
-        <p className="text-gray-600 mb-6 text-center text-sm">
-          請求書ぴっとへおかえりなさい
-        </p>
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4 text-sm">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              メールアドレス
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
-              placeholder="example@email.com"
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <Card className="w-[400px]">
+        <CardHeader>
+          <CardTitle className="text-2xl text-center">タレントログイン</CardTitle>
+        </CardHeader>
+        <form onSubmit={handleSubmit}>
+          <CardContent className="space-y-4">
+            {error && (
+              <div className="text-red-600 text-sm bg-red-50 p-3 rounded-md border border-red-200">
+                {error}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="email">メールアドレス</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="talent@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                disabled={loading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">パスワード</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={loading}
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col space-y-4">
+            <Button 
+              type="submit" 
+              className="w-full"
               disabled={loading}
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              パスワード
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
-              placeholder="••••••••"
-              disabled={loading}
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium text-base hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            {loading ? 'ログイン中...' : 'ログイン'}
-          </button>
-        </form>
-
-        <div className="mt-6 space-y-3">
-          <div className="text-center">
-            <Link 
-            href="/talent/register" 
-            className="text-sm text-gray-600 hover:text-blue-600 transition"
-          >
-            アカウントをお持ちでない方はこちら
-          </Link>
-          </div>
-          
-          <div className="text-center pt-2 border-t border-gray-200">
-            <Link 
-              href="/organizer/login" 
-             className="text-sm text-gray-600 hover:text-green-600 transition"
             >
-              主催者の方はこちら
-            </Link>
+              {loading ? 'ログイン中...' : 'ログイン'}
+            </Button>
 
-          </div>
-        </div>
-      </div>
+            <div className="text-center text-sm">
+              <Link 
+                href="/reset-password" 
+                className="text-blue-600 hover:text-blue-800 hover:underline"
+              >
+                パスワードを忘れた方はこちら
+              </Link>
+            </div>
+
+            <div className="text-center text-sm">
+              <span className="text-gray-600">アカウントをお持ちでない方</span>{' '}
+              <Link 
+                href="/talent/register" 
+                className="text-blue-600 hover:text-blue-800 hover:underline"
+              >
+                新規登録
+              </Link>
+            </div>
+            <div className="text-center text-sm">
+              <Link 
+                href="/organizer/login" 
+                className="text-gray-600 hover:text-gray-800 hover:underline"
+              >
+                主催者の方はこちら
+              </Link>
+            </div>
+          </CardFooter>
+        </form>
+      </Card>
     </div>
   );
 }
