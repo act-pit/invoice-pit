@@ -80,12 +80,12 @@ export default function OrganizerLoginPage() {
 
       console.log('✅ 主催者確認成功:', organizerData.name);
 
-// 4. AuthContextの初期化を待ってからリダイレクト
-console.log('⏳ AuthContext初期化待機中...');
-await new Promise(resolve => setTimeout(resolve, 500));  // 0.5秒待つ
+      // 4. AuthContextの初期化を待ってからリダイレクト
+      console.log('⏳ AuthContext初期化待機中...');
+      await new Promise(resolve => setTimeout(resolve, 500));  // 0.5秒待つ
 
-// 5. 主催者ダッシュボードへ
-router.push('/organizer/dashboard');
+      // 5. 主催者ダッシュボードへ
+      router.push('/organizer/dashboard');
 
     } catch (err) {
       console.error('❌ ログインエラー:', err);
@@ -143,6 +143,11 @@ router.push('/organizer/dashboard');
               {loading ? 'ログイン中...' : 'ログイン'}
             </Button>
             <div className="text-sm text-center text-gray-600 space-y-2">
+              <div>
+                <Link href="/reset-password" className="text-blue-600 hover:underline">
+                  パスワードを忘れた方はこちら
+                </Link>
+              </div>
               <div>
                 <Link href="/organizer/register" className="text-green-600 hover:underline">
                   主催者新規登録はこちら
