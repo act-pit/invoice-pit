@@ -11,8 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-// 主催者コードを生成する関数（8桁に変更）
-const generateOrganizerCode = (length = 8) => {  // ← 6から8に変更
+// 主催者コードを生成する関数（8桁）
+const generateOrganizerCode = (length = 8) => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; 
   let code = '';
   for (let i = 0; i < length; i++) {
@@ -89,6 +89,24 @@ export default function OrganizerRegisterPage() {
     try {
       console.log('📝 主催者登録開始:', { organizerName, email });
 
+      // ✅ 追加: 既に登録済みかチェック
+      const { data: existingOrganizer } = await supabase
+        .from('organizers')
+        .select('id, email, organizer_code')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (existingOrganizer) {
+        console.log('⚠️ 既に登録済みのメールアドレス:', email);
+        setError(
+          'このメールアドレスは既に登録されています。\n' +
+          'ログイン画面からログインしてください。\n\n' +
+          'パスワードを忘れた場合は、ログイン画面の「パスワードを忘れた」をご利用ください。'
+        );
+        setLoading(false);
+        return;
+      }
+
       // 1. ユニークな主催者コードを生成
       const newOrganizerCode = await generateUniqueOrganizerCode();
       console.log('🎫 主催者コード生成:', newOrganizerCode);
@@ -123,6 +141,26 @@ export default function OrganizerRegisterPage() {
       }
 
       console.log('✅ Auth登録成功:', userId);
+
+      // ✅ 追加: auth.usersに登録されたが、既にorganizersに存在するケース
+      const { data: checkAgain } = await supabase
+        .from('organizers')
+        .select('id')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (checkAgain) {
+        console.log('⚠️ 既にorganizersテーブルに存在:', userId);
+        setSuccess(
+          '既に登録が完了しています。\n' +
+          'ログイン画面からログインしてください。'
+        );
+        setLoading(false);
+        setTimeout(() => {
+          router.push('/organizer/login');
+        }, 3000);
+        return;
+      }
       
       // 3. organizersテーブルに挿入
       console.log('📝 挿入データ:', {
@@ -154,7 +192,22 @@ export default function OrganizerRegisterPage() {
           hint: orgInsertError.hint,
           code: orgInsertError.code,
         });
-        setError(`主催者情報の登録に失敗しました: ${orgInsertError.message}`);
+        
+        // ✅ 追加: より詳細なエラーメッセージ
+        if (orgInsertError.code === '23505') {
+          setError(
+            'このメールアドレスは既に登録されています。\n' +
+            'ログイン画面からログインしてください。'
+          );
+        } else if (orgInsertError.code === '23503') {
+          setError(
+            '登録処理中にエラーが発生しました。\n' +
+            'もう一度最初からお試しください。'
+          );
+        } else {
+          setError(`主催者情報の登録に失敗しました: ${orgInsertError.message}`);
+        }
+        
         setLoading(false);
         return;
       }
@@ -233,7 +286,8 @@ export default function OrganizerRegisterPage() {
             {/* 成功メッセージ */}
             {success && (
               <Alert className="bg-green-50 border-green-200">
-                <AlertDescription className="text-green-800 whitespace-pre-line">{success}
+                <AlertDescription className="text-green-800 whitespace-pre-line">
+                  {success}
                   <div className="mt-4 space-y-2">
                     <Button 
                       onClick={() => router.push('/organizer/login')}
