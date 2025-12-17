@@ -1,3 +1,4 @@
+// src/app/auth/callback/route.ts
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
@@ -7,6 +8,7 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
   const type = requestUrl.searchParams.get('type'); // 'talent' or 'organizer'
+  const next = requestUrl.searchParams.get('next'); // パスワードリセット用
 
   if (code) {
     const cookieStore = await cookies();
@@ -32,11 +34,16 @@ export async function GET(request: NextRequest) {
     // コードをセッションに交換
     await supabase.auth.exchangeCodeForSession(code);
     
-    // ✅ user_metadataからuser_typeを取得（typeパラメータがない場合のフォールバック）
+    // ✅ パスワードリセットの場合は /auth/update-password にリダイレクト
+    if (next && next.includes('/auth/update-password')) {
+      return NextResponse.redirect(new URL('/auth/update-password', request.url));
+    }
+    
+    // user_metadataからuser_typeを取得（typeパラメータがない場合のフォールバック）
     const { data: { user } } = await supabase.auth.getUser();
     const userType = type || user?.user_metadata?.user_type;
     
-    // ✅ user_typeに応じてログイン画面にリダイレクト
+    // user_typeに応じてログイン画面にリダイレクト
     if (userType === 'talent') {
       return NextResponse.redirect(new URL('/talent/login', request.url));
     }
