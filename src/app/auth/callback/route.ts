@@ -7,8 +7,8 @@ import type { NextRequest } from 'next/server';
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
-  const type = requestUrl.searchParams.get('type'); // 'talent' or 'organizer'
-  const next = requestUrl.searchParams.get('next'); // パスワードリセット用
+  const type = requestUrl.searchParams.get('type');
+  const next = requestUrl.searchParams.get('next');
 
   console.log('=== Auth Callback ===');
   console.log('Code:', code ? 'exists' : 'missing');
@@ -49,7 +49,30 @@ export async function GET(request: NextRequest) {
     // ✅ パスワードリセットの場合は /auth/update-password にリダイレクト
     if (next && next.includes('/auth/update-password')) {
       console.log('➡️ Redirecting to update-password');
-      return NextResponse.redirect(new URL('/auth/update-password', request.url));
+      
+      const response = NextResponse.redirect(new URL('/auth/update-password', request.url));
+      
+      // すべてのセッションCookieを明示的にコピー
+      const cookieNames = [
+        'sb-ooprdyeextgckdjwhzxn-auth-token-code-verifier',
+        'sb-ooprdyeextgckdjwhzxn-auth-token.0',
+        'sb-ooprdyeextgckdjwhzxn-auth-token.1'
+      ];
+      
+      for (const cookieName of cookieNames) {
+        const cookie = cookieStore.get(cookieName);
+        if (cookie) {
+          response.cookies.set(cookieName, cookie.value, {
+            path: '/',
+            httpOnly: true,
+            secure: true,
+            sameSite: 'lax',
+            maxAge: 60 * 60 * 24 * 7, // 7日間
+          });
+        }
+      }
+      
+      return response;
     }
     
     // user_metadataからuser_typeを取得（typeパラメータがない場合のフォールバック）
